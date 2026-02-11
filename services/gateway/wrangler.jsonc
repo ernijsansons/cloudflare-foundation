@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "foundation-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "services": [
+    { "binding": "AGENT_SERVICE", "service": "foundation-agents" }
+  ],
+  "workflows": [
+    { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows" },
+    { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows" },
+    { "binding": "REPORT_WORKFLOW", "name": "report-generation", "class_name": "ReportGenerationWorkflow", "script_name": "foundation-workflows" },
+    { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows" }
+  ],
+  "kv_namespaces": [
+    { "binding": "RATE_LIMIT_KV", "id": "KV_ID_HERE" },
+    { "binding": "SESSION_KV", "id": "KV_ID_HERE" }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "D1_ID_HERE" }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "foundation-files" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "AUDIT_QUEUE", "queue": "foundation-audit" },
+      { "binding": "NOTIFICATION_QUEUE", "queue": "foundation-notifications" }
+    ]
+  },
+  "ai": { "binding": "AI" },
+  "vectorize": [
+    { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings" }
+  ],
+  "analytics_engine_datasets": [
+    { "binding": "ANALYTICS", "dataset": "foundation_events" }
+  ],
+  "images": { "binding": "IMAGES" }
+}

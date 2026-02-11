@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "foundation-agents",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [
+      { "name": "CHAT_AGENT", "class_name": "ChatAgent" },
+      { "name": "TASK_AGENT", "class_name": "TaskAgent" },
+      { "name": "TENANT_AGENT", "class_name": "TenantAgent" },
+      { "name": "SESSION_AGENT", "class_name": "SessionAgent" },
+      { "name": "MCP_SERVER", "class_name": "FoundationMcpServer" },
+      { "name": "RATE_LIMITER", "class_name": "TenantRateLimiter" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ChatAgent", "TaskAgent", "TenantAgent", "SessionAgent", "FoundationMcpServer", "TenantRateLimiter"] }
+  ],
+  "ai": { "binding": "AI" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "D1_ID_HERE" }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "foundation-files" }
+  ],
+  "kv_namespaces": [
+    { "binding": "CACHE_KV", "id": "KV_ID_HERE" }
+  ],
+  "vectorize": [
+    { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "AUDIT_QUEUE", "queue": "foundation-audit" },
+      { "binding": "ANALYTICS_QUEUE", "queue": "foundation-analytics" }
+    ]
+  },
+  "analytics_engine_datasets": [
+    { "binding": "ANALYTICS", "dataset": "foundation_events" }
+  ]
+}

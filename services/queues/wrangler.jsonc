@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "foundation-queues",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "queues": {
+    "consumers": [
+      { "queue": "foundation-audit", "max_batch_size": 50, "max_batch_timeout": 5 },
+      { "queue": "foundation-notifications", "max_batch_size": 10, "max_batch_timeout": 3 },
+      { "queue": "foundation-analytics", "max_batch_size": 100, "max_batch_timeout": 10 },
+      { "queue": "foundation-webhooks", "max_batch_size": 10, "max_batch_timeout": 2, "max_retries": 5 }
+    ]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "D1_ID_HERE" }
+  ],
+  "analytics_engine_datasets": [
+    { "binding": "ANALYTICS", "dataset": "foundation_events" }
+  ]
+}
