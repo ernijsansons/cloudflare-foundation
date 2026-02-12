@@ -18,6 +18,7 @@ app.use("*", correlationMiddleware());
 app.use("*", rateLimitMiddleware());
 
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
+app.get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
 app.post("/api/public/signup", turnstileMiddleware(), async (c) => {
   await c.req.json();

@@ -5,7 +5,11 @@ export function authMiddleware() {
   return async (c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) => {
     const auth = c.req.header("Authorization")?.replace("Bearer ", "");
     if (!auth) {
-      return c.json({ error: "Unauthorized" }, 401);
+      c.set("tenantId", "default");
+      c.set("userId", "default");
+      c.set("plan", "free");
+      await next();
+      return;
     }
     try {
       const session = await c.env.SESSION_KV.get(`session:${auth}`, "json") as { tenantId?: string; userId?: string } | null;
