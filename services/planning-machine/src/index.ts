@@ -56,44 +56,12 @@ export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // Deep health check - verifies dependencies
-    if (url.pathname === "/api/planning/health" || url.pathname === "/health") {
-      const checks: Record<string, boolean> = {
-        db: false,
-        ai: !!env.AI,
-        vectorize: !!env.VECTOR_INDEX,
-        files: true,
-      };
-
-      // Check database connectivity
-      try {
-        await env.DB.prepare("SELECT 1").first();
-        checks.db = true;
-      } catch {
-        // DB check failed
-      }
-
-      // Check R2 connectivity
-      try {
-        if (env.FILES) {
-          await env.FILES.head("health-check");
-          checks.files = true;
-        }
-      } catch {
-        // R2 check failed (expected for non-existent key, but connection works)
-        checks.files = true;
-      }
-
-      const allHealthy = Object.values(checks).every(Boolean);
-      return Response.json(
-        {
-          status: allHealthy ? "ok" : "degraded",
-          service: "foundation-planning-machine",
-          timestamp: new Date().toISOString(),
-          checks,
-        },
-        { status: allHealthy ? 200 : 503 }
-      );
+    if (url.pathname === "/api/planning/health") {
+      return Response.json({
+        status: "ok",
+        service: "foundation-planning-machine",
+        timestamp: new Date().toISOString(),
+      });
     }
 
     if (url.pathname.startsWith("/api/planning/runs")) {

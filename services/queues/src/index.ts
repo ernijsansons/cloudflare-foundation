@@ -3,71 +3,6 @@ export interface Env {
   ANALYTICS?: AnalyticsEngineDataset;
 }
 
-// Error classification for queue handling
-type QueueErrorType = "retryable" | "permanent" | "validation";
-
-interface QueueError {
-  type: QueueErrorType;
-  message: string;
-  originalError?: unknown;
-}
-
-function classifyError(error: unknown): QueueError {
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-
-    // Validation errors - don't retry
-    if (message.includes("invalid") || message.includes("missing") || message.includes("required")) {
-      return { type: "validation", message: error.message, originalError: error };
-    }
-
-    // Database errors - may be retryable
-    if (message.includes("database") || message.includes("d1") || message.includes("sqlite")) {
-      // Connection errors are retryable
-      if (message.includes("connection") || message.includes("timeout")) {
-        return { type: "retryable", message: error.message, originalError: error };
-      }
-      // Constraint violations are permanent
-      if (message.includes("constraint") || message.includes("unique")) {
-        return { type: "permanent", message: error.message, originalError: error };
-      }
-      // Default database errors to retryable
-      return { type: "retryable", message: error.message, originalError: error };
-    }
-
-    // Network errors - retryable
-    if (message.includes("fetch") || message.includes("network") || message.includes("timeout")) {
-      return { type: "retryable", message: error.message, originalError: error };
-    }
-  }
-
-  // Unknown errors default to retryable
-  return { type: "retryable", message: String(error), originalError: error };
-}
-
-function logQueueError(queueName: string, msgId: string, error: QueueError): void {
-  console.error(JSON.stringify({
-    level: "error",
-    service: "foundation-queues",
-    queue: queueName,
-    messageId: msgId,
-    errorType: error.type,
-    message: error.message,
-    timestamp: new Date().toISOString(),
-  }));
-}
-
-function logQueueSuccess(queueName: string, msgId: string, processingTimeMs: number): void {
-  console.log(JSON.stringify({
-    level: "info",
-    service: "foundation-queues",
-    queue: queueName,
-    messageId: msgId,
-    processingTimeMs,
-    timestamp: new Date().toISOString(),
-  }));
-}
-
 async function appendAuditEvent(
   db: D1Database,
   event: { type: string; tenantId: string; payload: unknown }
@@ -78,8 +13,7 @@ async function appendAuditEvent(
     .bind(event.tenantId)
     .first<{ hash: string }>();
   const previousHash = lastEvent?.hash ?? "0".repeat(64);
-  // Use Unix timestamp in seconds (not milliseconds) for standard compatibility
-  const timestamp = Math.floor(Date.now() / 1000);
+  const timestamp = Date.now();
   const data = `${previousHash}:${event.type}:${JSON.stringify(event.payload)}:${timestamp}`;
   const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
   const hash = Array.from(new Uint8Array(hashBuffer))
@@ -102,43 +36,9 @@ async function appendAuditEvent(
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-
-    // Deep health check - verifies dependencies
-    if (url.pathname === "/health") {
-      const checks: Record<string, boolean> = {
-        db: false,
-        analytics: !!env.ANALYTICS,
-      };
-
-      // Check database connectivity
-      try {
-        await env.DB.prepare("SELECT 1").first();
-        checks.db = true;
-      } catch {
-        // DB check failed
-      }
-
-      const allHealthy = Object.values(checks).every(Boolean);
-      return Response.json(
-        {
-          status: allHealthy ? "ok" : "degraded",
-          service: "foundation-queues",
-          timestamp: new Date().toISOString(),
-          checks,
-        },
-        { status: allHealthy ? 200 : 503 }
-      );
-    }
-
-    return new Response("Foundation Queues — queue consumer only", { status: 200 });
-  },
-
   async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
     const queueName = batch.queue;
     for (const msg of batch.messages) {
-      const startTime = Date.now();
       try {
         if (queueName === "foundation-audit") {
           const body = msg.body as { type?: string; tenantId?: string; payload?: unknown };
@@ -278,37 +178,9 @@ export default {
           }
         }
         msg.ack();
-        logQueueSuccess(queueName, msg.id, Date.now() - startTime);
       } catch (err) {
-        const queueError = classifyError(err);
-        logQueueError(queueName, msg.id, queueError);
-
-        // Handle based on error type
-        switch (queueError.type) {
-          case "validation":
-            // Validation errors are permanent - ack to remove from queue
-            console.warn(`Dropping invalid message from ${queueName}: ${queueError.message}`);
-            msg.ack();
-            break;
-          case "permanent":
-            // Permanent errors - ack to prevent infinite retries
-            // Could send to dead letter queue in production
-            console.error(`Permanent error in ${queueName}, dropping message: ${queueError.message}`);
-            msg.ack();
-            break;
-          case "retryable":
-          default:
-            // Retryable errors - retry with backoff
-            // Check retry count to prevent infinite loops
-            const retryCount = (msg.body as Record<string, unknown>)?._retryCount ?? 0;
-            if (typeof retryCount === "number" && retryCount >= 5) {
-              console.error(`Max retries exceeded for ${queueName} message, dropping`);
-              msg.ack();
-            } else {
-              msg.retry();
-            }
-            break;
-        }
+        console.error(`Queue ${queueName} message failed:`, err);
+        msg.retry();
       }
     }
   },
