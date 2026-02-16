@@ -10,7 +10,8 @@ export async function appendAuditEvent(
 
   const previousHash = lastEvent?.hash ?? "0".repeat(64);
   const nextSeq = (lastEvent?.seq ?? 0) + 1;
-  const timestamp = Date.now();
+  // Use Unix timestamp in seconds (not milliseconds) for standard compatibility
+  const timestamp = Math.floor(Date.now() / 1000);
 
   const data = `${previousHash}:${event.type}:${JSON.stringify(event.payload)}:${timestamp}`;
   const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));

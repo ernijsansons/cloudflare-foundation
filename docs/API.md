@@ -1,266 +1,193 @@
-# API Reference
+# Foundation API Reference
 
-Complete API documentation for Cloudflare Foundation v2.5.
+## Base URL
 
-## Base URLs
+All API endpoints are served from the gateway service.
 
-- **Development:** `http://127.0.0.1:8788` (gateway), `http://127.0.0.1:8787` (planning-machine)
-- **Production:** Your deployed worker URL
+- Local: `http://localhost:8787`
+- Production: `https://api.your-domain.com`
 
 ## Authentication
 
-All `/api/*` routes (except public routes) require authentication via:
-- Bearer token in `Authorization` header
-- Session cookie
+Most endpoints require authentication via JWT token in the `Authorization` header:
 
-## Planning Machine API
-
-### Runs
-
-#### List Runs
-```http
-GET /api/planning/runs
+```
+Authorization: Bearer <token>
 ```
 
-Query Parameters:
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| limit | number | 100 | Max items to return |
-| offset | number | 0 | Pagination offset |
-| status | string | - | Filter by status (running/completed/killed) |
+Public endpoints (prefixed with `/api/public/`) require Turnstile verification instead.
 
-Response:
+## Health Endpoints
+
+### GET /health
+
+Deep health check for the gateway service.
+
+**Response:**
 ```json
 {
-  "items": [
-    {
-      "id": "uuid",
-      "idea": "Original idea text",
-      "refined_idea": "Refined opportunity",
-      "status": "running|completed|killed",
-      "current_phase": "opportunity|customer-intel|...",
-      "mode": "local|cloud",
-      "pivot_count": 0,
-      "kill_verdict": null,
-      "package_key": null,
-      "created_at": 1700000000,
-      "updated_at": 1700000000
-    }
-  ]
+  "status": "ok" | "degraded",
+  "service": "foundation-gateway",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "checks": {
+    "db": true,
+    "kv": true,
+    "r2": true
+  }
 }
 ```
 
-#### Create Run
-```http
-POST /api/planning/runs
-```
+**Status Codes:**
+- `200` - All checks passed
+- `503` - One or more checks failed (degraded)
 
-Request Body:
+---
+
+## Public Endpoints
+
+### POST /api/public/signup
+
+Create a new user account.
+
+**Headers:**
+- `CF-Turnstile-Token`: Cloudflare Turnstile verification token
+
+**Request Body:**
 ```json
 {
-  "idea": "Your business idea",
-  "mode": "local|cloud",
-  "requireReview": false
+  "email": "user@example.com",
+  "password": "secure-password"
 }
 ```
 
-Response:
+**Response:**
 ```json
 {
-  "id": "uuid",
-  "status": "running",
-  "mode": "local",
-  "created_at": 1700000000
+  "created": true
 }
 ```
 
-#### Get Run
-```http
-GET /api/planning/runs/:id
-```
+### POST /api/public/contact
 
-Response: Full run object with all fields.
+Submit a contact form.
 
-#### Get Run Phases
-```http
-GET /api/planning/runs/:id/phases
-```
+**Headers:**
+- `CF-Turnstile-Token`: Cloudflare Turnstile verification token
 
-Response:
+**Request Body:**
 ```json
 {
-  "items": [
-    {
-      "phase": "opportunity",
-      "status": "completed",
-      "version": 1,
-      "review_verdict": "ACCEPT",
-      "overall_score": 4.2,
-      "created_at": 1700000000
-    }
-  ]
-}
-```
-
-#### Cancel Run
-```http
-POST /api/planning/runs/:id/cancel
-```
-
-Response:
-```json
-{
-  "cancelled": true,
-  "id": "uuid"
-}
-```
-
-#### Delete Run
-```http
-DELETE /api/planning/runs/:id
-```
-
-Response:
-```json
-{
-  "deleted": true,
-  "id": "uuid"
-}
-```
-
-### Artifacts
-
-#### List Artifacts
-```http
-GET /api/planning/runs/:id/artifacts
-```
-
-Query Parameters:
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| phase | string | Filter by phase name |
-
-Response:
-```json
-{
-  "items": [
-    {
-      "id": "uuid",
-      "phase": "opportunity",
-      "version": 1,
-      "content": { /* phase output */ },
-      "review_verdict": "ACCEPT",
-      "review_iterations": 1,
-      "overall_score": 4.5,
-      "created_at": 1700000000
-    }
-  ]
-}
-```
-
-#### Get Artifact
-```http
-GET /api/planning/runs/:runId/artifacts/:artifactId
-```
-
-#### Sync Artifact (Local Mode)
-```http
-POST /api/planning/runs/:id/artifacts/sync
-```
-
-Request Body:
-```json
-{
-  "phase": "opportunity",
-  "content": { /* artifact content */ },
-  "review_verdict": "ACCEPT",
-  "review_iterations": 1,
-  "overall_score": 4.5
-}
-```
-
-### Parked Ideas
-
-#### List Parked Ideas
-```http
-GET /api/planning/parked-ideas
-```
-
-Response:
-```json
-{
-  "items": [
-    {
-      "id": "uuid",
-      "idea": "Original idea",
-      "refined_idea": "Refined version",
-      "run_id": "uuid",
-      "source_phase": "kill-test",
-      "reason": "Market timing not right",
-      "revisit_estimate_months": 6,
-      "created_at": 1700000000
-    }
-  ]
-}
-```
-
-#### Promote Parked Idea
-```http
-POST /api/planning/parked-ideas/:id/promote
-```
-
-Response:
-```json
-{
-  "run": {
-    "id": "new-uuid",
-    "status": "running"
-  },
-  "parkedIdeaId": "uuid"
+  "name": "John Doe",
+  "email": "john@example.com",
+  "message": "Hello..."
 }
 ```
 
 ---
 
-## Gateway API
+## Data Endpoints
 
-### Health
+### GET /api/data/:table
 
-```http
-GET /health
-GET /api/health
+Retrieve data from an allowed table.
+
+**Allowed Tables:** `users`, `audit_log`
+
+**Response:**
+```json
+[
+  { "id": "...", "tenant_id": "...", ... }
+]
 ```
 
-Response:
+---
+
+## File Uploads
+
+### POST /api/files/upload
+
+Upload a file to R2 storage.
+
+**Request:** `multipart/form-data` with `file` field
+
+**Constraints:**
+- Max file size: 10MB
+- Allowed types: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `application/pdf`, `text/plain`, `text/csv`, `application/json`
+
+**Response:**
 ```json
 {
-  "status": "ok",
-  "timestamp": 1700000000
+  "key": "tenants/{tenantId}/uploads/{timestamp}-{filename}",
+  "size": 1024
 }
 ```
 
-### Public Routes (No Auth Required)
+**Error Responses:**
+- `400` - No file provided
+- `413` - File too large
+- `415` - File type not allowed
 
-#### Signup
-```http
-POST /api/public/signup
+### POST /api/images/transform
+
+Transform an image (resize, format conversion).
+
+**Request:** `multipart/form-data` with `file` field
+
+**Response:** Transformed image as `image/webp`
+
+---
+
+## Workflow Endpoints
+
+### POST /api/workflows/:workflowName
+
+Start a workflow instance.
+
+**Available Workflows:**
+- `onboarding` - Tenant onboarding flow
+- `data-pipeline` - Data processing pipeline
+- `report` - Report generation
+- `email-sequence` - Email sequence automation
+
+**Request Body:**
+```json
+{
+  "param1": "value1",
+  "param2": "value2"
+}
 ```
-Requires Turnstile token.
 
-#### Contact
-```http
-POST /api/public/contact
-```
-Requires Turnstile token.
-
-### Webhooks
-
-#### List Webhooks
-```http
-GET /api/webhooks
+**Response:**
+```json
+{
+  "instanceId": "workflow-instance-uuid",
+  "status": "started"
+}
 ```
 
-Response:
+---
+
+## Agent Endpoints
+
+### ALL /api/agents/:agentType/:agentId/*
+
+Proxy requests to agent Durable Objects.
+
+**Agent Types:**
+- `chat` - Chat agent
+- `task` - Task agent
+- `tenant` - Tenant agent
+- `session` - Session agent
+
+---
+
+## Webhook Management
+
+### GET /api/webhooks
+
+List webhook destinations for the current tenant.
+
+**Response:**
 ```json
 {
   "items": [
@@ -271,162 +198,103 @@ Response:
       "url": "https://example.com/webhook",
       "active": 1,
       "events": "*",
-      "created_at": 1700000000,
-      "updated_at": 1700000000
+      "created_at": 1705312200
     }
   ]
 }
 ```
 
-#### Create Webhook
-```http
-POST /api/webhooks
-```
+### POST /api/webhooks
 
-Request Body:
+Create a new webhook destination.
+
+**Request Body:**
 ```json
 {
-  "name": "Production Webhook",
+  "name": "My Webhook",
   "url": "https://example.com/webhook",
-  "secret": "optional-hmac-secret",
+  "secret": "optional-hmac-secret-min-16-chars",
+  "events": "run_completed,phase_completed"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "uuid",
+  "name": "My Webhook",
+  "hostname": "example.com",
+  "url": "https://example.com/webhook",
+  "active": 1,
+  "events": "run_completed,phase_completed",
+  "created_at": 1705312200
+}
+```
+
+### DELETE /api/webhooks/:id
+
+Delete a webhook destination.
+
+**Response:**
+```json
+{
+  "deleted": true
+}
+```
+
+### PATCH /api/webhooks/:id
+
+Update a webhook destination.
+
+**Request Body:**
+```json
+{
+  "active": false,
+  "name": "Updated Name",
   "events": "*"
 }
 ```
 
-Events format: `*` for all events, or comma-separated list like `run_started,run_completed,phase_completed`.
+---
 
-#### Update Webhook
-```http
-PATCH /api/webhooks/:id
-```
+## Analytics
 
-Request Body:
+### POST /api/analytics/event
+
+Record an analytics event.
+
+**Request Body:**
 ```json
 {
-  "active": false,
-  "name": "New Name",
-  "events": "run_completed,run_killed"
+  "type": "page_view",
+  "tenantId": "tenant-123",
+  "metadata": "additional-info",
+  "value": 1
 }
 ```
 
-#### Delete Webhook
-```http
-DELETE /api/webhooks/:id
-```
-
-### Workflows
-
-#### Dispatch Workflow
-```http
-POST /api/workflows/:workflowName
-```
-
-Available workflows: `onboarding`, `data-pipeline`, `report`, `email-sequence`
-
-### Data
-
-#### Query Table
-```http
-GET /api/data/:table
-```
-
-Available tables: `users`, `audit_log`
-
-### Files
-
-#### Upload File
-```http
-POST /api/files/upload
-Content-Type: multipart/form-data
-```
-
-Form field: `file`
-
-### Images
-
-#### Transform Image
-```http
-POST /api/images/transform
-Content-Type: multipart/form-data
-```
-
-Form field: `file`
-
-Returns transformed WebP image (256x256).
-
-### Analytics
-
-#### Record Event
-```http
-POST /api/analytics/event
-```
-
-Request Body:
+**Response:**
 ```json
 {
-  "type": "event_type",
-  "tenantId": "optional",
-  "metadata": "optional string",
-  "value": 0
+  "recorded": true
 }
 ```
-
-### Admin
-
-#### Verify Audit Chain
-```http
-GET /api/admin/audit-verify/:tenantId
-```
-
-Response:
-```json
-{
-  "tenantId": "uuid",
-  "chainValid": true
-}
-```
-
-### Agents
-
-#### Agent Proxy
-```http
-ANY /api/agents/:agentType/:agentId/*
-```
-
-Proxies requests to the agent service.
-
-### Planning Proxy
-```http
-ANY /api/planning/*
-```
-
-Proxies requests to the planning-machine service.
 
 ---
 
-## Webhook Events
+## Admin Endpoints
 
-When webhooks are configured, the following events are emitted:
+### GET /api/admin/audit-verify/:tenantId
 
-| Event | Description | Payload |
-|-------|-------------|---------|
-| `run_started` | A new planning run has started | `{ runId, status, timestamp }` |
-| `run_completed` | A planning run completed successfully | `{ runId, status, timestamp }` |
-| `run_killed` | A planning run was killed | `{ runId, phase, status, verdict, timestamp }` |
-| `phase_completed` | A phase in the pipeline completed | `{ runId, phase, status, score?, timestamp }` |
-| `pivot_triggered` | A PIVOT was triggered in kill-test | `{ runId, phase, status, verdict, pivotCount, timestamp }` |
+Verify the integrity of the audit chain for a tenant.
 
-### Webhook Security
-
-If a secret is configured, webhooks include an HMAC signature:
-
+**Response:**
+```json
+{
+  "tenantId": "tenant-123",
+  "chainValid": true
+}
 ```
-X-Webhook-Signature: sha256=<hex-signature>
-X-Webhook-Event: <event-type>
-X-Webhook-Timestamp: <unix-timestamp>
-```
-
-Verify by computing `HMAC-SHA256(secret, JSON.stringify(payload))` and comparing.
 
 ---
 
@@ -436,13 +304,18 @@ All endpoints return errors in this format:
 
 ```json
 {
-  "error": "Error message"
+  "error": "Error message",
+  "details": "Optional additional details"
 }
 ```
 
-Common HTTP status codes:
-- `400` - Bad request / validation error
-- `401` - Unauthorized
-- `404` - Resource not found
+**Common Status Codes:**
+- `400` - Bad request (invalid input)
+- `401` - Unauthorized (missing or invalid token)
+- `403` - Forbidden (insufficient permissions)
+- `404` - Not found
+- `413` - Payload too large
+- `415` - Unsupported media type
+- `429` - Rate limited
 - `500` - Internal server error
 - `503` - Service unavailable

@@ -1,5 +1,6 @@
 import type { Context, Next } from "hono";
 import type { Env, Variables } from "../types";
+import { JWT_EXPIRATION_SECONDS } from "../constants";
 
 /** Convert string to URL-safe base64 (JWT-compatible) */
 function toBase64Url(str: string): string {
@@ -17,7 +18,7 @@ export function contextTokenMiddleware() {
         uid: userId,
         plan,
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 60,
+        exp: Math.floor(Date.now() / 1000) + JWT_EXPIRATION_SECONDS,
       };
       const header = toBase64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
       const body = toBase64Url(JSON.stringify(payload));

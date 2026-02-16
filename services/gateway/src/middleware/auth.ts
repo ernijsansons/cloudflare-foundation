@@ -22,10 +22,10 @@ export function authMiddleware() {
         c.set("userId", "default");
         c.set("plan", "free");
       }
-    } catch {
-      c.set("tenantId", "default");
-      c.set("userId", "default");
-      c.set("plan", "free");
+    } catch (error) {
+      // SECURITY: Fail closed - log error and reject request, don't silently continue
+      console.error("Auth middleware error:", error);
+      return c.json({ error: "Authentication failed" }, 401);
     }
     await next();
   };
