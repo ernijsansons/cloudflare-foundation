@@ -3,4 +3,13 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [sveltekit()],
+  server: {
+    proxy: {
+      // Proxy API requests to planning-machine in development
+      "/api/planning": {
+        target: "http://127.0.0.1:8787",
+        changeOrigin: true,
+      },
+    },
+  },
 });

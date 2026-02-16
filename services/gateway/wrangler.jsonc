@@ -6,7 +6,8 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   "services": [
-    { "binding": "AGENT_SERVICE", "service": "foundation-agents" }
+    { "binding": "AGENT_SERVICE", "service": "foundation-agents" },
+    { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine" }
   ],
   "workflows": [
     { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows" },
@@ -19,7 +20,7 @@
     { "binding": "SESSION_KV", "id": "KV_ID_HERE" }
   ],
   "d1_databases": [
-    { "binding": "DB", "database_name": "foundation-primary", "database_id": "D1_ID_HERE" }
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "D1_ID_HERE", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [
     { "binding": "FILES", "bucket_name": "foundation-files" }
@@ -27,7 +28,9 @@
   "queues": {
     "producers": [
       { "binding": "AUDIT_QUEUE", "queue": "foundation-audit" },
-      { "binding": "NOTIFICATION_QUEUE", "queue": "foundation-notifications" }
+      { "binding": "NOTIFICATION_QUEUE", "queue": "foundation-notifications" },
+      { "binding": "ANALYTICS_QUEUE", "queue": "foundation-analytics" },
+      { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks" }
     ]
   },
   "ai": { "binding": "AI" },
