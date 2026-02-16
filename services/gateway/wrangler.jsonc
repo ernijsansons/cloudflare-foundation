@@ -16,11 +16,11 @@
     { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows" }
   ],
   "kv_namespaces": [
-    { "binding": "RATE_LIMIT_KV", "id": "KV_ID_HERE" },
-    { "binding": "SESSION_KV", "id": "KV_ID_HERE" }
+    { "binding": "RATE_LIMIT_KV", "id": "1e179df285ba4817b905633ce55d6d98" },
+    { "binding": "SESSION_KV", "id": "c53d7df2c22c43f590f960a913113737" }
   ],
   "d1_databases": [
-    { "binding": "DB", "database_name": "foundation-primary", "database_id": "D1_ID_HERE", "migrations_dir": "migrations" }
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [
     { "binding": "FILES", "bucket_name": "foundation-files" }

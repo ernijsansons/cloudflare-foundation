@@ -20,13 +20,13 @@
   ],
   "ai": { "binding": "AI" },
   "d1_databases": [
-    { "binding": "DB", "database_name": "foundation-primary", "database_id": "D1_ID_HERE" }
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244" }
   ],
   "r2_buckets": [
     { "binding": "FILES", "bucket_name": "foundation-files" }
   ],
   "kv_namespaces": [
-    { "binding": "CACHE_KV", "id": "KV_ID_HERE" }
+    { "binding": "CACHE_KV", "id": "ef2305fbf6da4cffa948193efd40f40c" }
   ],
   "vectorize": [
     { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings" }
