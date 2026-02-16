@@ -3,7 +3,8 @@
  * Deletes old data according to retention policies.
  */
 
-import { DATA_RETENTION_SECONDS } from "../../gateway/src/constants";
+/** Data retention period in seconds (90 days) - local constant to avoid cross-service imports */
+const DATA_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 interface CleanupResult {
   table: string;

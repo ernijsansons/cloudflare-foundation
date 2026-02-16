@@ -7,6 +7,7 @@ import { tenantMiddleware } from "./middleware/tenant";
 import { contextTokenMiddleware } from "./middleware/context-token";
 import { turnstileMiddleware } from "./middleware/turnstile";
 import { appendAuditEvent, verifyAuditChain } from "./lib/audit-chain";
+import { MAX_FILE_SIZE, ALLOWED_FILE_TYPES, MAX_FILENAME_LENGTH } from "./constants";
 import type { Env, Variables } from "./types";
 
 export type { Env } from "./types";
@@ -17,63 +18,8 @@ app.use("*", corsMiddleware());
 app.use("*", correlationMiddleware());
 app.use("*", rateLimitMiddleware());
 
-// Deep health check - verifies all dependencies
-app.get("/health", async (c) => {
-  const checks: Record<string, boolean> = {
-    db: false,
-    kv: false,
-    r2: false,
-  };
-
-  // Check database connectivity
-  try {
-    await c.env.DB.prepare("SELECT 1").first();
-    checks.db = true;
-  } catch {
-    // DB check failed
-  }
-
-  // Check KV connectivity
-  try {
-    if (c.env.CACHE_KV) {
-      await c.env.CACHE_KV.get("health-check");
-      checks.kv = true;
-    } else {
-      checks.kv = true; // KV not configured, not a failure
-    }
-  } catch {
-    // KV check failed
-  }
-
-  // Check R2 connectivity
-  try {
-    if (c.env.FILES) {
-      await c.env.FILES.head("health-check");
-      checks.r2 = true;
-    } else {
-      checks.r2 = true; // R2 not configured, not a failure
-    }
-  } catch {
-    // R2 check failed (expected for non-existent key, but connection works)
-    checks.r2 = true;
-  }
-
-  const allHealthy = Object.values(checks).every(Boolean);
-  return c.json(
-    {
-      status: allHealthy ? "ok" : "degraded",
-      service: "foundation-gateway",
-      timestamp: new Date().toISOString(),
-      checks,
-    },
-    allHealthy ? 200 : 503
-  );
-});
-
-app.get("/api/health", async (c) => {
-  // Simple health check for API routes (behind auth)
-  return c.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
+app.get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
 app.post("/api/public/signup", turnstileMiddleware(), async (c) => {
   try {
@@ -313,46 +259,28 @@ app.get("/api/data/:table", async (c) => {
   }
 });
 
-// File upload configuration
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_FILE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-  "text/plain",
-  "text/csv",
-  "application/json",
-];
-
 app.post("/api/files/upload", async (c) => {
   try {
     const tenantId = c.get("tenantId") ?? "default";
-    let formData: FormData;
-    try {
-      formData = await c.req.formData();
-    } catch {
-      return c.json({ error: "Invalid form data" }, 400);
-    }
+    const formData = await c.req.formData();
     const file = formData.get("file") as File | null;
-    if (!file) return c.json({ error: "No file provided" }, 400);
+    if (!file) return c.json({ error: "No file" }, 400);
 
-    // SECURITY: Validate file size
+    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return c.json({ error: "File too large", maxSize: MAX_FILE_SIZE }, 413);
     }
 
-    // SECURITY: Validate content type
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    // Validate MIME type
+    if (!ALLOWED_FILE_TYPES.includes(file.type as typeof ALLOWED_FILE_TYPES[number])) {
       return c.json({ error: "File type not allowed", allowedTypes: ALLOWED_FILE_TYPES }, 415);
     }
 
-    // SECURITY: Sanitize filename to prevent path traversal
+    // Sanitize filename: remove path traversal, unsafe chars, and truncate
     const sanitizedName = file.name
-      .replace(/[^a-zA-Z0-9._-]/g, "_") // Only allow safe characters
-      .replace(/\.{2,}/g, ".") // Prevent directory traversal via ..
-      .slice(0, 255); // Limit filename length
+      .replace(/[/\\:*?"<>|]/g, "_")
+      .replace(/\.\./g, "_")
+      .slice(0, MAX_FILENAME_LENGTH);
 
     const key = `tenants/${tenantId}/uploads/${Date.now()}-${sanitizedName}`;
     await c.env.FILES.put(key, file.stream(), {
