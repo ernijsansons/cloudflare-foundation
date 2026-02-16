@@ -13,7 +13,8 @@ async function appendAuditEvent(
     .bind(event.tenantId)
     .first<{ hash: string }>();
   const previousHash = lastEvent?.hash ?? "0".repeat(64);
-  const timestamp = Date.now();
+  // Use Unix timestamp in seconds for consistency with gateway audit-chain
+  const timestamp = Math.floor(Date.now() / 1000);
   const data = `${previousHash}:${event.type}:${JSON.stringify(event.payload)}:${timestamp}`;
   const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
   const hash = Array.from(new Uint8Array(hashBuffer))
