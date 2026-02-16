@@ -50,7 +50,7 @@
 
 {#if open}
   <div class="modal-overlay" onclick={onClose} role="presentation">
-    <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    <div class="modal" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === "Escape" && onClose()} role="dialog" aria-modal="true" tabindex="-1">
       <header class="modal-header">
         <h2>Create New</h2>
         <button onclick={onClose} aria-label="Close" type="button">&times;</button>

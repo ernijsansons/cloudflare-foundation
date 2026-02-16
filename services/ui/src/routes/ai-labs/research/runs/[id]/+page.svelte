@@ -15,15 +15,16 @@
 
   const data = $derived($page.data as PageData);
 
-  // Track selected phase - default to current phase or first phase
-  let selectedPhase = $state<PhaseName>(
-    data.run?.current_phase ?? "opportunity"
-  );
+  // Track selected phase - default to first phase
+  let selectedPhase = $state<PhaseName>("opportunity");
 
-  // Update selected phase when data changes
+  // Sync selected phase with data changes
   $effect(() => {
-    if (data.run?.current_phase && !data.artifacts[selectedPhase]) {
-      selectedPhase = data.run.current_phase;
+    if (data.run?.current_phase) {
+      // Update to current phase if current selection has no artifact
+      if (!data.artifacts[selectedPhase]) {
+        selectedPhase = data.run.current_phase;
+      }
     }
   });
 

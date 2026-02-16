@@ -6,7 +6,12 @@
 
   let { artifact, expanded = false }: Props = $props();
 
-  let isExpanded = $state(expanded);
+  let isExpanded = $state(false);
+
+  // Sync with prop changes
+  $effect(() => {
+    isExpanded = expanded;
+  });
 
   function formatValue(value: unknown, indent = 0): string {
     if (value === null) return "null";
