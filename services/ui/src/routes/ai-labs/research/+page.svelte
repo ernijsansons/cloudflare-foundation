@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import Kanban from "$lib/components/Kanban.svelte";
   import type { PlanningRun, KanbanCard, KanbanColumn } from "$lib/types";
+  import { PHASE_ORDER, phaseDocs } from "$lib/data/phase-docs";
 
   interface PageData {
     runs: PlanningRun[];
@@ -11,30 +12,52 @@
 
   const data = $derived($page.data as PageData);
 
-  // Pipeline columns: Ideas → Research → Production
-  const columns: KanbanColumn[] = [
-    { id: "idea", title: "Ideas", status: "idea", color: "#8b5cf6" },         // Violet
-    { id: "research", title: "Research", status: "research", color: "#3b82f6" }, // Blue
-    { id: "production", title: "Production", status: "production", color: "#10b981" }, // Green
-  ];
+  // Stage colors for visual grouping (matching the 5 stages)
+  const stageColors: Record<string, string> = {
+    // Discovery (phases 1-4): Violet shades
+    "opportunity": "#8b5cf6",
+    "customer-intel": "#7c3aed",
+    "market-research": "#6d28d9",
+    "competitive-intel": "#5b21b6",
+    // Validation (phase 5): Red/Orange - critical decision point
+    "kill-test": "#ef4444",
+    // Strategy (phases 6-8): Blue shades
+    "revenue-expansion": "#3b82f6",
+    "strategy": "#2563eb",
+    "business-model": "#1d4ed8",
+    // Design (phases 9-11): Amber/Orange shades
+    "product-design": "#f59e0b",
+    "gtm-marketing": "#d97706",
+    "content-engine": "#b45309",
+    // Execution (phases 12-15): Green shades
+    "tech-arch": "#10b981",
+    "analytics": "#059669",
+    "launch-execution": "#047857",
+    "synthesis": "#065f46",
+  };
+
+  // Build 15 columns from PHASE_ORDER
+  const columns: KanbanColumn[] = PHASE_ORDER.map((phase) => ({
+    id: phase,
+    title: phaseDocs[phase].title.replace(" Analysis", "").replace(" & Marketing", "").replace(" & Metrics", ""),
+    status: phase,
+    color: stageColors[phase],
+  }));
 
   // Filter out killed runs (they go to Parked Ideas page)
   const activeRuns = $derived(data.runs.filter((r) => r.status !== "killed"));
 
-  // Map runs to Kanban cards with pipeline status
+  // Map runs to Kanban cards based on their current_phase
   const cards = $derived<KanbanCard[]>(
     activeRuns.map((run) => {
-      // Map API status to pipeline column
-      const pipelineStatus =
-        run.status === "completed" ? "production" :
-        run.status === "running" || run.status === "paused" ? "research" :
-        "idea";
+      // Use current_phase if available, otherwise "opportunity" for new runs
+      const phase = run.current_phase ?? "opportunity";
 
       return {
         id: run.id,
         title: run.refined_idea ?? run.idea,
-        subtitle: run.current_phase ? `Phase: ${run.current_phase}` : undefined,
-        status: pipelineStatus,
+        subtitle: run.status === "paused" ? "⏸ Paused" : run.status === "completed" ? "✓ Completed" : undefined,
+        status: phase,
         phase: run.current_phase,
         mode: run.mode ?? "cloud",
         metadata: {
@@ -58,8 +81,8 @@
 </svelte:head>
 
 <div class="page-header">
-  <h1>Pipeline</h1>
-  <p class="subtitle">Ideas → Research → Production</p>
+  <h1>Research Pipeline</h1>
+  <p class="subtitle">15-phase validation: Discovery → Validation → Strategy → Design → Execution</p>
 </div>
 
 {#if data.error}

@@ -75,7 +75,7 @@
 
 <style>
   .column {
-    flex: 0 0 300px;
+    flex: 0 0 220px;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--column-color) 6%, var(--color-bg-secondary)) 0%,
@@ -101,7 +101,7 @@
   }
 
   .column-header {
-    padding: 1rem 1.25rem;
+    padding: 0.75rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -116,12 +116,15 @@
 
   .column-title {
     font-weight: 700;
-    font-size: 0.9375rem;
+    font-size: 0.8125rem;
     letter-spacing: -0.01em;
     color: var(--column-color);
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .column-title::before {

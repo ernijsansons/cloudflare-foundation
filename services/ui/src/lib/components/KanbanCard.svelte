@@ -66,8 +66,8 @@
   .card {
     background: var(--color-bg);
     border: 1px solid var(--color-border);
-    border-radius: 12px;
-    padding: 1rem;
+    border-radius: 10px;
+    padding: 0.75rem;
     text-align: left;
     cursor: pointer;
     box-shadow:
@@ -152,12 +152,12 @@
   }
 
   .card-title {
-    font-size: 0.9375rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     letter-spacing: -0.01em;
     color: var(--color-text);
     margin: 0;
-    line-height: 1.4;
+    line-height: 1.35;
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
