@@ -11,29 +11,40 @@
 
   const data = $derived($page.data as PageData);
 
-  // Define columns for research runs
+  // Pipeline columns: Ideas → Research → Production
   const columns: KanbanColumn[] = [
-    { id: "running", title: "In Progress", status: "running", color: "#3b82f6" },
-    { id: "completed", title: "Done", status: "completed", color: "#10b981" },
-    { id: "killed", title: "Killed", status: "killed", color: "#ef4444" },
+    { id: "idea", title: "Ideas", status: "idea", color: "#8b5cf6" },         // Violet
+    { id: "research", title: "Research", status: "research", color: "#3b82f6" }, // Blue
+    { id: "production", title: "Production", status: "production", color: "#10b981" }, // Green
   ];
 
-  // Map runs to Kanban cards
+  // Filter out killed runs (they go to Parked Ideas page)
+  const activeRuns = $derived(data.runs.filter((r) => r.status !== "killed"));
+
+  // Map runs to Kanban cards with pipeline status
   const cards = $derived<KanbanCard[]>(
-    data.runs.map((run) => ({
-      id: run.id,
-      title: run.refined_idea ?? run.idea,
-      subtitle: run.current_phase ? `Phase: ${run.current_phase}` : undefined,
-      status: run.status === "paused" ? "running" : run.status,
-      phase: run.current_phase,
-      mode: run.mode ?? "cloud",
-      metadata: {
-        quality_score: run.quality_score,
-        revenue_potential: run.revenue_potential,
-        kill_verdict: run.kill_verdict,
-      },
-      createdAt: run.created_at,
-    }))
+    activeRuns.map((run) => {
+      // Map API status to pipeline column
+      const pipelineStatus =
+        run.status === "completed" ? "production" :
+        run.status === "running" || run.status === "paused" ? "research" :
+        "idea";
+
+      return {
+        id: run.id,
+        title: run.refined_idea ?? run.idea,
+        subtitle: run.current_phase ? `Phase: ${run.current_phase}` : undefined,
+        status: pipelineStatus,
+        phase: run.current_phase,
+        mode: run.mode ?? "cloud",
+        metadata: {
+          quality_score: run.quality_score,
+          revenue_potential: run.revenue_potential,
+          kill_verdict: run.kill_verdict,
+        },
+        createdAt: run.created_at,
+      };
+    })
   );
 
   function handleCardClick(card: KanbanCard) {
@@ -47,8 +58,8 @@
 </svelte:head>
 
 <div class="page-header">
-  <h1>Research Runs</h1>
-  <p class="subtitle">Track idea validation through the 15-phase pipeline</p>
+  <h1>Pipeline</h1>
+  <p class="subtitle">Ideas → Research → Production</p>
 </div>
 
 {#if data.error}

@@ -63,6 +63,24 @@ export interface PlanningArtifact {
   overall_score?: number;
 }
 
+// Naomi execution task from API
+export interface NaomiTask {
+  id: string;
+  run_id: string;
+  repo_url: string;
+  agent: string;
+  status: "pending" | "running" | "review" | "completed" | "failed";
+  phase?: string;
+  vm_id?: string;
+  claimed_at?: number;
+  started_at?: number;
+  completed_at?: number;
+  retry_count?: number;
+  error?: string;
+  created_at: number;
+  updated_at?: number;
+}
+
 // Generic Kanban card
 export interface KanbanCard {
   id: string;

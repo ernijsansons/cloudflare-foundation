@@ -209,6 +209,231 @@ app.patch("/api/webhooks/:id", async (c) => {
   }
 });
 
+// Naomi API - execution task tracking for Open Claw Naomi
+app.post("/api/naomi/tasks", async (c) => {
+  try {
+    let body: { run_id?: string; repo_url?: string; agent?: string };
+    try {
+      body = (await c.req.json()) as { run_id?: string; repo_url?: string; agent?: string };
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const runId = String(body.run_id ?? "").trim();
+    const repoUrl = String(body.repo_url ?? "").trim();
+    if (!runId || !repoUrl) {
+      return c.json({ error: "run_id and repo_url are required" }, 400);
+    }
+    try {
+      new URL(repoUrl);
+    } catch {
+      return c.json({ error: "repo_url must be a valid URL" }, 400);
+    }
+    const tenantId = c.get("tenantId") ?? "default";
+    const id = `naomi_${crypto.randomUUID().replace(/-/g, "")}`;
+    const now = Math.floor(Date.now() / 1000);
+    await c.env.DB.prepare(
+      `INSERT INTO naomi_tasks (id, run_id, repo_url, agent, status, tenant_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`
+    ).bind(id, runId, repoUrl, body.agent ?? "claude", tenantId, now, now).run();
+
+    if (c.env.WEBHOOK_QUEUE) {
+      try {
+        await c.env.WEBHOOK_QUEUE.send({
+          type: "task_assigned",
+          taskId: id,
+          runId,
+          repoUrl,
+          timestamp: now,
+        });
+      } catch (e) {
+        console.warn("Webhook emit failed:", e);
+      }
+    }
+
+    return c.json({ id, run_id: runId, repo_url: repoUrl, status: "pending", created_at: now });
+  } catch (e) {
+    console.error("Create naomi task error:", e);
+    return c.json({ error: "Internal error" }, 500);
+  }
+});
+
+app.get("/api/naomi/tasks", async (c) => {
+  try {
+    const tenantId = c.get("tenantId") ?? "default";
+    const status = c.req.query("status");
+    const runId = c.req.query("run_id");
+    const limit = Math.min(parseInt(c.req.query("limit") ?? "50", 10) || 50, 100);
+
+    let query = "SELECT * FROM naomi_tasks WHERE COALESCE(tenant_id, 'default') = ?";
+    const params: (string | number)[] = [tenantId];
+
+    if (status) {
+      query += " AND status = ?";
+      params.push(status);
+    }
+    if (runId) {
+      query += " AND run_id = ?";
+      params.push(runId);
+    }
+    query += " ORDER BY created_at DESC LIMIT ?";
+    params.push(limit);
+
+    const result = await c.env.DB.prepare(query).bind(...params).all();
+    return c.json({ items: result.results ?? [] });
+  } catch (e) {
+    console.error("List naomi tasks error:", e);
+    return c.json({ error: "Internal error" }, 500);
+  }
+});
+
+app.get("/api/naomi/tasks/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const tenantId = c.get("tenantId") ?? "default";
+    const task = await c.env.DB.prepare("SELECT * FROM naomi_tasks WHERE id = ? AND COALESCE(tenant_id, 'default') = ?").bind(id, tenantId).first();
+    if (!task) return c.json({ error: "Task not found" }, 404);
+
+    const logs = await c.env.DB.prepare(
+      "SELECT id, phase, level, message, created_at FROM naomi_execution_logs WHERE task_id = ? ORDER BY created_at ASC"
+    ).bind(id).all();
+
+    return c.json({
+      ...(task as Record<string, unknown>),
+      logs: logs.results ?? [],
+    });
+  } catch (e) {
+    console.error("Get naomi task error:", e);
+    return c.json({ error: "Internal error" }, 500);
+  }
+});
+
+app.post("/api/naomi/tasks/:id/claim", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const tenantId = c.get("tenantId") ?? "default";
+    let body: { vm_id?: string } = {};
+    try {
+      body = (await c.req.json()) as { vm_id?: string } ?? {};
+    } catch {
+      // Empty body is valid for claim
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const lockExpiry = 3600; // 1 hour
+
+    const task = await c.env.DB.prepare("SELECT * FROM naomi_tasks WHERE id = ? AND COALESCE(tenant_id, 'default') = ?").bind(id, tenantId).first();
+    if (!task) return c.json({ error: "Task not found" }, 404);
+
+    const t = task as Record<string, unknown>;
+    if (t.status !== "pending") {
+      return c.json({ error: `Task is not pending (status: ${t.status})` }, 409);
+    }
+
+    const repoUrl = t.repo_url as string;
+    const existingLock = await c.env.DB.prepare("SELECT * FROM naomi_locks WHERE repo_url = ?").bind(repoUrl).first();
+    if (existingLock) {
+      const lock = existingLock as Record<string, unknown>;
+      if ((lock.expires_at as number) > now) {
+        return c.json({ error: "Repo is locked by another task" }, 409);
+      }
+      await c.env.DB.prepare("DELETE FROM naomi_locks WHERE repo_url = ?").bind(repoUrl).run();
+    }
+
+    await c.env.DB.prepare(
+      "INSERT OR REPLACE INTO naomi_locks (repo_url, task_id, acquired_at, expires_at) VALUES (?, ?, ?, ?)"
+    ).bind(repoUrl, id, now, now + lockExpiry).run();
+
+    await c.env.DB.prepare(
+      "UPDATE naomi_tasks SET status = 'running', vm_id = ?, claimed_at = ?, started_at = ?, updated_at = ? WHERE id = ?"
+    ).bind(body.vm_id ?? null, now, now, now, id).run();
+
+    return c.json({
+      id,
+      status: "running",
+      run_id: t.run_id,
+      repo_url: repoUrl,
+      claimed_at: now,
+    });
+  } catch (e) {
+    console.error("Claim naomi task error:", e);
+    return c.json({ error: "Internal error" }, 500);
+  }
+});
+
+app.post("/api/naomi/tasks/:id/progress", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const tenantId = c.get("tenantId") ?? "default";
+    let body: { phase?: string; status?: string; error?: string } = {};
+    try {
+      body = (await c.req.json()) as { phase?: string; status?: string; error?: string } ?? {};
+    } catch {
+      // Empty body is valid
+    }
+    const now = Math.floor(Date.now() / 1000);
+
+    const task = await c.env.DB.prepare("SELECT * FROM naomi_tasks WHERE id = ? AND COALESCE(tenant_id, 'default') = ?").bind(id, tenantId).first();
+    if (!task) return c.json({ error: "Task not found" }, 404);
+
+    const updates: string[] = ["updated_at = ?"];
+    const params: (string | number | null)[] = [now];
+
+    if (body.phase !== undefined) {
+      updates.push("phase = ?");
+      params.push(body.phase);
+    }
+    if (body.status !== undefined) {
+      updates.push("status = ?");
+      params.push(body.status);
+    }
+    if (body.error !== undefined) {
+      updates.push("error = ?");
+      params.push(body.error);
+    }
+    if (body.status === "completed" || body.status === "failed") {
+      updates.push("completed_at = ?");
+      params.push(now);
+    }
+
+    params.push(id);
+    await c.env.DB.prepare(`UPDATE naomi_tasks SET ${updates.join(", ")} WHERE id = ?`).bind(...params).run();
+
+    return c.json({ id, updated: true });
+  } catch (e) {
+    console.error("Progress naomi task error:", e);
+    return c.json({ error: "Internal error" }, 500);
+  }
+});
+
+app.post("/api/naomi/tasks/:id/logs", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const tenantId = c.get("tenantId") ?? "default";
+    let body: { message?: string; phase?: string; level?: string };
+    try {
+      body = (await c.req.json()) as { message?: string; phase?: string; level?: string } ?? {};
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const message = String(body.message ?? "").trim();
+    if (!message) {
+      return c.json({ error: "message is required" }, 400);
+    }
+    const now = Math.floor(Date.now() / 1000);
+
+    const task = await c.env.DB.prepare("SELECT id FROM naomi_tasks WHERE id = ? AND COALESCE(tenant_id, 'default') = ?").bind(id, tenantId).first();
+    if (!task) return c.json({ error: "Task not found" }, 404);
+
+    await c.env.DB.prepare(
+      "INSERT INTO naomi_execution_logs (task_id, phase, level, message, created_at) VALUES (?, ?, ?, ?, ?)"
+    ).bind(id, body.phase ?? null, body.level ?? "info", message, now).run();
+
+    return c.json({ appended: true });
+  } catch (e) {
+    console.error("Append naomi log error:", e);
+    return c.json({ error: "Internal error" }, 500);
+  }
+});
+
 app.post("/api/workflows/:workflowName", async (c) => {
   try {
     const { workflowName } = c.req.param();
