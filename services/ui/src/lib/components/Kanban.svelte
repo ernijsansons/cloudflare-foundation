@@ -34,8 +34,9 @@
 <style>
   .kanban {
     display: flex;
-    gap: 1.5rem;
+    gap: 1rem;
     padding: 1.5rem;
+    padding-bottom: 1rem;
     overflow-x: auto;
     min-height: calc(100vh - var(--topbar-height) - 150px);
 
@@ -43,29 +44,34 @@
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
 
-    /* Subtle scrollbar styling */
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-border) transparent;
+    /* Visible scrollbar styling */
+    scrollbar-width: auto;
+    scrollbar-color: var(--color-primary) var(--color-bg-secondary);
   }
 
   .kanban::-webkit-scrollbar {
-    height: 8px;
+    height: 14px;
   }
 
   .kanban::-webkit-scrollbar-track {
-    background: transparent;
+    background: var(--color-bg-secondary);
+    border-radius: 7px;
     margin: 0 1rem;
+    border: 1px solid var(--color-border);
   }
 
   .kanban::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 4px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
+    background: linear-gradient(90deg, #8b5cf6, #3b82f6, #10b981);
+    border-radius: 7px;
+    border: 3px solid var(--color-bg-secondary);
+    min-width: 80px;
   }
 
   .kanban::-webkit-scrollbar-thumb:hover {
-    background: var(--color-text-subtle);
-    background-clip: padding-box;
+    background: linear-gradient(90deg, #7c3aed, #2563eb, #059669);
+  }
+
+  .kanban::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(90deg, #6d28d9, #1d4ed8, #047857);
   }
 </style>
