@@ -44,19 +44,22 @@
   .card {
     background: var(--color-bg);
     border: 1px solid var(--color-border);
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 0.75rem;
     text-align: left;
     cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     transition:
       box-shadow var(--transition-fast),
-      border-color var(--transition-fast);
+      border-color var(--transition-fast),
+      transform var(--transition-fast);
     width: 100%;
   }
 
   .card:hover {
     border-color: var(--color-border-focus);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
   }
 
   .card-header {
@@ -74,7 +77,7 @@
 
   .card-title {
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--color-text);
     margin: 0;
     line-height: 1.4;

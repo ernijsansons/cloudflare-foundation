@@ -37,10 +37,11 @@
   .column {
     flex: 0 0 280px;
     background: var(--color-bg-secondary);
-    border-radius: 8px;
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
     max-height: 100%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   }
 
   .column-header {
@@ -68,9 +69,10 @@
   }
 
   .empty {
-    color: var(--color-text-muted);
+    color: var(--color-text-subtle);
     font-size: 0.875rem;
+    font-style: italic;
     text-align: center;
-    padding: 1rem;
+    padding: 1.5rem 1rem;
   }
 </style>

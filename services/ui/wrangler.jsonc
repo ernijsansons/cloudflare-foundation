@@ -12,5 +12,8 @@
   "observability": { "enabled": true },
   "services": [
     { "binding": "GATEWAY", "service": "foundation-gateway" }
+  ],
+  "routes": [
+    { "pattern": "dashboard.erlvinc.com/*", "zone_name": "erlvinc.com" }
   ]
 }

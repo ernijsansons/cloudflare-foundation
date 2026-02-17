@@ -31,7 +31,7 @@
 <style>
   .kanban {
     display: flex;
-    gap: 1rem;
+    gap: 1.25rem;
     padding: 1rem;
     overflow-x: auto;
     min-height: calc(100vh - var(--topbar-height) - 150px);
