@@ -6,6 +6,8 @@
 import type { Env } from "../types";
 import type { ReasoningState } from "../lib/reasoning-engine";
 import { getFoundationContext } from "../lib/foundation-context";
+import type { OrchestrationResult, OrchestratorConfig } from "../lib/orchestrator";
+import { orchestrateModels } from "../lib/orchestrator";
 
 export interface AgentContext {
   runId: string;
@@ -22,6 +24,8 @@ export interface AgentResult<T = unknown> {
   reasoningState?: ReasoningState;
   score?: number;
   errors?: string[];
+  /** Present when multi-model orchestration was used — contains per-model outputs and wild ideas */
+  orchestration?: OrchestrationResult;
 }
 
 export interface ToolCall {
@@ -49,6 +53,41 @@ export abstract class BaseAgent<TInput = unknown, TOutput = unknown> {
   abstract getOutputSchema(): Record<string, unknown>;
 
   abstract run(ctx: AgentContext, input: TInput): Promise<AgentResult<TOutput>>;
+
+  /**
+   * Return true to indicate this agent supports multi-model orchestration.
+   * Subclasses that opt in should check this and call orchestrateModels() in run().
+   */
+  useOrchestration(): boolean {
+    return false;
+  }
+
+  /**
+   * Phase-specific orchestration config. Override to tune model mix, temperatures,
+   * or synthesizer for this phase (e.g., kill-test with higher synthesizer weight).
+   * Merged with any config passed to orchestrateModels().
+   */
+  getOrchestratorConfig(): Partial<OrchestratorConfig> | null {
+    return null;
+  }
+
+  /**
+   * Run parallel inference across all configured models, extract wild ideas,
+   * then synthesize. Use this inside a subclass's run() after building the
+   * prompt — in place of runModel().
+   */
+  protected async orchestrateModels(
+    systemPrompt: string,
+    userPrompt: string,
+    config?: Partial<OrchestratorConfig>
+  ): Promise<OrchestrationResult> {
+    const phaseConfig = this.getOrchestratorConfig();
+    const mergedConfig =
+      phaseConfig || config
+        ? { ...phaseConfig, ...config }
+        : undefined;
+    return orchestrateModels(this.env, systemPrompt, userPrompt, mergedConfig);
+  }
 
   getSearchQueries(_idea: string, _ctx: AgentContext): string[] {
     return [];

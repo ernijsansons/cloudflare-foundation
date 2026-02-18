@@ -1,6 +1,11 @@
 /**
  * Phase 0: Opportunity Discovery Agent
  * "You said X. But did you consider Y, which is 1000x bigger?"
+ *
+ * Supports multi-model orchestration: when ORCHESTRATION_ENABLED=true, each
+ * parallel model independently analyses the search-enriched context, then a
+ * synthesizer reconciles their answers. Wild/divergent ideas are extracted
+ * before synthesis and stored alongside the artifact for human review.
  */
 
 import type { Env } from "../types";
@@ -8,6 +13,8 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { OpportunityOutputSchema, type OpportunityOutput } from "../schemas/opportunity";
+import type { OrchestrationResult } from "../lib/orchestrator";
+import { extractJSON } from "../lib/orchestrator";
 
 interface OpportunityInput {
   idea: string;
@@ -29,6 +36,10 @@ export class OpportunityAgent extends BaseAgent<OpportunityInput, OpportunityOut
       "What would the Palantir version of this look like?",
     ],
   };
+
+  override useOrchestration(): boolean {
+    return true;
+  }
 
   getSystemPrompt(): string {
     return `You are an expert at finding 1000x better opportunities hiding in or adjacent to the user's idea.
@@ -99,12 +110,65 @@ Output valid JSON matching the schema. Include agenticScore for each variant.`;
       ),
     ].join("\n\n");
 
+    const systemPrompt = this.buildSystemPrompt();
+    const userPrompt = `Analyze this idea and find 3-5 opportunity variants. Use ONLY the search results as evidence.\n\n${context}`;
+
+    // Orchestrated path: parallel multi-model inference + synthesis
+    if (this.env.ORCHESTRATION_ENABLED === "true") {
+      return this.runWithOrchestration(systemPrompt, userPrompt);
+    }
+
+    // Single-model path (default)
+    return this.runSingleModel(systemPrompt, userPrompt);
+  }
+
+  // -------------------------------------------------------------------------
+  // Orchestrated path
+  // -------------------------------------------------------------------------
+
+  private async runWithOrchestration(
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<AgentResult<OpportunityOutput>> {
+    let orchResult: OrchestrationResult;
+    try {
+      orchResult = await this.orchestrateModels(systemPrompt, userPrompt);
+    } catch (e) {
+      console.error("[OpportunityAgent] Orchestration failed, falling back to single model:", e);
+      return this.runSingleModel(systemPrompt, userPrompt);
+    }
+
+    try {
+      const parsed = extractJSON(orchResult.finalText);
+      const output = OpportunityOutputSchema.parse(parsed);
+
+      // Log wild ideas for dev visibility
+      if (orchResult.wildIdeas.length > 0) {
+        console.log(
+          "[OpportunityAgent] Wild ideas surfaced by orchestration:",
+          JSON.stringify(orchResult.wildIdeas, null, 2)
+        );
+      }
+
+      return { success: true, output, orchestration: orchResult };
+    } catch (e) {
+      console.error("[OpportunityAgent] Failed to parse orchestration output:", e);
+      // Attempt fallback rather than hard failure
+      return this.runSingleModel(systemPrompt, userPrompt);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Single-model path (original behaviour — unchanged)
+  // -------------------------------------------------------------------------
+
+  private async runSingleModel(
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<AgentResult<OpportunityOutput>> {
     const messages = [
-      { role: "system" as const, content: this.buildSystemPrompt() },
-      {
-        role: "user" as const,
-        content: `Analyze this idea and find 3-5 opportunity variants. Use ONLY the search results as evidence.\n\n${context}`,
-      },
+      { role: "system" as const, content: systemPrompt },
+      { role: "user" as const, content: userPrompt },
     ];
 
     try {
@@ -118,10 +182,7 @@ Output valid JSON matching the schema. Include agenticScore for each variant.`;
       const parsed = JSON.parse(jsonStr);
       const output = OpportunityOutputSchema.parse(parsed);
 
-      return {
-        success: true,
-        output,
-      };
+      return { success: true, output };
     } catch (e) {
       console.error("OpportunityAgent error:", e);
       return {

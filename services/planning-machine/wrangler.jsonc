@@ -18,5 +18,11 @@
     "producers": [
       { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks" }
     ]
+  },
+  "vars": {
+    // Set to "true" to enable multi-model parallel inference + synthesis for supported agents.
+    // Requires ANTHROPIC_API_KEY secret to be set via: wrangler secret put ANTHROPIC_API_KEY
+    // Optionally set MINIMAX_API_KEY via: wrangler secret put MINIMAX_API_KEY
+    "ORCHESTRATION_ENABLED": "false"
   }
 }
