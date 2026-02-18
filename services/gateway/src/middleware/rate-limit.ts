@@ -1,8 +1,8 @@
 import type { Context, Next } from "hono";
 import type { Env } from "../types";
 import {
-  RATE_LIMIT_RATE_LIMIT_WINDOW_SECONDS,
-  RATE_LIMIT_RATE_LIMIT_MAX_REQUESTS,
+  RATE_LIMIT_WINDOW_SECONDS,
+  RATE_LIMIT_MAX_REQUESTS,
 } from "../constants";
 
 /**

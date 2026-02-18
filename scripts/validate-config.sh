@@ -28,7 +28,7 @@ check_placeholders() {
     if grep -q "KV_ID_HERE\|D1_ID_HERE\|R2_ID_HERE\|QUEUE_ID_HERE\|YOUR_.*_HERE\|PLACEHOLDER" "$file" 2>/dev/null; then
         echo "  [ERROR] $service: Contains placeholder values"
         grep -n "KV_ID_HERE\|D1_ID_HERE\|R2_ID_HERE\|QUEUE_ID_HERE\|YOUR_.*_HERE\|PLACEHOLDER" "$file" || true
-        ERRORS=$((ERRORS + 1))
+        ((ERRORS++))
     else
         echo "  [OK] $service: No placeholders found"
     fi
@@ -43,6 +43,7 @@ check_placeholders "services/workflows/wrangler.jsonc" "Workflows"
 check_placeholders "services/queues/wrangler.jsonc" "Queues"
 check_placeholders "services/cron/wrangler.jsonc" "Cron"
 check_placeholders "services/ui/wrangler.jsonc" "UI"
+check_placeholders "services/planning-machine/wrangler.jsonc" "Planning Machine"
 
 echo ""
 echo "Checking for required files..."
@@ -59,7 +60,7 @@ do
         echo "  [OK] $file exists"
     else
         echo "  [WARN] $file not found"
-        WARNINGS=$((WARNINGS + 1))
+        ((WARNINGS++))
     fi
 done
 
@@ -71,9 +72,16 @@ if [ -d "services/gateway/migrations" ]; then
     echo "  [OK] Gateway migrations: $MIGRATION_COUNT files"
 else
     echo "  [WARN] No gateway migrations directory"
-    WARNINGS=$((WARNINGS + 1))
+    ((WARNINGS++))
 fi
 
+if [ -d "services/planning-machine/migrations" ]; then
+    MIGRATION_COUNT=$(ls -1 services/planning-machine/migrations/*.sql 2>/dev/null | wc -l)
+    echo "  [OK] Planning migrations: $MIGRATION_COUNT files"
+else
+    echo "  [WARN] No planning-machine migrations directory"
+    ((WARNINGS++))
+fi
 
 echo ""
 echo "=== Validation Summary ==="

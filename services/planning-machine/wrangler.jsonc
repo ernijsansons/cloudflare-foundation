@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "foundation-planning-machine",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "workflows": [
+    { "binding": "PLANNING_WORKFLOW", "name": "planning-pipeline", "class_name": "PlanningWorkflow" }
+  ],
+  "ai": { "binding": "AI" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "planning-primary", "database_id": "a5d92afd-7c3a-48b8-89ae-abf1a523f6ce", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "planning-files" }],
+  "vectorize": [{ "binding": "VECTOR_INDEX", "index_name": "planning-embeddings" }],
+  "queues": {
+    "producers": [
+      { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks" }
+    ]
+  }
+}

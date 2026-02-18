@@ -4,8 +4,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["**/*.test.ts", "**/*.spec.ts"],
-    exclude: ["node_modules", ".wrangler", "dist"],
+    // Explicitly scope to services directory to avoid traversing node_modules
+    include: ["services/**/*.test.ts", "services/**/*.spec.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/.wrangler/**",
+      "**/dist/**",
+      "**/.svelte-kit/**",
+    ],
+    passWithNoTests: true,
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

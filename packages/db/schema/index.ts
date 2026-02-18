@@ -1,6 +1,4 @@
-export { audit-chain } from "./audit-chain";
-export { audit-log } from "./audit-log";
-export { users } from "./users";
+export { auditChain } from "./audit-chain";
 export { tenants } from "./tenants";
-export { items } from "./items";
-export { records } from "./records";
+export { users } from "./users";
+export { auditLog } from "./audit-log";

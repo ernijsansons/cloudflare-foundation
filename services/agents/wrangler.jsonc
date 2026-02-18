@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "future-idea-agents",
+  "name": "foundation-agents",
   "main": "src/index.ts",
   "compatibility_date": "2025-09-25",
   "compatibility_flags": ["nodejs_compat"],
@@ -20,24 +20,24 @@
   ],
   "ai": { "binding": "AI" },
   "d1_databases": [
-    { "binding": "DB", "database_name": "future-idea-primary", "database_id": "5e154005-781d-4fcb-9a39-9bde7974c03c" }
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244" }
   ],
   "r2_buckets": [
-    { "binding": "FILES", "bucket_name": "future-idea-files" }
+    { "binding": "FILES", "bucket_name": "foundation-files" }
   ],
   "kv_namespaces": [
     { "binding": "CACHE_KV", "id": "ef2305fbf6da4cffa948193efd40f40c" }
   ],
   "vectorize": [
-    { "binding": "VECTOR_INDEX", "index_name": "future-idea-embeddings" }
+    { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings" }
   ],
   "queues": {
     "producers": [
-      { "binding": "AUDIT_QUEUE", "queue": "future-idea-audit" },
-      { "binding": "ANALYTICS_QUEUE", "queue": "future-idea-analytics" }
+      { "binding": "AUDIT_QUEUE", "queue": "foundation-audit" },
+      { "binding": "ANALYTICS_QUEUE", "queue": "foundation-analytics" }
     ]
   },
   "analytics_engine_datasets": [
-    { "binding": "ANALYTICS", "dataset": "future_idea_events" }
+    { "binding": "ANALYTICS", "dataset": "foundation_events" }
   ]
 }

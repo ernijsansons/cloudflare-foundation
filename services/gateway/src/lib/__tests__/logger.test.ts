@@ -28,7 +28,7 @@ describe("Logger", () => {
       logger.info("Test message");
 
       expect(consoleSpy.log).toHaveBeenCalledTimes(1);
-      const loggedValue = JSON.parse(consoleSpy.log.mock.calls[0][0]);
+      const loggedValue = JSON.parse(consoleSpy.log.mock.calls[0][0] as string);
       expect(loggedValue.service).toBe("test-service");
       expect(loggedValue.message).toBe("Test message");
       expect(loggedValue.level).toBe("info");
@@ -38,7 +38,7 @@ describe("Logger", () => {
       const logger = createLogger("test-service");
       logger.info("Test message", { userId: "123", action: "login" });
 
-      const loggedValue = JSON.parse(consoleSpy.log.mock.calls[0][0]);
+      const loggedValue = JSON.parse(consoleSpy.log.mock.calls[0][0] as string);
       expect(loggedValue.userId).toBe("123");
       expect(loggedValue.action).toBe("login");
     });
@@ -48,7 +48,7 @@ describe("Logger", () => {
       const testError = new Error("Test error");
       logger.error("Operation failed", testError);
 
-      const loggedValue = JSON.parse(consoleSpy.error.mock.calls[0][0]);
+      const loggedValue = JSON.parse(consoleSpy.error.mock.calls[0][0] as string);
       expect(loggedValue.level).toBe("error");
       expect(loggedValue.error.name).toBe("Error");
       expect(loggedValue.error.message).toBe("Test error");
@@ -59,7 +59,7 @@ describe("Logger", () => {
       const logger = createLogger("test-service");
       logger.error("Operation failed", "string error");
 
-      const loggedValue = JSON.parse(consoleSpy.error.mock.calls[0][0]);
+      const loggedValue = JSON.parse(consoleSpy.error.mock.calls[0][0] as string);
       expect(loggedValue.error.name).toBe("UnknownError");
       expect(loggedValue.error.message).toBe("string error");
     });
@@ -71,7 +71,7 @@ describe("Logger", () => {
       const childLogger = logger.child({ requestId: "req-123" });
       childLogger.info("Child message");
 
-      const loggedValue = JSON.parse(consoleSpy.log.mock.calls[0][0]);
+      const loggedValue = JSON.parse(consoleSpy.log.mock.calls[0][0] as string);
       expect(loggedValue.tenantId).toBe("tenant-1");
       expect(loggedValue.requestId).toBe("req-123");
     });
@@ -88,7 +88,7 @@ describe("Logger", () => {
       );
       requestLogger.info("Request processed");
 
-      const loggedValue = JSON.parse(consoleSpy.log.mock.calls[0][0]);
+      const loggedValue = JSON.parse(consoleSpy.log.mock.calls[0][0] as string);
       expect(loggedValue.requestId).toBe("req-123");
       expect(loggedValue.tenantId).toBe("tenant-1");
       expect(loggedValue.userId).toBe("user-1");

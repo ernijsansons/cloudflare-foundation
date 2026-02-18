@@ -4,7 +4,7 @@ import type { Fetcher } from "@cloudflare/workers-types";
 function getSessionIdFromCookie(cookieHeader: string | null): string | null {
   if (!cookieHeader) return null;
   const match = cookieHeader.match(/\bsession_id=([^;]+)/);
-  return match ? decodeURIComponent(match[1].trim()) : null;
+  return match ? match[1].trim() : null;
 }
 
 async function proxy(request: Request, path: string, gateway: Fetcher): Promise<Response> {

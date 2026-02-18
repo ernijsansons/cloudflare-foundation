@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "future-idea-workflows",
+  "name": "foundation-workflows",
   "main": "src/index.ts",
   "compatibility_date": "2025-09-25",
   "compatibility_flags": ["nodejs_compat"],
@@ -12,15 +12,15 @@
     { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow" }
   ],
   "d1_databases": [
-    { "binding": "DB", "database_name": "future-idea-primary", "database_id": "5e154005-781d-4fcb-9a39-9bde7974c03c" }
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244" }
   ],
   "r2_buckets": [
-    { "binding": "FILES", "bucket_name": "future-idea-files" }
+    { "binding": "FILES", "bucket_name": "foundation-files" }
   ],
   "ai": { "binding": "AI" },
   "queues": {
     "producers": [
-      { "binding": "AUDIT_QUEUE", "queue": "future-idea-audit" }
+      { "binding": "AUDIT_QUEUE", "queue": "foundation-audit" }
     ]
   }
 }

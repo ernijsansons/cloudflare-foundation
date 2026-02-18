@@ -1,12 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "future-idea-gateway",
+  "name": "foundation-gateway",
   "main": "src/index.ts",
   "compatibility_date": "2025-09-25",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   "services": [
-    { "binding": "AGENT_SERVICE", "service": "foundation-agents" }
+    { "binding": "AGENT_SERVICE", "service": "foundation-agents" },
+    { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine" }
   ],
   "workflows": [
     { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows" },
@@ -19,23 +20,25 @@
     { "binding": "SESSION_KV", "id": "c53d7df2c22c43f590f960a913113737" }
   ],
   "d1_databases": [
-    { "binding": "DB", "database_name": "future-idea-primary", "database_id": "5e154005-781d-4fcb-9a39-9bde7974c03c" }
+    { "binding": "DB", "database_name": "foundation-primary", "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244", "migrations_dir": "migrations" }
   ],
   "r2_buckets": [
-    { "binding": "FILES", "bucket_name": "future-idea-files" }
+    { "binding": "FILES", "bucket_name": "foundation-files" }
   ],
   "queues": {
     "producers": [
-      { "binding": "AUDIT_QUEUE", "queue": "future-idea-audit" },
-      { "binding": "NOTIFICATION_QUEUE", "queue": "future-idea-notifications" }
+      { "binding": "AUDIT_QUEUE", "queue": "foundation-audit" },
+      { "binding": "NOTIFICATION_QUEUE", "queue": "foundation-notifications" },
+      { "binding": "ANALYTICS_QUEUE", "queue": "foundation-analytics" },
+      { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks" }
     ]
   },
   "ai": { "binding": "AI" },
   "vectorize": [
-    { "binding": "VECTOR_INDEX", "index_name": "future-idea-embeddings" }
+    { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings" }
   ],
   "analytics_engine_datasets": [
-    { "binding": "ANALYTICS", "dataset": "future_idea_events" }
+    { "binding": "ANALYTICS", "dataset": "foundation_events" }
   ],
   "images": { "binding": "IMAGES" }
 }

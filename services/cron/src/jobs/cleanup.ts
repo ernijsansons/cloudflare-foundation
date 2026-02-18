@@ -3,7 +3,8 @@
  * Deletes old data according to retention policies.
  */
 
-import { DATA_RETENTION_SECONDS } from "../../gateway/src/constants";
+/** Data retention period in seconds (90 days) - local constant to avoid cross-service imports */
+const DATA_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 interface CleanupResult {
   table: string;
@@ -60,8 +61,23 @@ export async function cleanupOldData(
     });
   }
 
-  // Clean up old session data from KV would be done separately
-  // as KV entries have their own TTL
+  // Clean up old planning runs marked as deleted
+  try {
+    const planningResult = await db
+      .prepare("DELETE FROM planning_runs WHERE status = 'deleted' AND updated_at < ?")
+      .bind(cutoff)
+      .run();
+    results.push({
+      table: "planning_runs",
+      deletedCount: planningResult.meta.changes ?? 0,
+    });
+  } catch (error) {
+    results.push({
+      table: "planning_runs",
+      deletedCount: 0,
+      error: error instanceof Error ? error.message : "Table may not exist",
+    });
+  }
 
   return results;
 }

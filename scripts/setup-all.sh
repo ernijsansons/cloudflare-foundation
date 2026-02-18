@@ -5,13 +5,13 @@ set -euo pipefail
 # Cloudflare Foundation - Complete Infrastructure Setup
 # =============================================================================
 # This script creates all required Cloudflare resources:
-# - 1 D1 database (future-idea-primary)
+# - 2 D1 databases (foundation-primary + planning-primary)
 # - 3 KV namespaces
 # - 1 R2 bucket
 # - 4 queues
 # =============================================================================
 
-echo "=== Future Idea Foundation — Infrastructure Setup ==="
+echo "=== Cloudflare Foundation v2.5 — Infrastructure Setup ==="
 echo ""
 echo "This script will create all required Cloudflare resources."
 echo "Make sure you are logged in: wrangler login"
@@ -34,14 +34,24 @@ echo "" >> $OUTPUT_FILE
 # =============================================================================
 echo "Creating D1 databases..."
 
-echo "  -> future-idea-primary (main database)..."
-FOUNDATION_DB=$(wrangler d1 create future-idea-primary 2>&1 | grep "database_id" | awk -F'"' '{print $2}')
+echo "  -> foundation-primary (main database)..."
+FOUNDATION_DB=$(wrangler d1 create foundation-primary 2>&1 | grep "database_id" | awk -F'"' '{print $2}')
 if [ -n "$FOUNDATION_DB" ]; then
     echo "D1_FOUNDATION_ID=$FOUNDATION_DB" >> $OUTPUT_FILE
     echo "     Created: $FOUNDATION_DB"
 else
     echo "     WARNING: Could not parse database ID. Check output manually."
-    wrangler d1 create future-idea-primary || echo "     Database may already exist."
+    wrangler d1 create foundation-primary || echo "     Database may already exist."
+fi
+
+echo "  -> planning-primary (planning machine database)..."
+PLANNING_DB=$(wrangler d1 create planning-primary 2>&1 | grep "database_id" | awk -F'"' '{print $2}')
+if [ -n "$PLANNING_DB" ]; then
+    echo "D1_PLANNING_ID=$PLANNING_DB" >> $OUTPUT_FILE
+    echo "     Created: $PLANNING_DB"
+else
+    echo "     WARNING: Could not parse database ID. Check output manually."
+    wrangler d1 create planning-primary || echo "     Database may already exist."
 fi
 
 # =============================================================================
@@ -86,9 +96,13 @@ fi
 echo ""
 echo "Creating R2 buckets..."
 
-echo "  -> future-idea-files..."
-wrangler r2 bucket create future-idea-files 2>/dev/null || echo "     Bucket may already exist."
-echo "R2_FOUNDATION_BUCKET=future-idea-files" >> $OUTPUT_FILE
+echo "  -> foundation-files..."
+wrangler r2 bucket create foundation-files 2>/dev/null || echo "     Bucket may already exist."
+echo "R2_FOUNDATION_BUCKET=foundation-files" >> $OUTPUT_FILE
+
+echo "  -> planning-files..."
+wrangler r2 bucket create planning-files 2>/dev/null || echo "     Bucket may already exist."
+echo "R2_PLANNING_BUCKET=planning-files" >> $OUTPUT_FILE
 
 # =============================================================================
 # Queues
@@ -96,12 +110,12 @@ echo "R2_FOUNDATION_BUCKET=future-idea-files" >> $OUTPUT_FILE
 echo ""
 echo "Creating queues..."
 
-for queue in future-idea-audit future-idea-notifications future-idea-analytics future-idea-webhooks; do
+for queue in foundation-audit foundation-notifications foundation-analytics foundation-webhooks; do
     echo "  -> $queue..."
     wrangler queues create $queue 2>/dev/null || echo "     Queue may already exist."
 done
 
-echo "QUEUES_CREATED=future-idea-audit,future-idea-notifications,future-idea-analytics,future-idea-webhooks" >> $OUTPUT_FILE
+echo "QUEUES_CREATED=foundation-audit,foundation-notifications,foundation-analytics,foundation-webhooks" >> $OUTPUT_FILE
 
 # =============================================================================
 # Summary
@@ -117,7 +131,8 @@ echo "2. Set required secrets:"
 echo "   wrangler secret put CONTEXT_SIGNING_KEY"
 echo "   wrangler secret put TURNSTILE_SECRET"
 echo "3. Run database migrations:"
-echo "   cd services/gateway && wrangler d1 migrations apply future-idea-primary --remote"
+echo "   cd services/gateway && wrangler d1 migrations apply foundation-primary --remote"
+echo "   cd services/planning-machine && wrangler d1 migrations apply planning-primary --remote"
 echo "4. Validate configuration:"
 echo "   ./scripts/validate-config.sh"
 echo "5. Deploy all services:"
