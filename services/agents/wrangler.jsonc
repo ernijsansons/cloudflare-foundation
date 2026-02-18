@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "future-idea-agents",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [
+      { "name": "CHAT_AGENT", "class_name": "ChatAgent" },
+      { "name": "TASK_AGENT", "class_name": "TaskAgent" },
+      { "name": "TENANT_AGENT", "class_name": "TenantAgent" },
+      { "name": "SESSION_AGENT", "class_name": "SessionAgent" },
+      { "name": "MCP_SERVER", "class_name": "FoundationMcpServer" },
+      { "name": "RATE_LIMITER", "class_name": "TenantRateLimiter" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ChatAgent", "TaskAgent", "TenantAgent", "SessionAgent", "FoundationMcpServer", "TenantRateLimiter"] }
+  ],
+  "ai": { "binding": "AI" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "future-idea-primary", "database_id": "5e154005-781d-4fcb-9a39-9bde7974c03c" }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "future-idea-files" }
+  ],
+  "kv_namespaces": [
+    { "binding": "CACHE_KV", "id": "ef2305fbf6da4cffa948193efd40f40c" }
+  ],
+  "vectorize": [
+    { "binding": "VECTOR_INDEX", "index_name": "future-idea-embeddings" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "AUDIT_QUEUE", "queue": "future-idea-audit" },
+      { "binding": "ANALYTICS_QUEUE", "queue": "future-idea-analytics" }
+    ]
+  },
+  "analytics_engine_datasets": [
+    { "binding": "ANALYTICS", "dataset": "future_idea_events" }
+  ]
+}

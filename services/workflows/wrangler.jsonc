@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "future-idea-workflows",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "workflows": [
+    { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow" },
+    { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow" },
+    { "binding": "REPORT_WORKFLOW", "name": "report-generation", "class_name": "ReportGenerationWorkflow" },
+    { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow" }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "future-idea-primary", "database_id": "5e154005-781d-4fcb-9a39-9bde7974c03c" }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "future-idea-files" }
+  ],
+  "ai": { "binding": "AI" },
+  "queues": {
+    "producers": [
+      { "binding": "AUDIT_QUEUE", "queue": "future-idea-audit" }
+    ]
+  }
+}

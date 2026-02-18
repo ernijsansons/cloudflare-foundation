@@ -1,0 +1,21 @@
+{
+  "name": "@foundation/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./schema/index.ts",
+    "./schema": "./schema/index.ts"
+  },
+  "scripts": {
+    "build": "drizzle-kit generate",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "devDependencies": {
+    "drizzle-kit": "latest",
+    "drizzle-orm": "latest",
+    "typescript": "^5.7.0"
+  }
+}

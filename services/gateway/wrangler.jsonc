@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "future-idea-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "services": [
+    { "binding": "AGENT_SERVICE", "service": "foundation-agents" }
+  ],
+  "workflows": [
+    { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows" },
+    { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows" },
+    { "binding": "REPORT_WORKFLOW", "name": "report-generation", "class_name": "ReportGenerationWorkflow", "script_name": "foundation-workflows" },
+    { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows" }
+  ],
+  "kv_namespaces": [
+    { "binding": "RATE_LIMIT_KV", "id": "1e179df285ba4817b905633ce55d6d98" },
+    { "binding": "SESSION_KV", "id": "c53d7df2c22c43f590f960a913113737" }
+  ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "future-idea-primary", "database_id": "5e154005-781d-4fcb-9a39-9bde7974c03c" }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "future-idea-files" }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "AUDIT_QUEUE", "queue": "future-idea-audit" },
+      { "binding": "NOTIFICATION_QUEUE", "queue": "future-idea-notifications" }
+    ]
+  },
+  "ai": { "binding": "AI" },
+  "vectorize": [
+    { "binding": "VECTOR_INDEX", "index_name": "future-idea-embeddings" }
+  ],
+  "analytics_engine_datasets": [
+    { "binding": "ANALYTICS", "dataset": "future_idea_events" }
+  ],
+  "images": { "binding": "IMAGES" }
+}
