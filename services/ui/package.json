@@ -21,6 +21,6 @@
     "typescript": "^5.7.0",
     "vite": "latest",
     "@sveltejs/vite-plugin-svelte": "latest",
-    "wrangler": "^4.36.0"
+    "wrangler": "^4.66.0"
   }
 }

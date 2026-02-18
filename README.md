@@ -43,7 +43,7 @@ A complete serverless foundation with:
 
 - Node.js 20+
 - pnpm
-- Wrangler CLI
+- Wrangler CLI v4.66.0+
 - Cloudflare account
 
 ## Quick Start

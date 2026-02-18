@@ -262,6 +262,29 @@ Key indexes for query performance:
 | planning_runs | idx_runs_status | status | Status filtering |
 | planning_runs | idx_runs_created | created_at | Recent runs listing |
 
+## D1 Jurisdiction Support (Nov 2025)
+
+D1 databases can be restricted to a jurisdiction for data residency compliance. Supported jurisdictions:
+- `eu` — European Union
+- `fedramp` — FedRAMP (US government)
+
+Set at creation time only (immutable after creation):
+```bash
+wrangler d1 create foundation-primary --jurisdiction eu
+```
+
+Jurisdiction can also be set via the Cloudflare dashboard or REST API during database creation.
+
+## Durable Objects SQLite Storage Billing (Active Jan 7, 2026)
+
+SQLite storage in Durable Objects is now billed for Workers Paid plan accounts above free limits. This affects all agent classes: `ChatAgent`, `TaskAgent`, `TenantAgent`, `SessionAgent`, `FoundationMcpServer`, `TenantRateLimiter`.
+
+To minimize storage costs:
+- Use `maxPersistedMessages` (from `@cloudflare/ai-chat`) to cap chat history per agent
+- Run the daily cron cleanup (`services/cron`) to purge old data
+- Avoid storing large blobs in DO SQLite; prefer R2 for file storage
+- Free plan users are unaffected
+
 ## Backup & Recovery
 
 D1 provides automatic point-in-time recovery. For manual backups:
