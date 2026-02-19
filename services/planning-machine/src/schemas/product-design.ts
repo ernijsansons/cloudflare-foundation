@@ -19,6 +19,11 @@ export const ProductDesignOutputSchema = z.object({
   accessibilityRequirements: anyArray,
   performanceBudget: anyField,
   recommendedTechStack: anyField,
+  /**
+   * Draft tasks contributed by product-design toward final TASKS.json.
+   * Include: frontend pages, UI components, API endpoints, DB tables needed.
+   */
+  draftTasks: anyArray,
 }).passthrough();
 
 export type ProductDesignOutput = z.infer<typeof ProductDesignOutputSchema>;

@@ -282,6 +282,160 @@ Record an analytics event.
 
 ---
 
+## Naomi API (Execution Task Tracking)
+
+For Naomi OpenClaw orchestration. All endpoints require authentication. Tenant isolation applied.
+
+### POST /api/naomi/tasks
+
+Create a new execution task.
+
+**Request Body:**
+```json
+{
+  "run_id": "run_xxx",
+  "repo_url": "https://github.com/org/repo",
+  "agent": "claude"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| run_id | string | yes | Planning run ID |
+| repo_url | string | yes | Repository URL (must be valid) |
+| agent | string | no | Agent to use (default: claude) |
+
+**Response:**
+```json
+{
+  "id": "naomi_xxx",
+  "run_id": "run_xxx",
+  "repo_url": "https://github.com/org/repo",
+  "status": "pending",
+  "created_at": 1234567890
+}
+```
+
+Emits `task_assigned` webhook event.
+
+### GET /api/naomi/tasks
+
+List tasks. Filter by tenant.
+
+**Query Parameters:**
+| Param | Type | Description |
+|-------|------|-------------|
+| status | string | Filter: pending, running, completed, failed |
+| run_id | string | Filter by planning run |
+| limit | number | Max results (default 50, max 100) |
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "naomi_xxx",
+      "run_id": "run_xxx",
+      "repo_url": "https://...",
+      "agent": "claude",
+      "status": "running",
+      "phase": "implement",
+      "created_at": 1234567890
+    }
+  ]
+}
+```
+
+### GET /api/naomi/tasks/:id
+
+Get task detail with execution logs.
+
+**Response:**
+```json
+{
+  "id": "naomi_xxx",
+  "run_id": "run_xxx",
+  "repo_url": "https://...",
+  "status": "running",
+  "phase": "implement",
+  "claimed_at": 1234567890,
+  "logs": [
+    {
+      "id": 1,
+      "phase": "spec",
+      "level": "info",
+      "message": "Scaffolding complete",
+      "created_at": 1234567890
+    }
+  ]
+}
+```
+
+### POST /api/naomi/tasks/:id/claim
+
+Orchestrator claims a pending task. Acquires repo lock.
+
+**Request Body:**
+```json
+{
+  "vm_id": "vm-001"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "naomi_xxx",
+  "status": "running",
+  "run_id": "run_xxx",
+  "repo_url": "https://...",
+  "claimed_at": 1234567890
+}
+```
+
+**Status Codes:**
+- `409` - Task not pending, or repo locked by another task
+
+### POST /api/naomi/tasks/:id/progress
+
+Report task progress.
+
+**Request Body:**
+```json
+{
+  "phase": "implement",
+  "status": "running",
+  "error": null
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| phase | string | Current phase |
+| status | string | running, review, completed, failed |
+| error | string | Error message if failed |
+
+### POST /api/naomi/tasks/:id/logs
+
+Append execution log line.
+
+**Request Body:**
+```json
+{
+  "message": "Running tests...",
+  "phase": "test",
+  "level": "info"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| message | string | yes | Log message |
+| phase | string | no | Phase context |
+| level | string | no | info, warn, error (default: info) |
+
+---
+
 ## Admin Endpoints
 
 ### GET /api/admin/audit-verify/:tenantId

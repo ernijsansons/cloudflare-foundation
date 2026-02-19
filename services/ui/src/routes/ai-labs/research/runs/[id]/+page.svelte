@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/stores";
+  import { invalidateAll } from "$app/navigation";
   import Badge from "$lib/components/Badge.svelte";
   import PhaseTimeline from "$lib/components/PhaseTimeline.svelte";
   import PhaseDetail from "$lib/components/PhaseDetail.svelte";
@@ -17,6 +18,8 @@
 
   // Track selected phase - default to first phase
   let selectedPhase = $state<PhaseName>("opportunity");
+  let actionLoading = $state<string | null>(null);
+  let actionError = $state<string | null>(null);
 
   // Sync selected phase with data changes
   $effect(() => {
@@ -54,6 +57,34 @@
   function getProgressPercent(artifacts: Record<string, PlanningArtifact>): number {
     return Math.round((Object.keys(artifacts).length / PHASE_ORDER.length) * 100);
   }
+
+  async function handleRunAction(action: "pause" | "resume" | "cancel" | "delete") {
+    if (!data.run) return;
+    actionLoading = action;
+    actionError = null;
+
+    try {
+      const method = action === "delete" ? "DELETE" : "POST";
+      const endpoint = action === "delete"
+        ? `/api/planning/runs/${data.run.id}`
+        : `/api/planning/runs/${data.run.id}/${action}`;
+
+      const res = await fetch(endpoint, { method });
+      const result = await res.json();
+
+      if (!res.ok) {
+        actionError = result.error || `Failed to ${action} run`;
+        return;
+      }
+
+      // Refresh the page data
+      await invalidateAll();
+    } catch (e) {
+      actionError = e instanceof Error ? e.message : `Failed to ${action} run`;
+    } finally {
+      actionLoading = null;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -75,12 +106,103 @@
           </svg>
           Back to Research
         </a>
-        {#if data.run.mode}
-          <span class="mode-badge {data.run.mode}">
-            {data.run.mode === "local" ? "Local" : "Cloud"}
-          </span>
-        {/if}
+        <div class="header-actions">
+          {#if data.run.mode}
+            <span class="mode-badge {data.run.mode}">
+              {data.run.mode === "local" ? "Local" : "Cloud"}
+            </span>
+          {/if}
+          <div class="action-buttons">
+            {#if data.run.status === "running"}
+              <button
+                class="action-btn pause"
+                onclick={() => handleRunAction("pause")}
+                disabled={actionLoading !== null}
+              >
+                {#if actionLoading === "pause"}
+                  <span class="spinner"></span>
+                {:else}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="4" width="4" height="16"/>
+                    <rect x="14" y="4" width="4" height="16"/>
+                  </svg>
+                {/if}
+                Pause
+              </button>
+              <button
+                class="action-btn cancel"
+                onclick={() => handleRunAction("cancel")}
+                disabled={actionLoading !== null}
+              >
+                {#if actionLoading === "cancel"}
+                  <span class="spinner"></span>
+                {:else}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                  </svg>
+                {/if}
+                Cancel
+              </button>
+            {/if}
+            {#if data.run.status === "paused"}
+              <button
+                class="action-btn resume"
+                onclick={() => handleRunAction("resume")}
+                disabled={actionLoading !== null}
+              >
+                {#if actionLoading === "resume"}
+                  <span class="spinner"></span>
+                {:else}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5,3 19,12 5,21"/>
+                  </svg>
+                {/if}
+                Resume
+              </button>
+              <button
+                class="action-btn cancel"
+                onclick={() => handleRunAction("cancel")}
+                disabled={actionLoading !== null}
+              >
+                {#if actionLoading === "cancel"}
+                  <span class="spinner"></span>
+                {:else}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                  </svg>
+                {/if}
+                Cancel
+              </button>
+            {/if}
+            {#if data.run.status !== "running"}
+              <button
+                class="action-btn delete"
+                onclick={() => handleRunAction("delete")}
+                disabled={actionLoading !== null}
+              >
+                {#if actionLoading === "delete"}
+                  <span class="spinner"></span>
+                {:else}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                  </svg>
+                {/if}
+                Delete
+              </button>
+            {/if}
+          </div>
+        </div>
       </div>
+      {#if actionError}
+        <div class="action-error">{actionError}</div>
+      {/if}
 
       <h1 class="run-title">{data.run.refined_idea ?? data.run.idea}</h1>
 
@@ -172,6 +294,101 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.75rem;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .action-btn:hover:not(:disabled) {
+    background: var(--color-bg-secondary);
+  }
+
+  .action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .action-btn.pause {
+    border-color: var(--color-warning, #f59e0b);
+    color: var(--color-warning, #f59e0b);
+  }
+
+  .action-btn.pause:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warning, #f59e0b) 10%, transparent);
+  }
+
+  .action-btn.resume {
+    border-color: var(--color-success, #10b981);
+    color: var(--color-success, #10b981);
+  }
+
+  .action-btn.resume:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success, #10b981) 10%, transparent);
+  }
+
+  .action-btn.cancel {
+    border-color: var(--color-error, #ef4444);
+    color: var(--color-error, #ef4444);
+  }
+
+  .action-btn.cancel:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error, #ef4444) 10%, transparent);
+  }
+
+  .action-btn.delete {
+    border-color: var(--color-error, #ef4444);
+    color: var(--color-error, #ef4444);
+  }
+
+  .action-btn.delete:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error, #ef4444) 10%, transparent);
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .action-error {
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.5rem;
+    background: color-mix(in srgb, var(--color-error, #ef4444) 10%, transparent);
+    border: 1px solid var(--color-error, #ef4444);
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    color: var(--color-error, #ef4444);
   }
 
   .back-link {

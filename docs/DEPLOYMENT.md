@@ -10,4 +10,8 @@ From root: pnpm install then bash scripts/deploy-all.sh. Order: queues, workflow
 
 ## Migrations
 
-From services/gateway: wrangler d1 migrations apply foundation-primary --remote. Migrations in packages/db/migrations/.
+From services/gateway: `npx wrangler d1 migrations apply foundation-primary --remote`
+
+Migrations include: init, webhook_destinations, notifications, naomi_tasks (0003), naomi_tenant (0004).
+
+For Naomi deployment details, see [NAOMI_DEPLOYMENT.md](NAOMI_DEPLOYMENT.md).

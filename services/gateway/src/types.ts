@@ -16,6 +16,7 @@ export interface Env {
   DATA_PIPELINE_WORKFLOW?: Workflow;
   REPORT_WORKFLOW?: Workflow;
   EMAIL_WORKFLOW?: Workflow;
+  FOUNDATION_MCP: DurableObjectNamespace;
   IMAGES?: unknown;
   CONTEXT_SIGNING_KEY: string;
   TURNSTILE_SECRET: string;
@@ -26,4 +27,5 @@ export interface Variables {
   userId?: string;
   plan?: string;
   correlationId?: string;
+  contextToken?: string;
 }

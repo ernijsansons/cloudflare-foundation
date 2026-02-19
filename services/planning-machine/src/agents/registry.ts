@@ -19,6 +19,7 @@ import { TechArchAgent } from "./tech-arch-agent";
 import { AnalyticsAgent } from "./analytics-agent";
 import { LaunchExecutionAgent } from "./launch-execution-agent";
 import { SynthesisAgent } from "./synthesis-agent";
+import { TaskReconciliationAgent } from "./task-reconciliation-agent";
 
 export const PHASE_ORDER = [
   "opportunity",
@@ -36,6 +37,7 @@ export const PHASE_ORDER = [
   "analytics",
   "launch-execution",
   "synthesis",
+  "task-reconciliation",
 ] as const;
 
 export type PhaseName = (typeof PHASE_ORDER)[number];
@@ -56,6 +58,7 @@ const AGENT_FACTORIES: Record<PhaseName, new (env: Env) => BaseAgent> = {
   analytics: AnalyticsAgent as new (env: Env) => BaseAgent,
   "launch-execution": LaunchExecutionAgent as new (env: Env) => BaseAgent,
   synthesis: SynthesisAgent as new (env: Env) => BaseAgent,
+  "task-reconciliation": TaskReconciliationAgent as new (env: Env) => BaseAgent,
 };
 
 export function getAgentForPhase(phase: PhaseName, env: Env): BaseAgent {
@@ -69,5 +72,5 @@ export function getPhasesBeforeKillTest(): PhaseName[] {
 }
 
 export function getPhasesAfterKillTest(): PhaseName[] {
-  return ["revenue-expansion", "strategy", "business-model", "product-design", "gtm-marketing", "content-engine", "tech-arch", "analytics", "launch-execution", "synthesis"];
+  return ["revenue-expansion", "strategy", "business-model", "product-design", "gtm-marketing", "content-engine", "tech-arch", "analytics", "launch-execution", "synthesis", "task-reconciliation"];
 }

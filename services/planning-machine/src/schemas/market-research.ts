@@ -45,6 +45,26 @@ const MarketRisksSchema = z.union([
   z.string(),
 ]).nullish();
 
+export const CitationSchema = z.object({
+  claim: z.string(),
+  url: z.string(),
+  date: z.string().nullish(),
+  confidence: z.enum(["high", "medium", "low"]).default("medium"),
+});
+
+export const DraftTaskSchema = z.object({
+  title: z.string(),
+  description: z.string().nullish(),
+  category: z.enum([
+    "devops", "backend", "frontend", "middleware", "database",
+    "testing", "security", "integration", "documentation", "launch",
+    "copy", "seo", "content", "campaign", "social", "email",
+  ]).default("backend"),
+  type: z.enum(["code", "marketing"]).default("code"),
+  priority: z.enum(["p0", "p1", "p2", "p3"]).default("p2"),
+  estimatedEffort: z.enum(["xs", "s", "m", "l", "xl"]).default("m"),
+}).passthrough();
+
 export const MarketResearchOutputSchema = z.object({
   marketSize: MarketSizeSchema,
   growthRate: z.string().nullish(),
@@ -60,6 +80,12 @@ export const MarketResearchOutputSchema = z.object({
   priceRanges: PriceRangesSchema,
   regulatoryFactors: z.array(z.string()).nullish(),
   marketRisks: MarketRisksSchema,
+  /** Citations from live web search — prevents hallucinated market claims */
+  citations: z.array(CitationSchema).default([]),
+  /** Draft tasks contributed by this phase toward final TASKS.json */
+  draftTasks: z.array(DraftTaskSchema).default([]),
 });
 
 export type MarketResearchOutput = z.infer<typeof MarketResearchOutputSchema>;
+export type Citation = z.infer<typeof CitationSchema>;
+export type DraftTask = z.infer<typeof DraftTaskSchema>;

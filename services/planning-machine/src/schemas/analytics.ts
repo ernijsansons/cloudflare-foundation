@@ -11,6 +11,11 @@ export const AnalyticsOutputSchema = z.object({
   abTestPlan: anyArray,
   queueMessageSchemas: anyField,
   analyticsEngineQueries: anyArray,
+  /**
+   * Draft tasks contributed by analytics toward final TASKS.json.
+   * Include: Analytics Engine setup, event tracking implementation, dashboard tasks.
+   */
+  draftTasks: anyArray,
 }).passthrough();
 
 export type AnalyticsOutput = z.infer<typeof AnalyticsOutputSchema>;

@@ -40,5 +40,13 @@
   "analytics_engine_datasets": [
     { "binding": "ANALYTICS", "dataset": "foundation_events" }
   ],
-  "images": { "binding": "IMAGES" }
+  "images": { "binding": "IMAGES" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "FOUNDATION_MCP", "class_name": "FoundationMcpServer" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_classes": ["FoundationMcpServer"] }
+  ]
 }

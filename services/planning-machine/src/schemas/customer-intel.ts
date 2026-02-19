@@ -71,6 +71,14 @@ export const CustomerIntelOutputSchema = z.object({
   customerLanguage: CustomerLanguageSchema,
   jobsToBeDone: z.array(JobToBeDoneSchema).nullish(),
   unknowns: z.array(z.string()).default([]),
+  /** Citations from community research (Reddit, forums, reviews) */
+  citations: z.array(z.object({
+    claim: z.string(),
+    url: z.string(),
+    date: z.string().nullish(),
+    confidence: z.enum(["high", "medium", "low"]).default("medium"),
+  })).default([]),
+  draftTasks: z.array(z.any()).default([]),
 });
 
 export type CustomerIntelOutput = z.infer<typeof CustomerIntelOutputSchema>;

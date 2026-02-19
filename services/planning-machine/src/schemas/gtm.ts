@@ -14,6 +14,11 @@ export const GTMOutputSchema = z.object({
   microBudgetAds: anyField,
   conversionFunnel: anyField,
   analyticsEventTaxonomy: anyArray,
+  /**
+   * Draft tasks contributed by GTM toward final TASKS.json.
+   * Include: marketing campaigns, SEO tasks, launch channel tasks, ad setup.
+   */
+  draftTasks: anyArray,
 }).passthrough();
 
 export type GTMOutput = z.infer<typeof GTMOutputSchema>;

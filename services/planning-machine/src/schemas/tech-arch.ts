@@ -18,6 +18,11 @@ export const TechArchOutputSchema = z.object({
   authFlowDecisions: anyField,
   thirdPartyIntegrations: anyArray,
   technicalDecisions: anyArray,
+  /**
+   * Draft tasks contributed by tech-arch toward final TASKS.json.
+   * Include: infra setup, DB migrations, workers, bindings, devops tasks.
+   */
+  draftTasks: anyArray,
 }).passthrough();
 
 export type TechArchOutput = z.infer<typeof TechArchOutputSchema>;

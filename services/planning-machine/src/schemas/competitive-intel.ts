@@ -34,6 +34,14 @@ export const CompetitiveIntelOutputSchema = z.object({
   messagingGaps: z.array(z.string()).nullish().default([]),
   pricingGaps: z.array(z.string()).nullish().default([]),
   vulnerabilities: z.array(z.string()).nullish().default([]),
+  /** Citations from live competitor research — must include real competitor URLs */
+  citations: z.array(z.object({
+    claim: z.string(),
+    url: z.string(),
+    date: z.string().nullish(),
+    confidence: z.enum(["high", "medium", "low"]).default("medium"),
+  })).default([]),
+  draftTasks: z.array(z.any()).default([]),
 });
 
 export type CompetitiveIntelOutput = z.infer<typeof CompetitiveIntelOutputSchema>;

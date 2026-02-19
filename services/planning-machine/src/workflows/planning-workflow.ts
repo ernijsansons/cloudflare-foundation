@@ -476,6 +476,93 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
       priorOutputs[phase] = phaseOutput;
     }
 
+    // ── Phase 16: Task Reconciliation ──────────────────────────────────────────
+    // Reads draft tasks from phases 9-14 (compact arrays, NOT full outputs).
+    // Produces TASKS.json and saves it as both a planning_artifact and R2 object.
+    const taskReconciliationOutput = await step.do("phase-task-reconciliation", async (): Promise<object> => {
+      // Extract only draft tasks from contributing phases (keeps context window small)
+      const draftTasksByPhase: Record<string, unknown[]> = {};
+      const draftPhases = ["product-design", "gtm-marketing", "content-engine", "tech-arch", "analytics", "launch-execution"];
+      for (const draftPhase of draftPhases) {
+        const phaseOutput = priorOutputs[draftPhase] as Record<string, unknown> | undefined;
+        if (phaseOutput?.draftTasks && Array.isArray(phaseOutput.draftTasks)) {
+          draftTasksByPhase[draftPhase] = phaseOutput.draftTasks;
+        }
+      }
+
+      // Compact summaries for context bundle — just enough for naomiPrompt generation
+      const techArchOutput = priorOutputs["tech-arch"] as Record<string, unknown> | undefined;
+      const productDesignOutput = priorOutputs["product-design"] as Record<string, unknown> | undefined;
+      const techArchSummary = techArchOutput
+        ? `API Routes: ${JSON.stringify(techArchOutput.apiRoutes ?? []).slice(0, 800)}\nDB Schema: ${JSON.stringify(techArchOutput.databaseSchema ?? {}).slice(0, 800)}`
+        : "No tech arch output available";
+      const productDesignSummary = productDesignOutput
+        ? `MVP Scope: ${JSON.stringify(productDesignOutput.mvpScope ?? {}).slice(0, 600)}`
+        : "No product design output available";
+
+      const intake = priorOutputs["__intake__"] as Record<string, unknown> | undefined;
+      const intakeConstraints = intake ?? {
+        techStack: "Cloudflare-native (Workers, D1, KV, R2, Queues, Durable Objects, SvelteKit)",
+        teamSize: "1-2 engineers + AI agents",
+        budgetRange: "bootstrap",
+        deploymentTarget: "Cloudflare Pages + Workers",
+        mustAvoid: [],
+      };
+
+      const { TaskReconciliationAgent } = await import("../agents/task-reconciliation-agent");
+      const agent = new TaskReconciliationAgent(this.env);
+      const result = await agent.run(
+        { runId, idea, refinedIdea, priorOutputs },
+        {
+          draftTasksByPhase: draftTasksByPhase as Record<string, Array<Record<string, unknown>>>,
+          intakeConstraints,
+          techArchSummary,
+          productDesignSummary,
+          namingConventions: { files: "kebab-case", functions: "camelCase", dbColumns: "snake_case" },
+        }
+      );
+
+      if (!result.success || !result.output) {
+        console.error("[workflow] Task reconciliation failed:", result.errors);
+        return {
+          projectId: runId, projectName: idea, generatedAt: new Date().toISOString(),
+          version: "1.0", summary: { totalTasks: 0, totalMarketingTasks: 0, byCategory: {}, byPriority: {}, criticalPath: [], buildPhaseCount: 8 },
+          intakeConstraints, buildPhases: [], tasks: [], marketingTasks: [],
+          pipelineMemoryUsed: [], researchCitationCount: 0,
+          reconciliation: { draftTasksReceived: 0, tasksMerged: 0, securityTasksAdded: 0, glueTasksAdded: 0, testTasksAdded: 0, infraTasksAdded: 0, dependencyCyclesFound: 0, cyclesResolved: [], contributingPhases: [], lessonsApplied: [] },
+        };
+      }
+
+      return result.output as object;
+    });
+
+    // Save Phase 16 artifact + TASKS.json to R2
+    await step.do("save-task-reconciliation-artifact", async () => {
+      const artifactId = crypto.randomUUID();
+      const contentStr = JSON.stringify(taskReconciliationOutput);
+
+      await this.env.DB.prepare(
+        "UPDATE planning_runs SET current_phase = ?, updated_at = ? WHERE id = ?"
+      ).bind("task-reconciliation", Math.floor(Date.now() / 1000), runId).run();
+
+      await this.env.DB.prepare(
+        `INSERT INTO planning_artifacts (id, run_id, phase, version, content, review_verdict, review_iterations, overall_score, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(artifactId, runId, "task-reconciliation", 1, contentStr, "ACCEPTED", 1, null, Math.floor(Date.now() / 1000)).run();
+
+      // Store TASKS.json to R2 for direct download by Naomi bridge
+      if (this.env.FILES) {
+        await this.env.FILES.put(`runs/${runId}/TASKS.json`, contentStr, {
+          httpMetadata: { contentType: "application/json" },
+          customMetadata: { runId, phase: "task-reconciliation", generatedAt: String(Date.now()) },
+        });
+      }
+
+      return { saved: true, artifactId };
+    });
+
+    priorOutputs["task-reconciliation"] = taskReconciliationOutput;
+    // ── End Phase 16 ───────────────────────────────────────────────────────────
+
     await step.do("complete", async () => {
       let packageKey: string | null = null;
       if (this.env.FILES && Object.keys(priorOutputs).length > 0) {

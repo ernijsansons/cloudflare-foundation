@@ -14,6 +14,12 @@ export const ContentEngineOutputSchema = z.object({
   faqContent: anyArray,
   legalRequirements: anyField,
   changelogFormat: anyField,
+  /**
+   * Draft tasks contributed by content-engine toward final TASKS.json.
+   * Include: landing page copy tasks, email sequence tasks, UX copy tasks.
+   * These are type: "marketing" tasks with humanReviewRequired: true.
+   */
+  draftTasks: anyArray,
 }).passthrough();
 
 export type ContentEngineOutput = z.infer<typeof ContentEngineOutputSchema>;
