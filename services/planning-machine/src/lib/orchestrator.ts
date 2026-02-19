@@ -11,6 +11,7 @@
 import type { Env } from "../types";
 import type { BaseAgent } from "../agents/base-agent";
 import type { AgentContext, AgentResult } from "../agents/base-agent";
+import { extractJSON } from "./json-extractor";
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -466,28 +467,5 @@ async function runMiniMaxModel(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Internal: JSON extraction
-// ---------------------------------------------------------------------------
-
-/**
- * Extract the first JSON object or array from a string.
- * Handles both raw JSON and markdown code fences (```json ... ```).
- */
-export function extractJSON(text: string): unknown {
-  // Strip markdown code fence if present
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenceMatch ? fenceMatch[1]!.trim() : text;
-
-  // Try to find a JSON object or array
-  const objMatch = candidate.match(/\{[\s\S]*\}/);
-  const arrMatch = candidate.match(/\[[\s\S]*\]/);
-
-  // Prefer object over array (most agent outputs are objects)
-  const jsonStr = objMatch ?? arrMatch;
-  if (!jsonStr) {
-    throw new Error("No JSON found in synthesizer output");
-  }
-
-  return JSON.parse(jsonStr[0]);
-}
+// Re-export extractJSON from shared utility for backwards compatibility
+export { extractJSON } from "./json-extractor";

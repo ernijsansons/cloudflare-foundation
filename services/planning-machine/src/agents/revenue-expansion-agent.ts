@@ -9,6 +9,7 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { RevenueExpansionOutputSchema, type RevenueExpansionOutput } from "../schemas/revenue-expansion";
+import { extractJSON } from "../lib/json-extractor";
 
 interface RevenueExpansionInput {
   idea: string;
@@ -130,9 +131,7 @@ Produce valid JSON matching the schema.`;
         maxTokens: this.config.maxTokens ?? 6144,
       });
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : response;
-      const parsed = JSON.parse(jsonStr);
+      const parsed = extractJSON(response);
       const output = RevenueExpansionOutputSchema.parse(parsed);
 
       return {

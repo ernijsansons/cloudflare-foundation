@@ -7,6 +7,7 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { ProductDesignOutputSchema, type ProductDesignOutput } from "../schemas/product-design";
+import { extractJSON } from "../lib/json-extractor";
 
 interface ProductDesignInput {
   idea: string;
@@ -91,8 +92,7 @@ Produce valid JSON matching the schema.`;
 
     try {
       const response = await runModel(this.env.AI, "generator", messages, { temperature: 0.5, maxTokens: this.config.maxTokens ?? 6144 });
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
+      const parsed = extractJSON(response);
       const output = ProductDesignOutputSchema.parse(parsed);
       return { success: true, output };
     } catch (e) {

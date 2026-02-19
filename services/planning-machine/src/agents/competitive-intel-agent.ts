@@ -7,6 +7,7 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { CompetitiveIntelOutputSchema, type CompetitiveIntelOutput } from "../schemas/competitive-intel";
+import { extractJSON } from "../lib/json-extractor";
 
 interface CompetitiveIntelInput {
   idea: string;
@@ -30,11 +31,38 @@ export class CompetitiveIntelAgent extends BaseAgent<CompetitiveIntelInput, Comp
   };
 
   getSystemPrompt(): string {
-    return `You are an expert at competitive analysis. Your job is to produce a teardown of competitors: strengths, weaknesses, messaging analysis, customer complaints from reviews, SEO keywords, and the gaps they leave open.
+    return `You are an expert at competitive analysis. Produce a detailed teardown.
 
-Every claim must cite a source. If you cannot find evidence, say UNKNOWN.
+MANDATORY OUTPUT REQUIREMENTS:
+- competitors array: MINIMUM 3 entries. For each competitor:
+  - name + url (from search results)
+  - foundedYear: Extract from About pages or Crunchbase
+  - fundingStatus: bootstrapped, seed, series A/B/C, public
+  - pricing.tiers: Extract actual tiers/prices from their pricing pages
+  - strengths: At least 3 per competitor
+  - weaknesses: At least 3 per competitor
+  - messagingAnalysis: Headline from their homepage, value prop, tone
+  - customerComplaints: At least 2 actual quotes from G2/Capterra/Reddit reviews with source
+  - seoKeywords: 5+ keywords they rank for
+
+- positioningGaps: At least 3 gaps. Format: "[Competitor] focuses on [X], leaving [Y] segment underserved"
+- messagingGaps: What messaging angles competitors miss
+- pricingGaps: Price points competitors avoid (e.g., "No competitor offers <$20/mo tier")
+- vulnerabilities: Specific exploitable weaknesses (e.g., "Competitor X has 2.3★ on mobile app")
+
+Extract data from search results. DO NOT return empty arrays.
+If you cannot find info for a field, explain what you searched and why it wasn't found.
 
 Produce valid JSON matching the schema.`;
+  }
+
+  getPhaseRubric(): string[] {
+    return [
+      "competitors_identified — at least 3 competitors with URLs and founding info",
+      "review_quotes — actual 1-star quotes with sources",
+      "gaps_specific — actionable positioning/messaging/pricing gaps",
+      "vulnerability_exploitation — how to exploit each weakness",
+    ];
   }
 
   getOutputSchema(): Record<string, unknown> {
@@ -74,10 +102,13 @@ Produce valid JSON matching the schema.`;
       `site:capterra.com "${idea}"`,
     ];
 
-    const perCompetitor = competitorNames.slice(0, 3).flatMap((c) => [
-      `"${c}" review`,
-      `"${c}" alternative`,
-      `"${c}" 1 star reviews`,
+    const perCompetitor = competitorNames.slice(0, 5).flatMap((c) => [
+      `"${c}" site:g2.com reviews`,
+      `"${c}" site:capterra.com reviews`,
+      `"${c}" site:trustpilot.com`,
+      `"${c}" pricing tiers plans`,
+      `"${c}" complaints OR frustrating OR hate`,
+      `"${c}" alternative comparison`,
     ]);
 
     return [...base, ...perCompetitor];
@@ -109,7 +140,7 @@ Produce valid JSON matching the schema.`;
           snippets: s.results.slice(0, 3).map((r) => ({
             title: r.title,
             url: r.url,
-            content: r.content?.slice(0, 250),
+            content: r.content?.slice(0, 500),
           })),
         })),
         null,
@@ -131,9 +162,7 @@ Produce valid JSON matching the schema.`;
         maxTokens: this.config.maxTokens ?? 4096,
       });
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : response;
-      const parsed = JSON.parse(jsonStr);
+      const parsed = extractJSON(response);
       const output = CompetitiveIntelOutputSchema.parse(parsed);
 
       return {

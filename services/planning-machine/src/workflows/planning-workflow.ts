@@ -59,12 +59,15 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
       return ((row as Record<string, unknown>)?.pivot_count as number) ?? 0;
     });
 
-    // Emit run_started webhook
-    await emitWebhookEvent(this.env.WEBHOOK_QUEUE, {
-      type: "run_started",
-      runId,
-      status: "running",
-      timestamp: Math.floor(Date.now() / 1000),
+    // Emit run_started webhook (must be in step)
+    await step.do("emit-run-started-webhook", async () => {
+      await emitWebhookEvent(this.env.WEBHOOK_QUEUE, {
+        type: "run_started",
+        runId,
+        status: "running",
+        timestamp: Math.floor(Date.now() / 1000),
+      });
+      return { emitted: true };
     });
 
     const runPhase = async (phaseName: PhaseName, reviewerFeedback?: string): Promise<unknown> => {
@@ -198,15 +201,18 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
             return { pivotCount };
           });
 
-          // Emit pivot_triggered webhook
-          await emitWebhookEvent(this.env.WEBHOOK_QUEUE, {
-            type: "pivot_triggered",
-            runId,
-            phase: "kill-test",
-            status: "running",
-            verdict: "PIVOT",
-            pivotCount,
-            timestamp: Math.floor(Date.now() / 1000),
+          // Emit pivot_triggered webhook (must be in step)
+          await step.do(`emit-pivot-webhook-${pivotCount}`, async () => {
+            await emitWebhookEvent(this.env.WEBHOOK_QUEUE, {
+              type: "pivot_triggered",
+              runId,
+              phase: "kill-test",
+              status: "running",
+              verdict: "PIVOT",
+              pivotCount,
+              timestamp: Math.floor(Date.now() / 1000),
+            });
+            return { emitted: true };
           });
 
           priorOutputs.opportunity = undefined;
@@ -315,14 +321,17 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
           return { saved: true };
         });
 
-        // Emit phase_completed webhook for kill-test GO
-        await emitWebhookEvent(this.env.WEBHOOK_QUEUE, {
-          type: "phase_completed",
-          runId,
-          phase,
-          status: "running",
-          verdict: "GO",
-          timestamp: Math.floor(Date.now() / 1000),
+        // Emit phase_completed webhook for kill-test GO (must be in step)
+        await step.do(`emit-kill-test-webhook-${pivotCount + 1}`, async () => {
+          await emitWebhookEvent(this.env.WEBHOOK_QUEUE, {
+            type: "phase_completed",
+            runId,
+            phase,
+            status: "running",
+            verdict: "GO",
+            timestamp: Math.floor(Date.now() / 1000),
+          });
+          return { emitted: true };
         });
 
         priorOutputs[phase] = output;
@@ -451,14 +460,17 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
         return output as object;
       });
 
-      // Emit phase_completed webhook
-      await emitWebhookEvent(this.env.WEBHOOK_QUEUE, {
-        type: "phase_completed",
-        runId,
-        phase,
-        status: "running",
-        score: null,
-        timestamp: Math.floor(Date.now() / 1000),
+      // Emit phase_completed webhook (must be in step)
+      await step.do(`emit-${phase}-webhook`, async () => {
+        await emitWebhookEvent(this.env.WEBHOOK_QUEUE, {
+          type: "phase_completed",
+          runId,
+          phase,
+          status: "running",
+          score: null,
+          timestamp: Math.floor(Date.now() / 1000),
+        });
+        return { emitted: true };
       });
 
       priorOutputs[phase] = phaseOutput;

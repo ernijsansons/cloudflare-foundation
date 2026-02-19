@@ -7,6 +7,7 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { StrategyOutputSchema, type StrategyOutput } from "../schemas/strategy";
+import { extractJSON } from "../lib/json-extractor";
 
 interface StrategyInput {
   idea: string;
@@ -82,8 +83,7 @@ Produce valid JSON matching the schema.`;
 
     try {
       const response = await runModel(this.env.AI, "generator", messages, { temperature: 0.5, maxTokens: 4096 });
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
+      const parsed = extractJSON(response);
       const output = StrategyOutputSchema.parse(parsed);
       return { success: true, output };
     } catch (e) {

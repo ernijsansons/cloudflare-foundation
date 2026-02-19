@@ -8,6 +8,7 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { CustomerIntelOutputSchema, type CustomerIntelOutput } from "../schemas/customer-intel";
+import { extractJSON } from "../lib/json-extractor";
 
 interface CustomerIntelInput {
   idea: string;
@@ -32,13 +33,37 @@ export class CustomerIntelAgent extends BaseAgent<CustomerIntelInput, CustomerIn
   };
 
   getSystemPrompt(): string {
-    return `You are an expert at understanding the exact human a product is built for. Your job is to produce a dossier so detailed that every later phase (design, copy, SEO, GTM) can use your outputs without guessing.
+    return `You are an expert at understanding the exact human a product is built for.
 
-The single most important output is customerLanguage — the exact words, phrases, and metaphors real customers use when talking about this problem. These feed directly into headlines, SEO keywords, and email copy.
+COMPLETENESS REQUIREMENTS:
+- idealCustomerProfiles: Exactly 2-3 profiles. Each MUST have:
+  - demographics: Specific job title (not "various") + company size (1-10, 11-50, etc.)
+  - psychographics: Values, fears, aspirations - be specific, not generic
+  - painPoints: At least 3, each with exactQuote from search results and source URL
+  - buyingTriggers: 3+ specific moments when they start searching
+  - currentSolutions: What tools they cobble together now, what they pay, what they hate
+  - wateringHoles: At least 3 real communities with URLs and member counts
+    - MUST be real: r/subreddit with actual URL, Slack/Discord with name, newsletters with link
+  - searchBehavior: 5+ actual search queries they'd type at 2am
+  - willingnessToPay: Dollar range with evidence (competitor pricing, forum mentions)
 
-Every claim must cite a source. If you cannot find evidence, list it in unknowns.
+- customerLanguage: THE MOST IMPORTANT OUTPUT
+  - exactWords: 10+ actual phrases customers use (from Reddit, forums, reviews)
+  - phrases: 5+ longer expressions they say
+  - metaphors: How they describe the problem
+  - Pull DIRECTLY from search result quotes, don't paraphrase
 
-Produce valid JSON matching the schema. idealCustomerProfiles: 2-3 distinct ICPs. Each must have wateringHoles with real, linkable communities.`;
+- jobsToBeDone: At least 3 jobs in format:
+  - functional: "When [situation], I want to [action]"
+  - emotional: "So I can feel [emotion]"
+  - social: "So others see me as [perception]"
+
+- unknowns: List what you COULD NOT find. This helps synthesis phase identify gaps.
+
+Every quote MUST have a source URL. Don't make up quotes.
+This dossier feeds ALL downstream phases - be thorough.
+
+Produce valid JSON matching the schema.`;
   }
 
   getOutputSchema(): Record<string, unknown> {
@@ -112,7 +137,7 @@ Produce valid JSON matching the schema. idealCustomerProfiles: 2-3 distinct ICPs
           snippets: s.results.slice(0, 4).map((r) => ({
             title: r.title,
             url: r.url,
-            content: r.content?.slice(0, 300),
+            content: r.content?.slice(0, 500),
             provider: r.provider,
           })),
         })),
@@ -135,9 +160,7 @@ Produce valid JSON matching the schema. idealCustomerProfiles: 2-3 distinct ICPs
         maxTokens: this.config.maxTokens ?? 4096,
       });
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : response;
-      const parsed = JSON.parse(jsonStr);
+      const parsed = extractJSON(response);
       const output = CustomerIntelOutputSchema.parse(parsed);
 
       return {

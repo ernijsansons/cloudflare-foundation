@@ -14,7 +14,7 @@ import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { OpportunityOutputSchema, type OpportunityOutput } from "../schemas/opportunity";
 import type { OrchestrationResult } from "../lib/orchestrator";
-import { extractJSON } from "../lib/orchestrator";
+import { extractJSON } from "../lib/json-extractor";
 
 interface OpportunityInput {
   idea: string;
@@ -111,7 +111,30 @@ Output valid JSON matching the schema. Include agenticScore for each variant.`;
     ].join("\n\n");
 
     const systemPrompt = this.buildSystemPrompt();
-    const userPrompt = `Analyze this idea and find 3-5 opportunity variants. Use ONLY the search results as evidence.\n\n${context}`;
+    const userPrompt = `Analyze this idea and find 3-5 opportunity variants. Use ONLY the search results as evidence.
+
+${context}
+
+Output a JSON object with this EXACT structure:
+{
+  "originalIdea": "${idea}",
+  "refinedOpportunities": [
+    {
+      "idea": "variant name",
+      "description": "what this variant does",
+      "revenuePotential": "VERY_HIGH|HIGH|MEDIUM|LOW",
+      "customerUrgency": "VERY_HIGH|HIGH|MEDIUM|LOW",
+      "competitionDensity": "LOW|MEDIUM|HIGH",
+      "feasibility": "HIGH|MEDIUM|LOW",
+      "agenticScore": "HIGH|MEDIUM|LOW",
+      "reasoning": "why this variant",
+      "sources": [{"claim": "...", "url": "...", "snippet": "..."}]
+    }
+  ],
+  "recommendedIndex": 0,
+  "keyInsight": "most important finding",
+  "unknowns": ["things to investigate"]
+}`;
 
     // Orchestrated path: parallel multi-model inference + synthesis
     if (this.env.ORCHESTRATION_ENABLED === "true") {
@@ -177,9 +200,7 @@ Output valid JSON matching the schema. Include agenticScore for each variant.`;
         maxTokens: 2048,
       });
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : response;
-      const parsed = JSON.parse(jsonStr);
+      const parsed = extractJSON(response);
       const output = OpportunityOutputSchema.parse(parsed);
 
       return { success: true, output };

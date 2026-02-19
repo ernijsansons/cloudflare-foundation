@@ -6,6 +6,7 @@ import type { Env } from "../types";
 import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { AnalyticsOutputSchema, type AnalyticsOutput } from "../schemas/analytics";
+import { extractJSON } from "../lib/json-extractor";
 
 interface AnalyticsInput {
   idea: string;
@@ -51,8 +52,7 @@ export class AnalyticsAgent extends BaseAgent<AnalyticsInput, AnalyticsOutput> {
 
     try {
       const response = await runModel(this.env.AI, "generator", messages, { temperature: 0.3, maxTokens: this.config.maxTokens ?? 4096 });
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
+      const parsed = extractJSON(response);
       const output = AnalyticsOutputSchema.parse(parsed);
       return { success: true, output };
     } catch (e) {

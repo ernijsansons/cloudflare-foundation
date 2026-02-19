@@ -7,6 +7,7 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { GTMOutputSchema, type GTMOutput } from "../schemas/gtm";
+import { extractJSON } from "../lib/json-extractor";
 
 interface GTMInput {
   idea: string;
@@ -89,8 +90,7 @@ export class GTMAgent extends BaseAgent<GTMInput, GTMOutput> {
 
     try {
       const response = await runModel(this.env.AI, "generator", messages, { temperature: 0.5, maxTokens: this.config.maxTokens ?? 6144 });
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
+      const parsed = extractJSON(response);
       const output = GTMOutputSchema.parse(parsed);
       return { success: true, output };
     } catch (e) {

@@ -1,15 +1,38 @@
 /**
  * Planning Machine — Cloudflare Worker
- * POST /api/planning/runs — start a planning run
- * GET /api/planning/runs/:id — run status
- * GET /api/planning/runs/:id/artifacts/:phase — artifact
- * POST /api/planning/runs/:id/approve — approve phase (when gates enabled)
- * POST /api/planning/run-opportunity — run opportunity agent
- * POST /api/planning/run-customer-intel — run customer intel agent
- * POST /api/planning/run-market-research — run market research agent
- * POST /api/planning/run-competitive-intel — run competitive intel agent
- * POST /api/planning/run-kill-test — run kill test agent
- * GET /api/planning/health — health check
+ *
+ * Runs:
+ *   POST /api/planning/runs — start a planning run
+ *   GET  /api/planning/runs — list runs
+ *   GET  /api/planning/runs/:id — run status
+ *   DELETE /api/planning/runs/:id — delete run
+ *   POST /api/planning/runs/:id/cancel — cancel run
+ *   POST /api/planning/runs/:id/pause — pause run
+ *   POST /api/planning/runs/:id/resume — resume run
+ *   GET  /api/planning/runs/:id/phases — list phases
+ *   GET  /api/planning/runs/:id/artifacts/:phase — artifact
+ *   POST /api/planning/runs/:id/artifacts/:phase — sync artifact
+ *   POST /api/planning/runs/:id/approve — approve phase (when gates enabled)
+ *
+ * Ideas (Idea Cards):
+ *   GET  /api/planning/ideas — list ideas
+ *   POST /api/planning/ideas — create idea
+ *   GET  /api/planning/ideas/:id — get idea
+ *   PUT  /api/planning/ideas/:id — update idea
+ *   DELETE /api/planning/ideas/:id — delete idea
+ *   GET  /api/planning/ideas/:id/runs — list runs for idea
+ *   POST /api/planning/ideas/:id/runs — create run from idea
+ *
+ * Agents (direct testing):
+ *   POST /api/planning/run-opportunity
+ *   POST /api/planning/run-customer-intel
+ *   POST /api/planning/run-market-research
+ *   POST /api/planning/run-competitive-intel
+ *   POST /api/planning/run-kill-test
+ *   ... (and more)
+ *
+ * Health:
+ *   GET /api/planning/health — health check
  */
 
 import type { Env } from "./types";
@@ -68,6 +91,10 @@ export default {
       return handleRuns(request, env, url);
     }
 
+    if (url.pathname.startsWith("/api/planning/ideas")) {
+      return handleIdeas(request, env, url);
+    }
+
     if (url.pathname === "/api/planning/parked-ideas" && request.method === "GET") {
       return getParkedIdeas(request, env);
     }
@@ -123,6 +150,14 @@ async function handleRuns(request: Request, env: Env, url: URL): Promise<Respons
     return cancelRun(runId, env);
   }
 
+  if (request.method === "POST" && subPath[0] === "pause" && subPath.length === 1) {
+    return pauseRun(runId, env);
+  }
+
+  if (request.method === "POST" && subPath[0] === "resume" && subPath.length === 1) {
+    return resumeRun(runId, env);
+  }
+
   if (subPath[0] === "artifacts" && subPath.length === 2) {
     const phase = subPath[1];
     if (request.method === "GET") {
@@ -146,6 +181,397 @@ async function handleRuns(request: Request, env: Env, url: URL): Promise<Respons
   }
 
   return Response.json({ error: "Not found" }, { status: 404 });
+}
+
+// ---------------------------------------------------------------------------
+// Ideas CRUD (Idea Cards)
+// ---------------------------------------------------------------------------
+
+async function handleIdeas(request: Request, env: Env, url: URL): Promise<Response> {
+  const pathParts = url.pathname.replace(/^\/api\/planning\/ideas\/?/, "").split("/").filter(Boolean);
+
+  if (pathParts.length === 0) {
+    if (request.method === "POST") {
+      return createIdea(request, env);
+    }
+    if (request.method === "GET") {
+      return listIdeas(request, env);
+    }
+    return Response.json({ error: "Method not allowed" }, { status: 405 });
+  }
+
+  const ideaId = pathParts[0];
+  const subPath = pathParts.slice(1);
+
+  if (request.method === "GET" && subPath.length === 0) {
+    return getIdea(ideaId, env);
+  }
+
+  if (request.method === "PUT" && subPath.length === 0) {
+    return updateIdea(request, ideaId, env);
+  }
+
+  if (request.method === "DELETE" && subPath.length === 0) {
+    return deleteIdea(ideaId, env);
+  }
+
+  // GET /api/planning/ideas/:id/runs - list runs for this idea
+  if (request.method === "GET" && subPath[0] === "runs" && subPath.length === 1) {
+    return listRunsForIdea(ideaId, env);
+  }
+
+  // POST /api/planning/ideas/:id/runs - create run from this idea
+  if (request.method === "POST" && subPath[0] === "runs" && subPath.length === 1) {
+    return createRunFromIdea(request, ideaId, env);
+  }
+
+  return Response.json({ error: "Not found" }, { status: 404 });
+}
+
+async function listIdeas(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50", 10) || 50, 100);
+    const offset = Math.max(parseInt(url.searchParams.get("offset") ?? "0", 10) || 0, 0);
+    const status = url.searchParams.get("status");
+
+    let query: string;
+    let countQuery: string;
+    const params: (string | number)[] = [];
+    const countParams: (string | number)[] = [];
+
+    if (status) {
+      query = `
+        SELECT id, name, content, status, created_at, updated_at
+        FROM ideas
+        WHERE status = ?
+        ORDER BY updated_at DESC
+        LIMIT ? OFFSET ?
+      `;
+      countQuery = "SELECT COUNT(*) as total FROM ideas WHERE status = ?";
+      params.push(status, limit, offset);
+      countParams.push(status);
+    } else {
+      query = `
+        SELECT id, name, content, status, created_at, updated_at
+        FROM ideas
+        ORDER BY updated_at DESC
+        LIMIT ? OFFSET ?
+      `;
+      countQuery = "SELECT COUNT(*) as total FROM ideas";
+      params.push(limit, offset);
+    }
+
+    const [result, countResult] = await Promise.all([
+      env.DB.prepare(query).bind(...params).all(),
+      env.DB.prepare(countQuery).bind(...countParams).first(),
+    ]);
+
+    const items = (result.results ?? []).map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        id: row.id,
+        name: row.name,
+        // Truncate content for list view (first 500 chars)
+        content: typeof row.content === "string" ? row.content.slice(0, 500) : row.content,
+        contentLength: typeof row.content === "string" ? row.content.length : 0,
+        status: row.status,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      };
+    });
+
+    const total = ((countResult as Record<string, unknown>)?.total as number) ?? 0;
+
+    return Response.json({
+      items,
+      total,
+      limit,
+      offset,
+      hasMore: offset + items.length < total,
+    });
+  } catch (e) {
+    console.error("listIdeas error:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("no such table") || msg.includes("ideas")) {
+      return Response.json({ items: [], total: 0, limit: 50, offset: 0, hasMore: false });
+    }
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function createIdea(request: Request, env: Env): Promise<Response> {
+  try {
+    const body = await request.json() as { name: string; content: string; status?: string };
+    const name = body.name;
+    const content = body.content;
+
+    if (!name || typeof name !== "string") {
+      return Response.json({ error: "name is required" }, { status: 400 });
+    }
+    if (!content || typeof content !== "string") {
+      return Response.json({ error: "content is required" }, { status: 400 });
+    }
+
+    const id = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    const status = body.status ?? "draft";
+
+    await env.DB.prepare(
+      `INSERT INTO ideas (id, name, content, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+      .bind(id, name.trim(), content, status, now, now)
+      .run();
+
+    return Response.json({
+      id,
+      name: name.trim(),
+      content,
+      status,
+      created_at: now,
+      updated_at: now,
+    });
+  } catch (e) {
+    console.error("createIdea error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function getIdea(ideaId: string, env: Env): Promise<Response> {
+  try {
+    const row = await env.DB.prepare(
+      "SELECT id, name, content, status, created_at, updated_at FROM ideas WHERE id = ?"
+    )
+      .bind(ideaId)
+      .first();
+
+    if (!row) {
+      return Response.json({ error: "Idea not found" }, { status: 404 });
+    }
+
+    return Response.json({
+      id: row.id,
+      name: row.name,
+      content: row.content,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    });
+  } catch (e) {
+    console.error("getIdea error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function updateIdea(request: Request, ideaId: string, env: Env): Promise<Response> {
+  try {
+    const existing = await env.DB.prepare(
+      "SELECT id FROM ideas WHERE id = ?"
+    ).bind(ideaId).first();
+
+    if (!existing) {
+      return Response.json({ error: "Idea not found" }, { status: 404 });
+    }
+
+    const body = await request.json() as { name?: string; content?: string; status?: string };
+    const updates: string[] = [];
+    const values: (string | number)[] = [];
+
+    if (body.name !== undefined) {
+      updates.push("name = ?");
+      values.push(body.name.trim());
+    }
+    if (body.content !== undefined) {
+      updates.push("content = ?");
+      values.push(body.content);
+    }
+    if (body.status !== undefined) {
+      updates.push("status = ?");
+      values.push(body.status);
+    }
+
+    if (updates.length === 0) {
+      return Response.json({ error: "No fields to update" }, { status: 400 });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    updates.push("updated_at = ?");
+    values.push(now, ideaId);
+
+    await env.DB.prepare(
+      `UPDATE ideas SET ${updates.join(", ")} WHERE id = ?`
+    )
+      .bind(...values)
+      .run();
+
+    // Return updated idea
+    return getIdea(ideaId, env);
+  } catch (e) {
+    console.error("updateIdea error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function deleteIdea(ideaId: string, env: Env): Promise<Response> {
+  try {
+    const existing = await env.DB.prepare(
+      "SELECT id FROM ideas WHERE id = ?"
+    ).bind(ideaId).first();
+
+    if (!existing) {
+      return Response.json({ error: "Idea not found" }, { status: 404 });
+    }
+
+    // Check if any runs reference this idea
+    const linkedRuns = await env.DB.prepare(
+      "SELECT COUNT(*) as count FROM planning_runs WHERE idea_id = ?"
+    ).bind(ideaId).first();
+
+    if (((linkedRuns as Record<string, unknown>)?.count as number) > 0) {
+      return Response.json({
+        error: "Cannot delete idea with linked runs. Delete runs first.",
+      }, { status: 409 });
+    }
+
+    await env.DB.prepare("DELETE FROM ideas WHERE id = ?")
+      .bind(ideaId)
+      .run();
+
+    return Response.json({ id: ideaId, deleted: true });
+  } catch (e) {
+    console.error("deleteIdea error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function listRunsForIdea(ideaId: string, env: Env): Promise<Response> {
+  try {
+    const existing = await env.DB.prepare(
+      "SELECT id FROM ideas WHERE id = ?"
+    ).bind(ideaId).first();
+
+    if (!existing) {
+      return Response.json({ error: "Idea not found" }, { status: 404 });
+    }
+
+    const result = await env.DB.prepare(`
+      SELECT id, idea, refined_idea, status, current_phase, quality_score,
+             revenue_potential, workflow_instance_id, kill_verdict, pivot_count,
+             package_key, mode, created_at, updated_at
+      FROM planning_runs
+      WHERE idea_id = ?
+      ORDER BY created_at DESC
+    `).bind(ideaId).all();
+
+    const items = (result.results ?? []).map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        id: row.id,
+        idea: row.idea,
+        refined_idea: row.refined_idea,
+        status: row.status,
+        current_phase: row.current_phase,
+        quality_score: row.quality_score,
+        revenue_potential: row.revenue_potential,
+        workflow_instance_id: row.workflow_instance_id ?? null,
+        kill_verdict: row.kill_verdict ?? null,
+        pivot_count: row.pivot_count ?? 0,
+        package_key: row.package_key ?? null,
+        mode: row.mode ?? "cloud",
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      };
+    });
+
+    return Response.json({ items });
+  } catch (e) {
+    console.error("listRunsForIdea error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function createRunFromIdea(request: Request, ideaId: string, env: Env): Promise<Response> {
+  try {
+    const ideaRow = await env.DB.prepare(
+      "SELECT id, name, content FROM ideas WHERE id = ?"
+    ).bind(ideaId).first();
+
+    if (!ideaRow) {
+      return Response.json({ error: "Idea not found" }, { status: 404 });
+    }
+
+    const body = await request.json() as { mode?: "local" | "cloud"; config?: Record<string, unknown> } | null;
+    const mode = body?.mode === "local" ? "local" : "cloud";
+    const config = JSON.stringify(body?.config ?? {});
+
+    // Use idea name as the run idea, and full content is available via idea_id
+    const ideaName = (ideaRow as Record<string, unknown>).name as string;
+    const ideaContent = (ideaRow as Record<string, unknown>).content as string;
+
+    // Combine name and content for the idea field (agents will use this)
+    const ideaText = `${ideaName}\n\n${ideaContent}`;
+
+    const id = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+
+    await env.DB.prepare(
+      `INSERT INTO planning_runs (id, idea, status, mode, config, idea_id, created_at, updated_at)
+       VALUES (?, ?, 'running', ?, ?, ?, ?, ?)`
+    )
+      .bind(id, ideaText.trim(), mode, config, ideaId, now, now)
+      .run();
+
+    // Update idea status to 'researching'
+    await env.DB.prepare(
+      "UPDATE ideas SET status = ?, updated_at = ? WHERE id = ?"
+    ).bind("researching", now, ideaId).run();
+
+    let workflowInstanceId: string | null = null;
+    if (mode === "cloud" && env.PLANNING_WORKFLOW) {
+      const instance = await env.PLANNING_WORKFLOW.create({
+        params: { runId: id, idea: ideaText.trim(), config: body?.config },
+      });
+      workflowInstanceId = instance.id;
+      await env.DB.prepare(
+        "UPDATE planning_runs SET workflow_instance_id = ? WHERE id = ?"
+      )
+        .bind(workflowInstanceId, id)
+        .run();
+    }
+
+    // Emit webhook event
+    if (env.WEBHOOK_QUEUE) {
+      try {
+        await env.WEBHOOK_QUEUE.send({
+          type: "run_started",
+          runId: id,
+          ideaId,
+          status: "running",
+          timestamp: now,
+        });
+      } catch (e) {
+        console.warn("Webhook emit failed:", e);
+      }
+    }
+
+    return Response.json({
+      id,
+      idea_id: ideaId,
+      idea: ideaText.trim(),
+      status: "running",
+      mode,
+      workflow_instance_id: workflowInstanceId,
+      message: mode === "local"
+        ? "Run created for local execution. Use CLI to run phases."
+        : workflowInstanceId
+          ? "Workflow started."
+          : "Run created. Workflow not configured.",
+    });
+  } catch (e) {
+    console.error("createRunFromIdea error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
 }
 
 async function createRun(request: Request, env: Env): Promise<Response> {
@@ -526,6 +952,92 @@ async function cancelRun(runId: string, env: Env): Promise<Response> {
   }
 }
 
+async function pauseRun(runId: string, env: Env): Promise<Response> {
+  try {
+    const run = await env.DB.prepare(
+      "SELECT id, status FROM planning_runs WHERE id = ?"
+    ).bind(runId).first();
+
+    if (!run) {
+      return Response.json({ error: "Run not found" }, { status: 404 });
+    }
+
+    const currentStatus = (run as Record<string, unknown>).status as string;
+    if (currentStatus !== "running") {
+      return Response.json({
+        error: `Cannot pause run with status '${currentStatus}'. Only running runs can be paused.`,
+      }, { status: 409 });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    await env.DB.prepare(
+      "UPDATE planning_runs SET status = ?, updated_at = ? WHERE id = ?"
+    ).bind("paused", now, runId).run();
+
+    // Emit webhook
+    if (env.WEBHOOK_QUEUE) {
+      try {
+        await env.WEBHOOK_QUEUE.send({
+          type: "run_paused",
+          runId,
+          status: "paused",
+          timestamp: now,
+        });
+      } catch (e) {
+        console.warn("Webhook emit failed:", e);
+      }
+    }
+
+    return Response.json({ id: runId, status: "paused" });
+  } catch (e) {
+    console.error("pauseRun error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function resumeRun(runId: string, env: Env): Promise<Response> {
+  try {
+    const run = await env.DB.prepare(
+      "SELECT id, status, idea, workflow_instance_id FROM planning_runs WHERE id = ?"
+    ).bind(runId).first();
+
+    if (!run) {
+      return Response.json({ error: "Run not found" }, { status: 404 });
+    }
+
+    const currentStatus = (run as Record<string, unknown>).status as string;
+    if (currentStatus !== "paused") {
+      return Response.json({
+        error: `Cannot resume run with status '${currentStatus}'. Only paused runs can be resumed.`,
+      }, { status: 409 });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    await env.DB.prepare(
+      "UPDATE planning_runs SET status = ?, updated_at = ? WHERE id = ?"
+    ).bind("running", now, runId).run();
+
+    // Emit webhook
+    if (env.WEBHOOK_QUEUE) {
+      try {
+        await env.WEBHOOK_QUEUE.send({
+          type: "run_resumed",
+          runId,
+          status: "running",
+          timestamp: now,
+        });
+      } catch (e) {
+        console.warn("Webhook emit failed:", e);
+      }
+    }
+
+    return Response.json({ id: runId, status: "running" });
+  } catch (e) {
+    console.error("resumeRun error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
 async function deleteRun(runId: string, env: Env): Promise<Response> {
   try {
     const run = await env.DB.prepare(
@@ -767,7 +1279,7 @@ async function getRunContext(
 async function runAgentWithBody(
   request: Request,
   env: Env,
-  run: (ctx: { runId: string; idea: string; refinedIdea?: string; priorOutputs: Record<string, unknown> }, input: unknown) => Promise<{ success: boolean; output?: unknown; errors?: string[] }>
+  run: (ctx: { runId: string; idea: string; refinedIdea?: string; priorOutputs: Record<string, unknown> }, input: unknown) => Promise<{ success: boolean; output?: unknown; errors?: string[]; orchestration?: unknown }>
 ): Promise<Response> {
   try {
     const body = (await request.json()) as {
@@ -796,10 +1308,14 @@ async function runAgentWithBody(
       );
     }
 
-    return Response.json({
+    const response: { success: boolean; output?: unknown; orchestration?: unknown } = {
       success: true,
       output: result.output,
-    });
+    };
+    if (result.orchestration) {
+      response.orchestration = result.orchestration;
+    }
+    return Response.json(response);
   } catch (e) {
     console.error("Agent error:", e);
     return Response.json({ error: "Internal error" }, { status: 500 });

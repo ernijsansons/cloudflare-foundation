@@ -1,39 +1,39 @@
 import { z } from "zod";
 
 export const CompetitorSchema = z.object({
-  name: z.string(),
-  url: z.string().optional(),
-  foundedYear: z.number().optional(),
-  fundingStatus: z.string().optional(),
+  name: z.string().nullish(),
+  url: z.string().nullish(),
+  foundedYear: z.number().nullish(),
+  fundingStatus: z.string().nullish(),
   pricing: z.object({
     tiers: z.array(z.object({
-      name: z.string(),
-      price: z.string(),
-      features: z.array(z.string()).optional(),
-    })).optional(),
-  }).optional(),
-  strengths: z.array(z.string()),
-  weaknesses: z.array(z.string()),
+      name: z.string().nullish(),
+      price: z.string().nullish(),
+      features: z.array(z.string()).nullish(),
+    })).nullish(),
+  }).nullish(),
+  strengths: z.array(z.string()).nullish(),
+  weaknesses: z.array(z.string()).nullish(),
   messagingAnalysis: z.object({
-    headline: z.string().optional(),
-    valueProp: z.string().optional(),
-    tone: z.string().optional(),
-    emotionalAppeals: z.array(z.string()).optional(),
-  }).optional(),
-  seoKeywords: z.array(z.string()).optional(),
+    headline: z.string().nullish(),
+    valueProp: z.string().nullish(),
+    tone: z.string().nullish(),
+    emotionalAppeals: z.array(z.string()).nullish(),
+  }).nullish(),
+  seoKeywords: z.array(z.string()).nullish(),
   customerComplaints: z.array(z.object({
-    complaint: z.string(),
-    quote: z.string().optional(),
-  })).optional(),
-  techStack: z.string().optional(),
+    complaint: z.string().nullish(),
+    quote: z.string().nullish(),
+  })).nullish(),
+  techStack: z.string().nullish(),
 });
 
 export const CompetitiveIntelOutputSchema = z.object({
-  competitors: z.array(CompetitorSchema),
-  positioningGaps: z.array(z.string()),
-  messagingGaps: z.array(z.string()),
-  pricingGaps: z.array(z.string()),
-  vulnerabilities: z.array(z.string()),
+  competitors: z.array(CompetitorSchema).nullish().default([]),
+  positioningGaps: z.array(z.string()).nullish().default([]),
+  messagingGaps: z.array(z.string()).nullish().default([]),
+  pricingGaps: z.array(z.string()).nullish().default([]),
+  vulnerabilities: z.array(z.string()).nullish().default([]),
 });
 
 export type CompetitiveIntelOutput = z.infer<typeof CompetitiveIntelOutputSchema>;

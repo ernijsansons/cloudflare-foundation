@@ -6,6 +6,7 @@ import type { Env } from "../types";
 import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { TechArchOutputSchema, type TechArchOutput } from "../schemas/tech-arch";
+import { extractJSON } from "../lib/json-extractor";
 
 interface TechArchInput {
   idea: string;
@@ -72,8 +73,7 @@ Produce valid JSON matching the schema.`;
 
     try {
       const response = await runModel(this.env.AI, "generator", messages, { temperature: 0.3, maxTokens: this.config.maxTokens ?? 8192 });
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
+      const parsed = extractJSON(response);
       const output = TechArchOutputSchema.parse(parsed);
       return { success: true, output };
     } catch (e) {

@@ -7,6 +7,7 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { BusinessModelOutputSchema, type BusinessModelOutput } from "../schemas/business-model";
+import { extractJSON } from "../lib/json-extractor";
 
 interface BusinessModelInput {
   idea: string;
@@ -28,15 +29,53 @@ export class BusinessModelAgent extends BaseAgent<BusinessModelInput, BusinessMo
   };
 
   getSystemPrompt(): string {
-    return `You are an expert at bootstrap SaaS business models. Your job is to produce revenue model, pricing tiers with psychology, unit economics, and cost structure.
+    return `You are an expert at bootstrap SaaS business models.
 
-AGENTIC PRICING: Revenue model must prioritize usage-based/outcome-based pricing over seat-based SaaS. Charge for agent-delivered outcomes (leads generated, actions taken, decisions made), not "per user per month" CRUD access. Include agenticPricingModel.
+CONCRETE OUTPUT REQUIREMENTS:
+- revenueModel: Pick ONE model (usage-based, outcome-based, tiered). Explain why. Include bootstrapFriendlinessScore (1-10).
 
-EXPANSION REVENUE: Use revenue-expansion phase output if available. Include expansionRevenue: revenue from adjacent products and upsell features, with timeline and potential.
+- agenticPricingModel: MANDATORY. Prioritize usage-based/outcome-based pricing over seat-based SaaS. Charge for agent-delivered outcomes (leads generated, actions taken, decisions made), not "per user per month" CRUD access.
 
-Consider Cloudflare free tier: 100K req/day Workers, 5M D1 reads, 10GB R2. A bootstrapped product should run on free tier for first 1000 users.
+- pricingTiers: Exactly 3 tiers with SPECIFIC dollar amounts:
+  - Free: $0, define exact limits (e.g., "100 API calls/month")
+  - Pro: $X/mo - recommend specific price based on market research phase competitors
+  - Enterprise: $Y/mo or custom
+  - Each tier MUST include: psychologyReasoning, anchoringTrick (why this tier makes Pro look good)
 
-Produce valid JSON matching the schema.`;
+- unitEconomics: Calculate with actual numbers:
+  - cac: "Estimated $X based on [channel] at [conversion rate]"
+  - ltv: "$Y assuming [churn rate] and [expansion revenue]"
+  - ltvCacRatio: Must be >3 for viable business
+  - paybackPeriod: Number of months
+
+- bootstrapMilestones: Specific targets:
+  - firstDollar: { feature, targetBuyer, timeline }
+  - first1KMRR: { customersNeeded, pricePoint, timeline }
+  - first10KMRR: { strategy, timeline }
+  - ramenProfitable: { monthlyBurn, mrr, timeline }
+
+- costStructure:
+  - cloudflareServices: { workers, d1, r2, vectorize } with estimated costs at scale
+  - thirdPartyServices: List with costs (Stripe 2.9%, email, etc.)
+  - monthlyBurnByStage: { preLaunch, launch, growth }
+
+- stripeConfiguration:
+  - products: Array with suggested product names and descriptions
+  - checkoutVsEmbedded: Recommendation with reasoning
+  - webhookEvents: List of events to handle
+
+Consider Cloudflare free tier: 100K req/day Workers, 5M D1 reads, 10GB R2.
+
+Produce valid JSON. NO empty objects. NO "TBD" values. NO "$X" placeholders - use real numbers.`;
+  }
+
+  getPhaseRubric(): string[] {
+    return [
+      "pricing_tiers_concrete — exact dollar amounts, not ranges or TBD",
+      "unit_economics_calculated — CAC/LTV with formulas shown",
+      "bootstrap_milestones_specific — customer counts and timelines",
+      "stripe_config_complete — actual product names and webhook events",
+    ];
   }
 
   getOutputSchema(): Record<string, unknown> {
@@ -81,7 +120,7 @@ Produce valid JSON matching the schema.`;
       JSON.stringify(
         searchResults.map((s) => ({
           query: s.query,
-          snippets: s.results.slice(0, 3).map((r) => ({ title: r.title, content: r.content?.slice(0, 200) })),
+          snippets: s.results.slice(0, 3).map((r) => ({ title: r.title, content: r.content?.slice(0, 500) })),
         })),
         null,
         2
@@ -99,8 +138,7 @@ Produce valid JSON matching the schema.`;
         maxTokens: this.config.maxTokens ?? 4096,
       });
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
+      const parsed = extractJSON(response);
       const output = BusinessModelOutputSchema.parse(parsed);
 
       return { success: true, output };
