@@ -3,7 +3,9 @@
   import { goto } from "$app/navigation";
   import { invalidateAll } from "$app/navigation";
   import Kanban from "$lib/components/Kanban.svelte";
+  import ProjectCard from "$lib/components/ProjectCard/ProjectCard.svelte";
   import type { PlanningRun, NaomiTask, KanbanCard, KanbanColumn } from "$lib/types";
+  import type { ProjectDocumentation } from "@cloudflare/shared";
 
   interface PageData {
     runs: PlanningRun[];
@@ -67,6 +69,10 @@
   let assignRepoUrl = $state("");
   let moveError = $state<string | null>(null);
   let moveLoading = $state(false);
+  let selectedProjectId = $state<string | null>(null);
+  let selectedProjectName = $state<string>("");
+  let projectDocumentation = $state<Partial<ProjectDocumentation> | null>(null);
+  let documentationLoading = $state(false);
 
   const formResult = $derived(
     ($page.form as { success?: boolean; error?: string } | undefined)
@@ -82,14 +88,38 @@
     assignRepoUrl = "";
   }
 
-  function handleCardClick(card: KanbanCard) {
-    const taskId = card.metadata?.task_id as string | undefined;
-    const runId = card.metadata?.run_id as string | undefined;
-    if (taskId) {
-      goto(`/ai-labs/production/tasks/${taskId}`);
-    } else if (runId) {
-      goto(`/ai-labs/research/runs/${runId}`);
+  async function fetchProjectDocumentation(projectId: string) {
+    documentationLoading = true;
+    try {
+      const res = await fetch(`/api/gateway/projects/${projectId}/docs`);
+      if (res.ok) {
+        const data = await res.json() as { sections: Partial<ProjectDocumentation> };
+        projectDocumentation = data.sections;
+      } else {
+        projectDocumentation = null;
+      }
+    } catch (e) {
+      console.error("Failed to fetch documentation:", e);
+      projectDocumentation = null;
+    } finally {
+      documentationLoading = false;
     }
+  }
+
+  async function handleCardClick(card: KanbanCard) {
+    const runId = card.metadata?.run_id as string | undefined;
+    if (!runId) return;
+
+    // Open documentation modal for the project
+    selectedProjectId = runId;
+    selectedProjectName = card.title;
+    await fetchProjectDocumentation(runId);
+  }
+
+  function closeDocumentationModal() {
+    selectedProjectId = null;
+    selectedProjectName = "";
+    projectDocumentation = null;
   }
 
   async function handleCardMove(card: KanbanCard, newStatus: string) {
@@ -202,6 +232,21 @@
           <button type="submit" class="btn-primary">Assign</button>
         </div>
       </form>
+    </div>
+  </div>
+{/if}
+
+<!-- Project Documentation modal -->
+{#if selectedProjectId}
+  <div class="doc-modal-backdrop" onclick={closeDocumentationModal} role="button" tabindex="-1">
+    <div class="doc-modal" onclick={(e) => e.stopPropagation()} role="dialog">
+      <button class="close-button" onclick={closeDocumentationModal} aria-label="Close">×</button>
+      <ProjectCard
+        projectId={selectedProjectId}
+        projectName={selectedProjectName}
+        documentation={projectDocumentation}
+        loading={documentationLoading}
+      />
     </div>
   </div>
 {/if}
@@ -372,5 +417,51 @@
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.875rem;
+  }
+
+  .doc-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+  }
+
+  .doc-modal {
+    background: var(--color-bg);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 1400px;
+    height: 90vh;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.1);
+    color: #6b7280;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: all 0.2s ease;
+  }
+
+  .close-button:hover {
+    background: rgba(0, 0, 0, 0.2);
+    color: #111827;
   }
 </style>

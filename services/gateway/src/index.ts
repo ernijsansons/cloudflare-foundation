@@ -10,6 +10,7 @@ import { turnstileMiddleware } from "./middleware/turnstile";
 import { appendAuditEvent, verifyAuditChain } from "./lib/audit-chain";
 import { MAX_FILE_SIZE, ALLOWED_FILE_TYPES, MAX_FILENAME_LENGTH } from "./constants";
 import type { Env, Variables } from "./types";
+import projectDocsRouter from "./routes/project-docs";
 
 export type { Env } from "./types";
 
@@ -230,6 +231,9 @@ app.patch("/api/webhooks/:id", async (c) => {
     return c.json({ error: "Internal error" }, 500);
   }
 });
+
+// Project Documentation Routes
+app.route("/", projectDocsRouter);
 
 // Naomi API - execution task tracking for Open Claw Naomi
 app.post("/api/naomi/tasks", async (c) => {

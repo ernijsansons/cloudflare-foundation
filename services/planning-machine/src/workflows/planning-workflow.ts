@@ -8,6 +8,7 @@ import { PHASE_ORDER, getAgentForPhase, type PhaseName } from "../agents/registr
 import { embedAndStore, getContextForPhase } from "../lib/rag";
 import { reviewArtifact, tiebreakerReview } from "../lib/reviewer";
 import type { OrchestrationResult } from "../lib/orchestrator";
+import { populateDocumentation, generateOverviewSection } from "../lib/doc-populator";
 
 /** Emit webhook event for external reporting (e.g., to erlvinc.com) */
 async function emitWebhookEvent(
@@ -69,6 +70,45 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
       });
       return { emitted: true };
     });
+
+    // ── Phase 0: Intake Agent ──────────────────────────────────────────────────
+    // Captures comprehensive A0-A7 intake form before planning phases begin
+    const intakeOutput = await step.do("phase-0-intake", async () => {
+      const { IntakeAgent } = await import("../agents/intake-agent");
+      const agent = new IntakeAgent();
+      const result = await agent.run(
+        { runId, idea, refinedIdea, priorOutputs },
+        { idea, mode: "auto" }
+      );
+
+      if (!result.success || !result.output) {
+        throw new Error(`Phase 0 (Intake) failed: ${result.errors?.join(", ")}`);
+      }
+
+      // Save intake to database
+      const artifactId = crypto.randomUUID();
+      const contentStr = JSON.stringify(result.output);
+
+      await this.env.DB.prepare(
+        `INSERT INTO planning_artifacts (id, run_id, phase, version, content, review_verdict, review_iterations, overall_score, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+        .bind(artifactId, runId, "phase-0-intake", 1, contentStr, "ACCEPTED", 1, null, Math.floor(Date.now() / 1000))
+        .run();
+
+      // Populate Section A documentation
+      await populateDocumentation({
+        db: this.env.DB,
+        projectId: runId,
+        phase: "phase-0-intake",
+        phaseOutput: result.output,
+      });
+
+      return result.output;
+    });
+
+    priorOutputs["__intake__"] = intakeOutput;
+    priorOutputs["phase-0-intake"] = intakeOutput;
+    // ── End Phase 0 ────────────────────────────────────────────────────────────
 
     const runPhase = async (phaseName: PhaseName, reviewerFeedback?: string): Promise<unknown> => {
       let ragContext: string | undefined;
@@ -335,6 +375,17 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
         });
 
         priorOutputs[phase] = output;
+
+        // Populate documentation sections from kill-test output
+        await step.do(`populate-docs-${phase}-${pivotCount + 1}`, async () => {
+          return await populateDocumentation({
+            db: this.env.DB,
+            projectId: runId,
+            phase,
+            phaseOutput: output,
+          });
+        });
+
         continue;
       }
 
@@ -474,7 +525,24 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
       });
 
       priorOutputs[phase] = phaseOutput;
+
+      // Populate documentation sections from phase output
+      await step.do(`populate-docs-${phase}`, async () => {
+        return await populateDocumentation({
+          db: this.env.DB,
+          projectId: runId,
+          phase,
+          phaseOutput,
+        });
+      });
     }
+
+    // ── Generate Overview Documentation ────────────────────────────────────────
+    // After all planning phases complete, generate the Overview section
+    await step.do("generate-overview-section", async () => {
+      return await generateOverviewSection(this.env.DB, runId);
+    });
+    // ── End Overview Generation ────────────────────────────────────────────────
 
     // ── Phase 16: Task Reconciliation ──────────────────────────────────────────
     // Reads draft tasks from phases 9-14 (compact arrays, NOT full outputs).
