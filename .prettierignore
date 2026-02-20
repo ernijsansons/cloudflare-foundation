@@ -32,3 +32,11 @@ yarn.lock
 
 # Generated files
 *.d.ts.map
+
+# Planning machine output
+planning-machine/output/
+**/output/
+
+# Large documentation
+docs/COMPREHENSIVE_AUDIT_REPORT.md
+docs/COMPLETE_DOCUMENTATION_SYSTEM_GUIDE.md
