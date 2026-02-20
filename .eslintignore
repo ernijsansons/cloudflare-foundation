@@ -7,6 +7,7 @@ dist/
 build/
 .svelte-kit/
 .wrangler/
+**/output/
 
 # Coverage
 coverage/
@@ -32,10 +33,11 @@ yarn.lock
 
 # Generated files
 *.d.ts.map
+**/.cloudflare/
+**/.turbo/
 
 # Planning machine output
 planning-machine/output/
-**/output/
 
 # Large documentation
 docs/COMPREHENSIVE_AUDIT_REPORT.md
@@ -46,12 +48,11 @@ docs/DOCUMENTATION_SYSTEM_TASKS.json
 null/
 NUL
 
-# Generated TypeScript definitions
-*.d.ts
-
 # Migration files
 **/migrations/*.sql
 
-# Config files (already formatted)
+# Config files
+*.config.js
+*.config.ts
 wrangler.toml
 wrangler.jsonc
