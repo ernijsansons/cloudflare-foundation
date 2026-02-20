@@ -37,20 +37,20 @@
 		{/if}
 
 		<!-- Continuous Evals -->
-		{#if data.continuous_evals && data.continuous_evals.length > 0}
+		{#if data.continuous_evaluations && data.continuous_evaluations.length > 0}
 			<section class="subsection">
 				<h2>Continuous Evaluations</h2>
-				{#each data.continuous_evals as eval}
-					<div class="card eval-card">
-						<div class="eval-header">
-							<h3>{eval.eval_name}</h3>
-							<span class="frequency-badge">{eval.frequency}</span>
+				{#each data.continuous_evaluations as evaluation}
+					<div class="card evaluation-card">
+						<div class="evaluation-header">
+							<h3>{evaluation.evaluation_name}</h3>
+							<span class="frequency-badge">{evaluation.frequency}</span>
 						</div>
 						<div class="field">
-							<strong>Metric:</strong> {eval.metric}
+							<strong>Metric:</strong> {evaluation.metric}
 						</div>
 						<div class="field">
-							<strong>Threshold:</strong> {eval.threshold}
+							<strong>Threshold:</strong> {evaluation.threshold}
 						</div>
 					</div>
 				{/each}
@@ -140,14 +140,14 @@
 	.field { margin-bottom: 1rem; }
 	.field strong { color: #374151; font-weight: 600; }
 
-	.eval-card { margin-bottom: 1rem; }
-	.eval-header {
+	.evaluation-card { margin-bottom: 1rem; }
+	.evaluation-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 1rem;
 	}
-	.eval-header h3 {
+	.evaluation-header h3 {
 		margin: 0;
 		font-size: 1.125rem;
 		color: #111827;
