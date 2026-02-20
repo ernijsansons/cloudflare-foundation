@@ -1,0 +1,403 @@
+openapi: 3.1.0
+info:
+  title: Foundation Gateway API
+  description: |
+    API Gateway for the Elite Agentic Documentation System (2026).
+
+    Provides endpoints for:
+    - Project documentation management
+    - Documentation synthesis and validation
+    - Export functionality
+    - Health and metrics
+  version: 1.0.0
+  contact:
+    name: Foundation Team
+    email: team@foundation.dev
+
+servers:
+  - url: https://gateway.foundation.dev
+    description: Production
+  - url: https://staging-gateway.foundation.dev
+    description: Staging
+  - url: http://localhost:8787
+    description: Local Development
+
+tags:
+  - name: Documentation
+    description: Project documentation operations
+  - name: Health
+    description: Health checks and metrics
+  - name: Export
+    description: Documentation export operations
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns health status of the gateway service
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+
+  /api/projects/{projectId}/docs:
+    get:
+      summary: Get project documentation
+      description: Retrieves complete documentation for a project
+      tags:
+        - Documentation
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Unique project identifier
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved documentation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDocumentation'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+
+  /api/projects/{projectId}/docs/sections/{sectionId}:
+    get:
+      summary: Get specific documentation section
+      description: Retrieves a single section (A-M) of project documentation
+      tags:
+        - Documentation
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: sectionId
+          in: path
+          required: true
+          description: Section identifier (A, B, C, D, E, F, G, H, I, J, K, L, M)
+          schema:
+            type: string
+            enum: [A, B, C, D, E, F, G, H, I, J, K, L, M]
+      responses:
+        '200':
+          description: Successfully retrieved section
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Section not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update documentation section
+      description: Updates a specific section of project documentation
+      tags:
+        - Documentation
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [A, B, C, D, E, F, G, H, I, J, K, L, M]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Section updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sectionId:
+                    type: string
+        '400':
+          description: Invalid section data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+  /api/projects/{projectId}/docs/generate-overview:
+    post:
+      summary: Generate documentation overview
+      description: Synthesizes executive overview from all documentation sections
+      tags:
+        - Documentation
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Overview generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewSection'
+        '400':
+          description: Insufficient data to generate overview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/projects/{projectId}/docs/export:
+    get:
+      summary: Export documentation
+      description: Exports complete project documentation in specified format
+      tags:
+        - Export
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          required: false
+          description: Export format
+          schema:
+            type: string
+            enum: [json, markdown]
+            default: json
+      responses:
+        '200':
+          description: Documentation exported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDocumentation'
+            text/markdown:
+              schema:
+                type: string
+        '404':
+          description: Project not found
+
+components:
+  schemas:
+    ProjectDocumentation:
+      type: object
+      properties:
+        overview:
+          $ref: '#/components/schemas/OverviewSection'
+        A:
+          $ref: '#/components/schemas/SectionA'
+        B:
+          type: object
+        C:
+          type: object
+        D:
+          type: object
+        E:
+          type: object
+        F:
+          type: object
+        G:
+          type: object
+        H:
+          type: object
+        I:
+          type: object
+        J:
+          type: object
+        K:
+          type: object
+        L:
+          type: object
+        M:
+          type: object
+
+    OverviewSection:
+      type: object
+      properties:
+        executive_summary:
+          type: object
+          properties:
+            concept:
+              type: string
+              description: High-level project concept
+            status:
+              type: string
+              enum: [planning, in-progress, blocked, completed]
+            completeness:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: Overall documentation completeness percentage
+        quick_stats:
+          type: object
+          properties:
+            budget:
+              type: string
+            timeline:
+              type: string
+            north_star_metric:
+              type: string
+            current_phase:
+              type: string
+
+    SectionA:
+      type: object
+      description: Assumptions and Constraints
+      properties:
+        A0:
+          type: object
+          properties:
+            concept:
+              type: string
+            outcome_unit:
+              type: string
+            agentic_execution:
+              type: object
+            data_and_trust:
+              type: object
+            constraints:
+              type: object
+            monetization:
+              type: object
+            success_and_kill_switches:
+              type: object
+        A1:
+          type: object
+          description: Unknowns resolution status
+          additionalProperties:
+            type: string
+            enum: [pending, resolved]
+        A2:
+          type: object
+          description: Invariants enforcement
+          properties:
+            no_raw_destructive_ops:
+              type: boolean
+            idempotent_side_effects:
+              type: boolean
+            auditable_receipts:
+              type: boolean
+            llm_gateway:
+              type: boolean
+            fail_closed:
+              type: boolean
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: string
+          description: Additional error details
+
+    ValidationError:
+      type: object
+      required:
+        - error
+        - validation_errors
+      properties:
+        error:
+          type: string
+        validation_errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    RateLimitError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Rate limit exceeded
+        message:
+          type: string
+          example: Too many requests. Please try again in 45 seconds.
+        limit:
+          type: integer
+          example: 100
+        window:
+          type: integer
+          description: Window in seconds
+          example: 60
+        retryAfter:
+          type: integer
+          description: Seconds until rate limit resets
+          example: 45
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: JWT Bearer token authentication
+
+security:
+  - BearerAuth: []
