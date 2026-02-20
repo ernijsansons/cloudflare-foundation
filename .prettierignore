@@ -65,3 +65,12 @@ wrangler.jsonc
 **/*.config.ts
 **/vitest.config.ts
 **/vite.config.ts
+
+# Cache files
+.eslintcache
+.prettiercache
+
+# Vendor and third-party
+**/vendor/
+**/third-party/
+**/.next/

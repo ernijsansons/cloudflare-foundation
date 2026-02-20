@@ -56,3 +56,20 @@ NUL
 *.config.ts
 wrangler.toml
 wrangler.jsonc
+
+# Test and spec files (excluded from full lint, but checked in incremental)
+**/__tests__/
+**/*.test.ts
+**/*.spec.ts
+**/*.test.js
+**/*.spec.js
+
+# Large generated/vendor files
+**/vendor/
+**/third-party/
+**/.next/
+
+# Cache directories
+**/.cache/
+.eslintcache
+.prettiercache
