@@ -107,6 +107,13 @@
           Back to Research
         </a>
         <div class="header-actions">
+          <a href="/ai-labs/research/runs/{data.run.id}/bible" class="bible-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            </svg>
+            View Deal Bible
+          </a>
           {#if data.run.mode}
             <span class="mode-badge {data.run.mode}">
               {data.run.mode === "local" ? "Local" : "Cloud"}
@@ -306,6 +313,28 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+  }
+
+  .bible-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .bible-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
 
   .action-btn {
