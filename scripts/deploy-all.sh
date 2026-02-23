@@ -5,9 +5,30 @@ set -euo pipefail
 # Cloudflare Foundation v2.5 — Full Deployment
 # =============================================================================
 # Deploys all services with proper error handling and validation
+#
+# Usage:
+#   ./scripts/deploy-all.sh [environment]
+#
+# Arguments:
+#   environment  - Target environment: "staging" | "production" (default: production)
+#
+# Examples:
+#   ./scripts/deploy-all.sh staging      # Deploy to staging
+#   ./scripts/deploy-all.sh production   # Deploy to production
+#   ./scripts/deploy-all.sh              # Deploy to production (default)
 # =============================================================================
 
+# Parse environment argument
+ENV=${1:-production}
+
+# Validate environment
+if [ "$ENV" != "staging" ] && [ "$ENV" != "production" ]; then
+    echo "ERROR: Invalid environment '$ENV'. Must be 'staging' or 'production'."
+    exit 1
+fi
+
 echo "=== Cloudflare Foundation v2.5 — Full Deployment ==="
+echo "Environment: $ENV"
 echo ""
 
 # Colors for output
@@ -24,7 +45,7 @@ DEPLOYED_SERVICES=""
 deploy_service() {
     local service=$1
     local dir=$2
-    echo -e "${YELLOW}Deploying $service...${NC}"
+    echo -e "${YELLOW}Deploying $service to $ENV...${NC}"
 
     if [ ! -d "$dir" ]; then
         echo -e "${RED}ERROR: Directory $dir not found${NC}"
@@ -34,14 +55,15 @@ deploy_service() {
 
     cd "$dir"
 
-    if ! npx wrangler deploy; then
+    # Deploy with environment flag
+    if ! npx wrangler deploy --env "$ENV"; then
         echo -e "${RED}ERROR: Failed to deploy $service${NC}"
         FAILED_SERVICES="$FAILED_SERVICES $service"
         cd - > /dev/null
         return 1
     fi
 
-    echo -e "${GREEN}$service deployed successfully${NC}"
+    echo -e "${GREEN}$service deployed successfully to $ENV${NC}"
     DEPLOYED_SERVICES="$DEPLOYED_SERVICES $service"
     cd - > /dev/null
     return 0
@@ -49,7 +71,7 @@ deploy_service() {
 
 # Function to deploy UI (requires build step)
 deploy_ui() {
-    echo -e "${YELLOW}Deploying UI...${NC}"
+    echo -e "${YELLOW}Deploying UI to $ENV...${NC}"
 
     if [ ! -d "services/ui" ]; then
         echo -e "${RED}ERROR: UI directory not found${NC}"
@@ -67,15 +89,15 @@ deploy_ui() {
         return 1
     fi
 
-    echo "  Deploying UI..."
-    if ! npx wrangler deploy; then
+    echo "  Deploying UI to $ENV..."
+    if ! npx wrangler deploy --env "$ENV"; then
         echo -e "${RED}ERROR: Failed to deploy UI${NC}"
         FAILED_SERVICES="$FAILED_SERVICES ui"
         cd - > /dev/null
         return 1
     fi
 
-    echo -e "${GREEN}UI deployed successfully${NC}"
+    echo -e "${GREEN}UI deployed successfully to $ENV${NC}"
     DEPLOYED_SERVICES="$DEPLOYED_SERVICES ui"
     cd - > /dev/null
     return 0

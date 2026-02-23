@@ -5,6 +5,11 @@
   "compatibility_date": "2025-09-25",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  "vars": {
+    "ENVIRONMENT": "development",
+    "ALLOWED_ORIGINS": "https://yourdomain.com,https://app.yourdomain.com",
+    "USE_DO_RATE_LIMITING": "false"
+  },
   "services": [
     { "binding": "AGENT_SERVICE", "service": "foundation-agents" },
     { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine" }
@@ -48,5 +53,19 @@
   },
   "migrations": [
     { "tag": "v1", "new_classes": ["FoundationMcpServer"] }
-  ]
+  ],
+  "[env.staging]": {
+    "name": "foundation-gateway-staging",
+    "vars": {
+      "ENVIRONMENT": "staging",
+      "ALLOWED_ORIGINS": "https://staging.yourdomain.com"
+    }
+  },
+  "[env.production]": {
+    "name": "foundation-gateway",
+    "vars": {
+      "ENVIRONMENT": "production",
+      "ALLOWED_ORIGINS": "https://yourdomain.com,https://app.yourdomain.com"
+    }
+  }
 }

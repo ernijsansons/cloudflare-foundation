@@ -1,5 +1,10 @@
 name: CI/CD Pipeline
 
+# Required repository variables (Settings → Secrets and variables → Actions → Variables):
+# - STAGING_URL: Staging environment URL for health checks (e.g., https://staging.yourdomain.com)
+# - PRODUCTION_URL: Production environment URL for health checks (e.g., https://yourdomain.com)
+# - API_URL: API endpoint URL for health checks (e.g., https://api.yourdomain.com)
+
 on:
   push:
     branches: [main, develop]
@@ -237,7 +242,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: staging
-      url: https://staging.yourdomain.com
+      url: ${{ vars.STAGING_URL || 'https://staging.yourdomain.com' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -276,7 +281,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://yourdomain.com
+      url: ${{ vars.PRODUCTION_URL || 'https://yourdomain.com' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -321,8 +326,9 @@ jobs:
         run: sleep 30
 
       - name: Check API health
+        if: vars.API_URL != ''
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://api.yourdomain.com/health)
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.API_URL }}/health)
           if [ $response -ne 200 ]; then
             echo "❌ Health check failed with status: $response"
             exit 1
@@ -330,13 +336,18 @@ jobs:
           echo "✅ Health check passed"
 
       - name: Check UI availability
+        if: vars.PRODUCTION_URL != ''
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://yourdomain.com)
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ vars.PRODUCTION_URL }})
           if [ $response -ne 200 ]; then
             echo "❌ UI check failed with status: $response"
             exit 1
           fi
           echo "✅ UI check passed"
+
+      - name: Skip health checks (no URLs configured)
+        if: vars.API_URL == '' && vars.PRODUCTION_URL == ''
+        run: echo "⚠️  Health checks skipped - configure PRODUCTION_URL and API_URL variables in repository settings"
 
   # ============================================================================
   # PHASE 8: Notification (Optional)

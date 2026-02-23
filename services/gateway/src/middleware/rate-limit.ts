@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import type { Env } from "../types";
+import type { Env, Variables } from "../types";
 import {
   RATE_LIMIT_WINDOW_SECONDS,
   RATE_LIMIT_MAX_REQUESTS,
@@ -17,7 +17,7 @@ import {
  * under high concurrency.
  */
 export function rateLimitMiddleware() {
-  return async (c: Context<{ Bindings: Env }>, next: Next) => {
+  return async (c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) => {
     // Skip rate limiting if KV not configured
     if (!c.env.RATE_LIMIT_KV) {
       console.warn("RATE_LIMIT_KV not configured, skipping rate limit");

@@ -1,0 +1,16 @@
+# Example local development secrets
+# Copy this file to .dev.vars and replace with your actual values
+#
+# SECURITY: Never commit .dev.vars with real secrets!
+#
+# Get Turnstile keys from: https://dash.cloudflare.com/turnstile
+# - For local testing, use these always-pass test keys: 1x00000000000000000000AA
+# - For production, create real keys at the dashboard
+#
+# Generate a secure signing key with: openssl rand -base64 32
+
+# Gateway — local dev secrets (gitignored)
+# For production: wrangler secret put <KEY>
+CONTEXT_SIGNING_KEY=CHANGE_ME_local_dev_signing_key_placeholder
+TURNSTILE_SECRET=1x00000000000000000000AA
+TURNSTILE_SITE_KEY=1x00000000000000000000AA
