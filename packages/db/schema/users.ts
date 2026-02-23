@@ -5,5 +5,6 @@ export const users = sqliteTable("users", {
   tenantId: text("tenant_id").notNull(),
   email: text("email").notNull(),
   name: text("name"),
+  role: text("role").notNull().default("operator"), // 'admin' | 'supervisor' | 'operator'
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });

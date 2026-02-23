@@ -12,21 +12,105 @@
  * 5. Quality scores meet minimum thresholds
  */
 
-import { describe, test, expect, beforeAll, afterAll } from "vitest";
-import type { D1Database } from "@cloudflare/workers-types";
+import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
+
+// Define mock data in hoisted scope
+const { mockSectionA } = vi.hoisted(() => ({
+  mockSectionA: {
+  A0_intake: {
+    concept: {
+      codename: "ai-financial-reconciliation",
+      thesis: "Autonomous AI-powered financial reconciliation for SMBs",
+      target_icp: "CFOs at SMBs with 10-50 employees",
+      core_directive: "Automatically reconcile bank transactions with accounting entries",
+      why_now: "LLM advances enable understanding of financial context"
+    },
+    outcome_unit: {
+      definition: "Successfully reconciled monthly bank statement",
+      proof_artifact: "Reconciliation report with matched transactions",
+      time_to_first_outcome: "5 minutes",
+      frequency: "Monthly",
+      current_cost: "4 hours of accountant time @ $75/hr = $300/month"
+    },
+    agentic_execution: {
+      allowed_actions: ["Read bank API", "Read accounting software API", "Generate reconciliation reports"],
+      forbidden_actions: ["Execute payments", "Modify accounting entries without approval"],
+      hitl_threshold: ["Unmatched transactions >$1000", "Suspected fraud patterns"],
+      required_integrations: ["Plaid", "QuickBooks API"],
+      external_side_effects: ["Email notifications of reconciliation completion"]
+    },
+    data_trust: {
+      input_sources: ["Bank API (read-only)", "QuickBooks (read-only)"],
+      output_data_types: ["Reconciliation reports", "Match confidence scores"],
+      data_sensitivity: "Financial data - PII + financial",
+      retention_requirements: "7 years (financial records)",
+      ground_truth: "Bank API is authoritative for transactions"
+    },
+    constraints: {
+      budget_cap: "$500/month",
+      timeline: "8 weeks to MVP",
+      geography: "US only initially",
+      compliance_bar: "Bootstrap - SOC2 in 12 months",
+      performance_bar: "Process 1000 transactions in <10 minutes"
+    },
+    monetization: {
+      who_pays: "Business owner",
+      pricing_anchor: "Per reconciliation run",
+      sales_motion: "Self-serve",
+      value_metric: "$50/month for monthly reconciliation"
+    },
+    success_kill_switches: {
+      north_star: "Monthly reconciliation accuracy >95%",
+      supporting_metrics: ["Time saved vs manual", "User retention"],
+      kill_conditions: ["Accuracy <80% after 3 months", "Cost >$200/customer/month", "No paying customers after 60 days"],
+      "30_day_done": "10 beta customers using successfully",
+      "90_day_done": "50 paying customers, 95% accuracy"
+    }
+  },
+  A1_unknowns: {
+    core_directive: "RESOLVED - Reconcile bank transactions with accounting entries",
+    hitl_threshold: "RESOLVED - Unmatched >$1000, fraud patterns",
+    tooling_data_gravity: "RESOLVED - Plaid + QuickBooks APIs",
+    memory_horizon: "RESOLVED - 30 days (monthly reconciliation cycle)",
+    verification_standard: "RESOLVED - Bank API + QuickBooks match required"
+  },
+  A2_invariants: {
+    no_raw_destructive_ops: true,
+    idempotent_side_effects: true,
+    auditable_receipts: true,
+    llm_gateway: "Cloudflare AI Gateway",
+    fail_closed: true
+  }
+}}));
+
+vi.mock("../lib/model-router", () => ({
+  runModel: vi.fn().mockResolvedValue(JSON.stringify(mockSectionA))
+}));
+
+// Imports after mocks
+import type { D1Database, Ai } from "@cloudflare/workers-types";
 import { IntakeAgent } from "../agents/intake-agent";
 import { mapPhaseToSections } from "../lib/phase-to-section-mapper";
 import { populateDocumentation, validateDocumentationCompleteness } from "../lib/doc-populator";
 import type { SectionA } from "@cloudflare/shared";
+import type { Env } from "../types";
 
 // Mock D1 Database for testing
 let mockDB: D1Database;
 let testProjectId: string;
+let mockEnv: Env;
 
 beforeAll(async () => {
 	testProjectId = crypto.randomUUID();
 	// Initialize mock DB (in real environment, this would be a test D1 database)
 	mockDB = {} as D1Database; // Replace with actual test DB setup
+
+	// Create mock environment
+	mockEnv = {
+		AI: {} as Ai,
+		DB: mockDB,
+		ORCHESTRATION_ENABLED: "false",
+	} as Env;
 });
 
 afterAll(async () => {
@@ -36,7 +120,7 @@ afterAll(async () => {
 
 describe("Phase 0: Intake Agent", () => {
 	test("should capture comprehensive A0-A7 intake form", async () => {
-		const agent = new IntakeAgent();
+		const agent = new IntakeAgent(mockEnv);
 
 		const input = {
 			idea: "AI-powered financial reconciliation for SMBs",
@@ -52,6 +136,11 @@ describe("Phase 0: Intake Agent", () => {
 			},
 			input
 		);
+
+		// Log errors for debugging
+		if (!result.success) {
+			console.error("IntakeAgent errors:", result.errors);
+		}
 
 		expect(result.success).toBe(true);
 		expect(result.output).toBeDefined();
@@ -109,7 +198,7 @@ describe("Phase 0: Intake Agent", () => {
 	});
 
 	test("should block when critical unknowns are unresolved", async () => {
-		const agent = new IntakeAgent();
+		const agent = new IntakeAgent(mockEnv);
 
 		// Simulate incomplete input that would leave unknowns
 		const result = await agent.run(
@@ -132,13 +221,13 @@ describe("Phase 0: Intake Agent", () => {
 describe("Phase-to-Section Mapping", () => {
 	test("should map Phase 1 (Opportunity) to Section A", () => {
 		const phaseOutput = {
-			refinedOpportunities: [
+			refined_opportunities: [
 				{
-					idea: "Test opportunity",
-					marketSize: "$10B",
-					painPoint: "Manual reconciliation",
+					title: "Test opportunity",
+					description: "Manual reconciliation solution for SMBs",
 				},
 			],
+			recommended_index: 0,
 		};
 
 		const updates = mapPhaseToSections({

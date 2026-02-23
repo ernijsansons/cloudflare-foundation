@@ -8,6 +8,8 @@ import type { ReasoningState } from "../lib/reasoning-engine";
 import { getFoundationContext } from "../lib/foundation-context";
 import type { OrchestrationResult, OrchestratorConfig } from "../lib/orchestrator";
 import { orchestrateModels } from "../lib/orchestrator";
+import { validatePhaseOutput, type ValidationResult } from "../lib/schema-validator";
+import type { PhaseName } from "@foundation/shared/ontology";
 
 export interface AgentContext {
   runId: string;
@@ -87,6 +89,30 @@ export abstract class BaseAgent<TInput = unknown, TOutput = unknown> {
         ? { ...phaseConfig, ...config }
         : undefined;
     return orchestrateModels(this.env, systemPrompt, userPrompt, mergedConfig);
+  }
+
+  /**
+   * Validate phase output against centralized schema registry.
+   *
+   * Call this after agent-specific parsing to ensure output meets
+   * quality standards before persisting to artifacts table.
+   *
+   * @param output The parsed output from the agent
+   * @returns ValidationResult with valid flag and errors if invalid
+   *
+   * @example
+   * ```typescript
+   * const validation = this.validateOutput(output);
+   * if (!validation.valid) {
+   *   console.error("Validation failed:", validation.errors);
+   *   return { success: false, errors: validation.errors };
+   * }
+   * return { success: true, output: validation.data as TOutput };
+   * ```
+   */
+  protected validateOutput(output: unknown): ValidationResult {
+    const phase = this.config.phase as PhaseName;
+    return validatePhaseOutput(phase, output);
   }
 
   getSearchQueries(_idea: string, _ctx: AgentContext): string[] {

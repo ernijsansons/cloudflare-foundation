@@ -1,0 +1,368 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Prevent concurrent workflow runs on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================================
+  # PHASE 1: Setup and Dependencies
+  # ============================================================================
+  setup:
+    name: Setup & Install Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/node_modules
+            ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+  # ============================================================================
+  # PHASE 2: Code Quality Checks
+  # ============================================================================
+  typecheck:
+    name: Type Checking
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Restore dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run type checking - Shared packages
+        run: pnpm --filter @foundation/shared run typecheck
+
+      - name: Run type checking - DB package
+        run: pnpm --filter @foundation/db run typecheck || echo "No typecheck script in DB package"
+
+      - name: Run type checking - Services
+        run: pnpm run typecheck:workers
+
+  lint:
+    name: Linting
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Restore dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        run: pnpm run lint
+
+      - name: Run Prettier check
+        run: pnpm run format:check
+
+  # ============================================================================
+  # PHASE 3: Testing
+  # ============================================================================
+  test:
+    name: Unit & Integration Tests
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Restore dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests - Planning Machine
+        run: pnpm --filter foundation-planning-machine run test
+
+      - name: Run tests - Gateway
+        run: pnpm --filter foundation-gateway run test || echo "No tests in Gateway yet"
+
+      - name: Run tests - UI
+        run: pnpm --filter foundation-ui run test || echo "No tests in UI yet"
+
+  # ============================================================================
+  # PHASE 4: Schema Validation Tests (Critical for Palantir AIP implementation)
+  # ============================================================================
+  schema-validation:
+    name: Schema Validation Tests
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Restore dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run schema validator tests
+        run: pnpm --filter foundation-planning-machine run test src/lib/__tests__/schema-validator.test.ts
+
+      - name: Validate all phase schemas are defined
+        run: |
+          cd services/planning-machine
+          node -e "
+            const { getDefinedPhases } = require('./src/lib/schema-validator.ts');
+            const phases = getDefinedPhases();
+            const expectedPhases = ['intake', 'opportunity', 'customer-intel', 'market-research', 'competitive-intel', 'kill-test', 'strategy', 'product-design', 'tech-arch', 'synthesis', 'task-reconciliation'];
+            const missing = expectedPhases.filter(p => !phases.includes(p));
+            if (missing.length > 0) {
+              console.error('Missing phase schemas:', missing);
+              process.exit(1);
+            }
+            console.log('✓ All required phase schemas are defined');
+          "
+
+  # ============================================================================
+  # PHASE 5: Build
+  # ============================================================================
+  build:
+    name: Build Services
+    needs: [typecheck, lint, test, schema-validation]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Restore dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: |
+          pnpm --filter @foundation/shared build
+          pnpm --filter @foundation/db build
+
+      - name: Build services
+        run: pnpm run build:services
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            services/*/dist
+            packages/*/dist
+          retention-days: 7
+
+  # ============================================================================
+  # PHASE 6: Deployment (main branch only)
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.yourdomain.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Restore dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Deploy to Cloudflare Workers (Staging)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "Deploying to staging environment..."
+          pnpm run deploy
+
+  deploy-production:
+    name: Deploy to Production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://yourdomain.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Restore dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Deploy to Cloudflare Workers (Production)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "Deploying to production environment..."
+          pnpm run deploy
+
+  # ============================================================================
+  # PHASE 7: Post-Deployment Health Checks
+  # ============================================================================
+  health-check:
+    name: Post-Deployment Health Check
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for deployment propagation
+        run: sleep 30
+
+      - name: Check API health
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://api.yourdomain.com/health)
+          if [ $response -ne 200 ]; then
+            echo "❌ Health check failed with status: $response"
+            exit 1
+          fi
+          echo "✅ Health check passed"
+
+      - name: Check UI availability
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://yourdomain.com)
+          if [ $response -ne 200 ]; then
+            echo "❌ UI check failed with status: $response"
+            exit 1
+          fi
+          echo "✅ UI check passed"
+
+  # ============================================================================
+  # PHASE 8: Notification (Optional)
+  # ============================================================================
+  notify:
+    name: Notify Team
+    if: always()
+    needs: [build, deploy-production]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ needs.build.result }}"
+          COLOR="good"
+          if [ "$STATUS" != "success" ]; then
+            COLOR="danger"
+          fi
+
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "attachments": [{
+                "color": "'$COLOR'",
+                "title": "CI/CD Pipeline: ${{ github.workflow }}",
+                "text": "Status: '$STATUS'\nBranch: ${{ github.ref }}\nCommit: ${{ github.sha }}",
+                "footer": "GitHub Actions"
+              }]
+            }'

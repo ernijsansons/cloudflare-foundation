@@ -21,6 +21,7 @@ const { mockOpportunityOutput, mockOrchestrationResult } = vi.hoisted(() => {
         feasibility: "HIGH" as const,
         agenticScore: "HIGH" as const,
         reasoning: "Strong market fit",
+        sources: [],
       },
     ],
     recommendedIndex: 0,

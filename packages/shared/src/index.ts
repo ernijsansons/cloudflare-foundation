@@ -3,6 +3,8 @@ export * from "./types/agent";
 export * from "./types/api";
 export * from "./types/tasks";
 export * from "./types/project-documentation";
+export * from "./types/rbac";
+export * from "./types/unknowns";
 export * from "./schemas/tenant";
 export * from "./schemas/user";
 export * from "./constants";

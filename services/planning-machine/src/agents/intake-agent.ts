@@ -8,9 +8,10 @@
  * Implements the A0-A7 intake form from the BULLETPROOF AGENTIC template.
  */
 
-import type { CoreMessage } from "ai";
-import { BaseAgent, type BaseAgentRunParams } from "./base-agent";
-import type { IntakeForm, Unknowns, GlobalInvariants, SectionA } from "@cloudflare/shared";
+import type { Env } from "../types";
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
+import { runModel } from "../lib/model-router";
+import type { Unknowns, GlobalInvariants, SectionA } from "@cloudflare/shared";
 
 export interface IntakeAgentInput {
   idea: string;
@@ -177,37 +178,96 @@ Return a structured JSON object matching the SectionA schema:
 Your goal: Produce a complete, unambiguous Section A that enables autonomous one-shot execution downstream.`;
 
 export class IntakeAgent extends BaseAgent<IntakeAgentInput, IntakeAgentOutput> {
-  constructor() {
-    super({
-      id: "phase-0-intake",
-      name: "Phase 0: Intake Agent",
-      description: "Captures comprehensive project assumptions and constraints (Section A)",
-      systemPrompt: INTAKE_SYSTEM_PROMPT,
-      model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-      temperature: 0.3, // Lower temperature for structured data extraction
-      maxTokens: 4096,
-    });
+  config = {
+    phase: "phase-0-intake",
+    maxSelfIterations: 1,
+    qualityThreshold: 8,
+    hardQuestions: [
+      "What is the ONE autonomous task this agent will perform?",
+      "Where are human approvals absolutely required?",
+      "What data sources need access?",
+      "What is the monthly budget cap?",
+      "What conditions would cause you to kill this project?",
+    ],
+    maxTokens: 4096,
+    searchDepth: "basic" as const,
+    includeFoundationContext: false,
+  };
+
+  constructor(env: Env) {
+    super(env);
   }
 
-  protected async buildMessages(input: IntakeAgentInput, params: BaseAgentRunParams): Promise<CoreMessage[]> {
-    const messages: CoreMessage[] = [
-      {
-        role: "user",
-        content: `Please help me complete the intake form for this project idea:
+  getSystemPrompt(): string {
+    return INTAKE_SYSTEM_PROMPT;
+  }
+
+  getOutputSchema(): Record<string, unknown> {
+    return {
+      type: "object",
+      properties: {
+        A0_intake: { type: "object" },
+        A1_unknowns: { type: "object" },
+        A2_invariants: { type: "object" },
+      },
+      required: ["A0_intake", "A1_unknowns", "A2_invariants"],
+    };
+  }
+
+  async run(
+    ctx: AgentContext,
+    input: IntakeAgentInput
+  ): Promise<AgentResult<IntakeAgentOutput>> {
+    try {
+      const userPrompt = `Please help me complete the intake form for this project idea:
 
 **Idea**: ${input.idea}
 
-${input.mode === "auto" ? "Please make reasonable assumptions where specific details aren't provided, but mark critical unknowns as UNKNOWN if they're genuinely missing." : "Please ask me questions to fill out the complete intake form."}`,
-      },
-    ];
+${input.mode === "auto" ? "Please make reasonable assumptions where specific details aren't provided, but mark critical unknowns as UNKNOWN if they're genuinely missing." : "Please ask me questions to fill out the complete intake form."}`;
 
-    return messages;
+      const systemPrompt = this.buildSystemPrompt();
+
+      // Run model
+      const response = await runModel(
+        this.env,
+        "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+        systemPrompt,
+        userPrompt,
+        {
+          temperature: 0.3,
+          maxTokens: 4096,
+        }
+      );
+
+      // Parse output (includes validation)
+      const output = await this.parseOutput(response, input);
+
+      // IntakeAgent has custom validation in parseOutput,
+      // so we don't use the generic schema validator
+
+      return {
+        success: true,
+        output,
+        score: output.blockers.length === 0 ? 10 : 5,
+      };
+    } catch (error) {
+      console.error("IntakeAgent run failed:", error);
+      return {
+        success: false,
+        errors: [error instanceof Error ? error.message : String(error)],
+      };
+    }
   }
 
-  protected async parseOutput(content: string, input: IntakeAgentInput, params: BaseAgentRunParams): Promise<IntakeAgentOutput> {
+  private async parseOutput(
+    content: string,
+    _input: IntakeAgentInput
+  ): Promise<IntakeAgentOutput> {
     try {
       // Extract JSON from potential markdown code blocks
-      const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || content.match(/(\{[\s\S]*\})/);
+      const jsonMatch =
+        content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) ||
+        content.match(/(\{[\s\S]*\})/);
 
       if (!jsonMatch) {
         throw new Error("No valid JSON found in response");
@@ -237,7 +297,13 @@ ${input.mode === "auto" ? "Please make reasonable assumptions where specific det
       if (!sectionA.A1_unknowns) {
         blockers.push("A1_unknowns section missing");
       } else {
-        const criticalUnknowns = ["core_directive", "hitl_threshold", "tooling_data_gravity", "memory_horizon", "verification_standard"];
+        const criticalUnknowns = [
+          "core_directive",
+          "hitl_threshold",
+          "tooling_data_gravity",
+          "memory_horizon",
+          "verification_standard",
+        ];
         for (const unknown of criticalUnknowns) {
           const value = sectionA.A1_unknowns[unknown as keyof Unknowns];
           if (value === "UNKNOWN") {
@@ -275,7 +341,9 @@ ${input.mode === "auto" ? "Please make reasonable assumptions where specific det
       };
     } catch (error) {
       console.error("Failed to parse intake output:", error);
-      throw new Error(`Invalid intake output format: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Invalid intake output format: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }
