@@ -29,10 +29,10 @@ export function getGatewayConfig(
     };
   }
 
-  // Production: must use service binding (no fallback)
+  // Production: prefer service binding, fallback to deployed gateway worker
   return {
-    useServiceBinding: true,
-    fallbackUrl: undefined,
+    useServiceBinding: !!platform?.env?.GATEWAY,
+    fallbackUrl: "https://foundation-gateway-production.ernijs-ansons.workers.dev",
     defaultTenantId: "default",
   };
 }
