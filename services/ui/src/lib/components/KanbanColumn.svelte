@@ -7,13 +7,14 @@
     title: string;
     status: string;
     color?: string;
+    phaseNumber?: number;
     cards: CardType[];
     onCardClick?: (card: CardType) => void;
     onCardMove?: (card: CardType, newStatus: string) => void;
     emptyMessage?: string;
   }
 
-  let { title, status, color, cards, onCardClick, onCardMove, emptyMessage = "No items" }: Props = $props();
+  let { title, status, color, phaseNumber, cards, onCardClick, onCardMove, emptyMessage = "No items" }: Props = $props();
 
   let isDragOver = $state(false);
 
@@ -44,9 +45,14 @@
 
 <div class="column" style:--column-color={color ?? "var(--color-primary)"}>
   <header class="column-header">
-    <span class="column-title">
-      {title}
-    </span>
+    <div class="column-title-wrapper">
+      {#if phaseNumber}
+        <span class="phase-number">Phase {phaseNumber}</span>
+      {/if}
+      <span class="column-title">
+        {title}
+      </span>
+    </div>
     <Badge count={cards.length} />
   </header>
 
@@ -114,6 +120,23 @@
     border-radius: 16px 16px 0 0;
   }
 
+  .column-title-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .phase-number {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--column-color) 70%, var(--color-text-muted));
+    opacity: 0.85;
+  }
+
   .column-title {
     font-weight: 700;
     font-size: 0.8125rem;
@@ -135,6 +158,7 @@
     border-radius: 50%;
     background: var(--column-color);
     box-shadow: 0 0 8px color-mix(in srgb, var(--column-color) 60%, transparent);
+    flex-shrink: 0;
   }
 
   .column-cards {

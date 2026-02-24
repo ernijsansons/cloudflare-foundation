@@ -1,5 +1,6 @@
 import type { PageServerLoad, Actions } from "./$types";
 import { redirect } from "@sveltejs/kit";
+import { dev } from "$app/environment";
 import type { PlanningRun, NaomiTask } from "$lib/types";
 
 export const actions: Actions = {
@@ -73,18 +74,33 @@ export const actions: Actions = {
   },
 };
 
-export const load: PageServerLoad = async ({ platform }) => {
+export const load: PageServerLoad = async ({ platform, fetch }) => {
   try {
     const gateway = platform?.env?.GATEWAY;
-    if (!gateway) {
-      return { runs: [], tasks: [], error: "Gateway not configured" };
+
+    let runsRes;
+    if (gateway) {
+      const request = new Request('https://placeholder/api/public/planning/runs?limit=100&tenant_id=default');
+      runsRes = await gateway.fetch(request);
+    } else if (dev) {
+      runsRes = await fetch("http://127.0.0.1:8787/api/planning/runs?limit=100");
+    } else {
+      runsRes = await fetch('https://foundation-gateway-production.ernijs-ansons.workers.dev/api/public/planning/runs?limit=100');
     }
 
-    const base = "https://_";
-    const [runsRes, tasksRes] = await Promise.all([
-      gateway.fetch(`${base}/api/planning/runs?limit=100&status=completed`),
-      gateway.fetch(`${base}/api/naomi/tasks?limit=100`).catch(() => null),
-    ]);
+    let tasksRes = null;
+    try {
+      if (gateway) {
+        const request = new Request('https://placeholder/api/naomi/tasks?limit=100');
+        tasksRes = await gateway.fetch(request);
+      } else if (dev) {
+        tasksRes = await fetch("http://127.0.0.1:8787/api/naomi/tasks?limit=100");
+      } else {
+        tasksRes = await fetch('https://foundation-gateway-production.ernijs-ansons.workers.dev/api/naomi/tasks?limit=100');
+      }
+    } catch {
+      tasksRes = null;
+    }
 
     if (!runsRes.ok) {
       const text = await runsRes.text();

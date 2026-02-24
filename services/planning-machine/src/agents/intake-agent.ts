@@ -229,10 +229,12 @@ ${input.mode === "auto" ? "Please make reasonable assumptions where specific det
 
       // Run model
       const response = await runModel(
-        this.env,
-        "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-        systemPrompt,
-        userPrompt,
+        this.env.AI,
+        "generator",
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
         {
           temperature: 0.3,
           maxTokens: 4096,

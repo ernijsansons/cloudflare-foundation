@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PainPointSchema = z.union([
   z.string(),
   z.object({
-    description: z.string(),
+    description: z.string().nullish(),
     severity: z.enum(["hair_on_fire", "high", "medium", "nice_to_have"]).nullish(),
     exactQuote: z.string().nullish(),
     source: z.string().nullish(),
@@ -19,6 +19,20 @@ export const WateringHoleSchema = z.object({
   memberCount: z.string().nullish(),
 });
 
+// Helper to coerce strings to arrays
+const stringToArray = (val: unknown) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") return [val];
+  return undefined;
+};
+
+// Helper to coerce objects to arrays
+const objectToArray = (val: unknown) => {
+  if (Array.isArray(val)) return val;
+  if (val && typeof val === "object") return [val];
+  return undefined;
+};
+
 export const IdealCustomerProfileSchema = z.object({
   demographics: z.object({
     jobTitle: z.string().nullish(),
@@ -26,21 +40,21 @@ export const IdealCustomerProfileSchema = z.object({
     industry: z.string().nullish(),
   }).nullish(),
   psychographics: z.object({
-    values: z.array(z.string()).nullish(),
-    fears: z.array(z.string()).nullish(),
-    aspirations: z.array(z.string()).nullish(),
+    values: z.preprocess(stringToArray, z.array(z.string()).nullish()),
+    fears: z.preprocess(stringToArray, z.array(z.string()).nullish()),
+    aspirations: z.preprocess(stringToArray, z.array(z.string()).nullish()),
     identity: z.string().nullish(),
   }).nullish(),
-  painPoints: z.array(PainPointSchema).nullish(),
-  buyingTriggers: z.array(z.string()).nullish(),
-  currentSolutions: z.array(z.object({
+  painPoints: z.preprocess(objectToArray, z.array(PainPointSchema).nullish()),
+  buyingTriggers: z.preprocess(stringToArray, z.array(z.string()).nullish()),
+  currentSolutions: z.preprocess(objectToArray, z.array(z.object({
     tool: z.string(),
     whatTheyPay: z.string().nullish(),
     whatTheyHate: z.string().nullish(),
-  })).nullish(),
+  })).nullish()),
   switchingCosts: z.string().nullish(),
-  wateringHoles: z.array(WateringHoleSchema).nullish(),
-  searchBehavior: z.array(z.string()).nullish(),
+  wateringHoles: z.preprocess(objectToArray, z.array(WateringHoleSchema).nullish()),
+  searchBehavior: z.preprocess(stringToArray, z.array(z.string()).nullish()),
   willingnessToPay: z.object({
     min: z.number().nullish(),
     max: z.number().nullish(),
@@ -55,9 +69,9 @@ export const IdealCustomerProfileSchema = z.object({
 });
 
 export const CustomerLanguageSchema = z.object({
-  exactWords: z.array(z.string()).nullish(),
-  phrases: z.array(z.string()).nullish(),
-  metaphors: z.array(z.string()).nullish(),
+  exactWords: z.preprocess(stringToArray, z.array(z.string()).nullish()),
+  phrases: z.preprocess(stringToArray, z.array(z.string()).nullish()),
+  metaphors: z.preprocess(stringToArray, z.array(z.string()).nullish()),
 }).nullish();
 
 export const JobToBeDoneSchema = z.object({

@@ -1,16 +1,23 @@
 import type { PageServerLoad } from './$types';
 
-const NAOMI_API_BASE = 'https://naomi-oracle-cloudflare.erlvinc.workers.dev/v1';
-
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ platform, fetch }) => {
 	try {
-		// Fetch agents from Naomi API
-		const response = await fetch(
-			`${NAOMI_API_BASE}/dashboard/agents?tenant_id=erlvinc&business_id=naomi`
-		);
+		// Try using the GATEWAY service binding first (internal, no auth required)
+		const gateway = platform?.env?.GATEWAY;
+
+		let response;
+		if (gateway) {
+			// Use service binding - create a proper request object
+			const request = new Request('https://placeholder/api/public/dashboard/agents?tenant_id=erlvinc&business_id=naomi');
+			response = await gateway.fetch(request);
+		} else {
+			// Fallback to HTTP call (requires external access)
+			response = await fetch('https://foundation-gateway-production.ernijs-ansons.workers.dev/api/public/dashboard/agents?tenant_id=erlvinc&business_id=naomi');
+		}
 
 		if (!response.ok) {
-			console.error('Failed to fetch agents from Naomi API:', response.statusText);
+			const errorText = await response.text();
+			console.error('Failed to fetch agents:', response.status, response.statusText, errorText);
 			return {
 				agents: [],
 				error: `Failed to load agents: ${response.statusText}`
