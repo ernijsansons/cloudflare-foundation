@@ -1,38 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "foundation-ui",
+  "name": "erlvinc-dashboard",
   "compatibility_date": "2025-09-25",
   "compatibility_flags": ["nodejs_compat"],
-  "main": ".svelte-kit/cloudflare/_worker.js",
-  "assets": {
-    "directory": ".svelte-kit/cloudflare",
-    "binding": "ASSETS",
-    "run_worker_first": true
-  },
   "pages_build_output_dir": ".svelte-kit/cloudflare",
   "observability": { "enabled": true },
   "services": [
-    { "binding": "GATEWAY", "service": "foundation-gateway" }
-  ],
-  "env": {
-    "staging": {
-      "name": "foundation-ui-staging",
-      "services": [
-        { "binding": "GATEWAY", "service": "foundation-gateway-staging" }
-      ],
-      "routes": [
-        { "pattern": "dashboard-staging.erlvinc.com/*", "zone_name": "erlvinc.com" }
-      ]
-    },
-    "production": {
-      "name": "foundation-ui-production",
-      "services": [
-        { "binding": "GATEWAY", "service": "foundation-gateway-production" }
-      ],
-      "routes": [
-        { "pattern": "dashboard.erlvinc.com/*", "zone_name": "erlvinc.com" },
-        { "pattern": "naomi.erlvinc.com/*", "zone_name": "erlvinc.com" }
-      ]
-    }
-  }
+    { "binding": "GATEWAY", "service": "foundation-gateway-production" }
+  ]
 }
