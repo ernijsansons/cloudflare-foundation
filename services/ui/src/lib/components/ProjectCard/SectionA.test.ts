@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/svelte';
 import SectionA from './SectionA.svelte';
-import type { SectionA as SectionAType } from '@cloudflare/shared';
+import type { SectionA as SectionAType } from '@foundation/shared';
 
 describe('SectionA', () => {
 	const mockData: SectionAType = {

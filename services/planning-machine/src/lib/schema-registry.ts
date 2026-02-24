@@ -4,7 +4,6 @@
  * Central registry of all payload schemas with versioning
  */
 
-import type { PhaseName } from '@foundation/shared';
 import { PHASE_SCHEMAS } from './schema-validator';
 
 export interface SchemaRegistryEntry {

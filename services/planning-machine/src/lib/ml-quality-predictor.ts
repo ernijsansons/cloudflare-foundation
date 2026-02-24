@@ -5,8 +5,16 @@
  * before full evaluation, enabling proactive quality management.
  */
 
-import type { PhaseName } from '@foundation/shared';
-import { calculateQualityScore, type QualityScore } from './quality-scorer';
+export interface QualityScore {
+  overallScore: number;
+  evidenceCoverage: number;
+  factualAccuracy: number;
+  completeness: number;
+  citationQuality: number;
+  reasoningDepth: number;
+  tier: 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical';
+  productionReady: boolean;
+}
 
 // ============================================================================
 // TYPES
@@ -35,7 +43,7 @@ export interface ArtifactFeatures {
   optionalFieldsFilled: number; // Count of filled optional fields
 
   // Metadata features
-  phase: PhaseName; // Planning phase (encoded)
+  phase: string; // Planning phase (encoded)
   executionTimeMs: number; // Time to generate artifact
 
   // Revision history
@@ -81,7 +89,7 @@ export function extractFeatures(
   content: unknown,
   consensusScore: number,
   completenessScore: number,
-  phase: PhaseName,
+  phase: string,
   citationCount = 0,
   executionTimeMs = 0,
   revisionCount = 0,
@@ -156,7 +164,11 @@ export class QualityPredictionModel {
     this.weights.set('operatorReviewCount', -0.03);
 
     // Calculate bias based on training data average
-    const avgScore = examples.reduce((sum, ex) => sum + ex.actualScore.overallScore, 0) / examples.length;
+    const avgScore =
+      examples.reduce(
+        (sum, ex) => sum + ex.actualScore.overallScore,
+        0
+      ) / examples.length;
     this.bias = avgScore * 0.3; // Base score component
   }
 
@@ -242,7 +254,7 @@ export class QualityPredictionModel {
     }
 
     const predictions = testExamples.map(ex => this.predict(ex.features).predictedOverallScore);
-    const actuals = testExamples.map(ex => ex.actualScore.overallScore);
+    const actuals = testExamples.map((ex) => ex.actualScore.overallScore);
 
     // Calculate metrics
     const errors = predictions.map((pred, i) => pred - actuals[i]);
@@ -387,7 +399,7 @@ export async function predictArtifactQuality(
   content: unknown,
   consensusScore: number,
   completenessScore: number,
-  phase: PhaseName,
+  phase: string,
   citationCount: number
 ): Promise<QualityPrediction> {
   const features = extractFeatures(

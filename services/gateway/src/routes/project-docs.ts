@@ -26,24 +26,28 @@ const projectDocsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 // GET /api/projects/:projectId/docs
 // Retrieve all documentation sections for a project
 // ============================================================================
-projectDocsRouter.get("/api/projects/:projectId/docs", async (c) => {
+projectDocsRouter.get("/:projectId/docs", async (c) => {
   try {
     const projectId = c.req.param("projectId");
-    const tenantId = c.get("tenantId") ?? "default";
+    const tenantId = c.get("tenantId");
 
-    // Fetch all documentation rows for this project
+    if (!tenantId) {
+      return c.json({ error: "Tenant context required" }, 401);
+    }
+
+    // Fetch all documentation rows for this project (tenant-scoped)
     const docsResult = await c.env.DB.prepare(
-      `SELECT * FROM project_documentation WHERE project_id = ? ORDER BY section_id, subsection_key`
-    ).bind(projectId).all<ProjectDocumentationRow>();
+      `SELECT * FROM project_documentation WHERE tenant_id = ? AND project_id = ? ORDER BY section_id, subsection_key`
+    ).bind(tenantId, projectId).all<ProjectDocumentationRow>();
 
     if (!docsResult.results) {
       return c.json({ error: "Failed to fetch documentation" }, 500);
     }
 
-    // Fetch metadata
+    // Fetch metadata (tenant-scoped)
     const metadataResult = await c.env.DB.prepare(
-      `SELECT * FROM project_documentation_metadata WHERE project_id = ?`
-    ).bind(projectId).first<ProjectDocumentationMetadataRow>();
+      `SELECT * FROM project_documentation_metadata WHERE tenant_id = ? AND project_id = ?`
+    ).bind(tenantId, projectId).first<ProjectDocumentationMetadataRow>();
 
     // Group documentation by section
     const sections: Partial<ProjectDocumentation> = {};
@@ -51,15 +55,17 @@ projectDocsRouter.get("/api/projects/:projectId/docs", async (c) => {
     for (const row of docsResult.results) {
       try {
         const content = JSON.parse(row.content);
+        const sectionId = row.section_id as SectionId;
 
-        if (!sections[row.section_id as SectionId]) {
-          sections[row.section_id as SectionId] = {};
+        if (!sections[sectionId]) {
+          sections[sectionId] = {} as never;
         }
 
         if (row.subsection_key) {
-          sections[row.section_id as SectionId]![row.subsection_key] = content;
+          // Use type assertion to allow dynamic property access
+          (sections[sectionId] as Record<string, unknown>)[row.subsection_key] = content;
         } else {
-          sections[row.section_id as SectionId] = content;
+          sections[sectionId] = content as never;
         }
       } catch (e) {
         console.error(`Failed to parse content for section ${row.section_id}:`, e);
@@ -71,13 +77,15 @@ projectDocsRouter.get("/api/projects/:projectId/docs", async (c) => {
       sections,
       metadata: metadataResult
         ? {
+            total_sections: metadataResult.total_sections,
             completeness: metadataResult.completeness_percentage,
             last_updated: metadataResult.last_updated,
             status: metadataResult.status,
           }
         : {
+            total_sections: 13,
             completeness: 0,
-            last_updated: Math.floor(Date.now() / 1000),
+            last_updated: String(Math.floor(Date.now() / 1000)),
             status: "incomplete",
           },
     };
@@ -93,14 +101,19 @@ projectDocsRouter.get("/api/projects/:projectId/docs", async (c) => {
 // GET /api/projects/:projectId/docs/sections/:sectionId
 // Retrieve a specific section
 // ============================================================================
-projectDocsRouter.get("/api/projects/:projectId/docs/sections/:sectionId", async (c) => {
+projectDocsRouter.get("/:projectId/docs/sections/:sectionId", async (c) => {
   try {
     const projectId = c.req.param("projectId");
     const sectionId = c.req.param("sectionId");
+    const tenantId = c.get("tenantId");
+
+    if (!tenantId) {
+      return c.json({ error: "Tenant context required" }, 401);
+    }
 
     const docsResult = await c.env.DB.prepare(
-      `SELECT * FROM project_documentation WHERE project_id = ? AND section_id = ? ORDER BY subsection_key`
-    ).bind(projectId, sectionId).all<ProjectDocumentationRow>();
+      `SELECT * FROM project_documentation WHERE tenant_id = ? AND project_id = ? AND section_id = ? ORDER BY subsection_key`
+    ).bind(tenantId, projectId, sectionId).all<ProjectDocumentationRow>();
 
     if (!docsResult.results) {
       return c.json({ error: "Failed to fetch section" }, 500);
@@ -125,8 +138,12 @@ projectDocsRouter.get("/api/projects/:projectId/docs/sections/:sectionId", async
           Object.assign(content, parsedContent);
         }
 
-        if (row.last_updated > latestUpdate) {
-          latestUpdate = row.last_updated;
+        // Convert last_updated to number for comparison
+        const rowUpdate = typeof row.last_updated === 'string'
+          ? parseInt(row.last_updated, 10)
+          : (row.last_updated || 0);
+        if (rowUpdate > latestUpdate) {
+          latestUpdate = rowUpdate;
         }
       } catch (e) {
         console.error(`Failed to parse content for subsection ${row.subsection_key}:`, e);
@@ -134,7 +151,7 @@ projectDocsRouter.get("/api/projects/:projectId/docs/sections/:sectionId", async
     }
 
     const response: GetSectionResponse = {
-      section_id: sectionId,
+      section_id: sectionId as SectionId,
       content,
       subsections,
       status: docsResult.results[0].status,
@@ -152,11 +169,16 @@ projectDocsRouter.get("/api/projects/:projectId/docs/sections/:sectionId", async
 // PUT /api/projects/:projectId/docs/sections/:sectionId
 // Update a specific section or subsection
 // ============================================================================
-projectDocsRouter.put("/api/projects/:projectId/docs/sections/:sectionId", async (c) => {
+projectDocsRouter.put("/:projectId/docs/sections/:sectionId", async (c) => {
   try {
     const projectId = c.req.param("projectId");
     const sectionId = c.req.param("sectionId");
+    const tenantId = c.get("tenantId");
     const body = (await c.req.json()) as UpdateSectionRequest;
+
+    if (!tenantId) {
+      return c.json({ error: "Tenant context required" }, 401);
+    }
 
     const { subsection_key, content, status } = body;
 
@@ -168,15 +190,16 @@ projectDocsRouter.put("/api/projects/:projectId/docs/sections/:sectionId", async
     const now = Math.floor(Date.now() / 1000);
     const contentJson = JSON.stringify(content);
 
-    // Upsert the documentation row
+    // Upsert the documentation row (tenant-scoped)
     await c.env.DB.prepare(
-      `INSERT INTO project_documentation (id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO project_documentation (id, tenant_id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(project_id, section_id, subsection_key)
        DO UPDATE SET content = ?, status = ?, last_updated = ?`
     )
       .bind(
         id,
+        tenantId,
         projectId,
         sectionId,
         subsection_key ?? null,
@@ -193,7 +216,7 @@ projectDocsRouter.put("/api/projects/:projectId/docs/sections/:sectionId", async
       .run();
 
     // Update metadata - calculate completeness
-    await updateDocumentationMetadata(c.env.DB, projectId);
+    await updateDocumentationMetadata(c.env.DB, tenantId, projectId);
 
     return c.json({ success: true, updated: true });
   } catch (e) {
@@ -206,14 +229,19 @@ projectDocsRouter.put("/api/projects/:projectId/docs/sections/:sectionId", async
 // POST /api/projects/:projectId/docs/generate-overview
 // Auto-generate Overview tab from all sections
 // ============================================================================
-projectDocsRouter.post("/api/projects/:projectId/docs/generate-overview", async (c) => {
+projectDocsRouter.post("/:projectId/docs/generate-overview", async (c) => {
   try {
     const projectId = c.req.param("projectId");
+    const tenantId = c.get("tenantId");
 
-    // Fetch all sections
+    if (!tenantId) {
+      return c.json({ error: "Tenant context required" }, 401);
+    }
+
+    // Fetch all sections (tenant-scoped)
     const docsResult = await c.env.DB.prepare(
-      `SELECT * FROM project_documentation WHERE project_id = ? ORDER BY section_id, subsection_key`
-    ).bind(projectId).all<ProjectDocumentationRow>();
+      `SELECT * FROM project_documentation WHERE tenant_id = ? AND project_id = ? ORDER BY section_id, subsection_key`
+    ).bind(tenantId, projectId).all<ProjectDocumentationRow>();
 
     if (!docsResult.results) {
       return c.json({ error: "Failed to fetch documentation" }, 500);
@@ -243,18 +271,19 @@ projectDocsRouter.post("/api/projects/:projectId/docs/generate-overview", async 
     // Generate overview
     const overview = generateOverview(sections);
 
-    // Save overview back to database
+    // Save overview back to database (tenant-scoped)
     const id = crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
 
     await c.env.DB.prepare(
-      `INSERT INTO project_documentation (id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO project_documentation (id, tenant_id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(project_id, section_id, subsection_key)
        DO UPDATE SET content = ?, last_updated = ?`
     )
       .bind(
         id,
+        tenantId,
         projectId,
         "overview",
         null,
@@ -280,15 +309,20 @@ projectDocsRouter.post("/api/projects/:projectId/docs/generate-overview", async 
 // GET /api/projects/:projectId/docs/export
 // Export documentation in various formats
 // ============================================================================
-projectDocsRouter.get("/api/projects/:projectId/docs/export", async (c) => {
+projectDocsRouter.get("/:projectId/docs/export", async (c) => {
   try {
     const projectId = c.req.param("projectId");
+    const tenantId = c.get("tenantId");
     const format = c.req.query("format") ?? "json";
 
-    // Fetch all documentation
+    if (!tenantId) {
+      return c.json({ error: "Tenant context required" }, 401);
+    }
+
+    // Fetch all documentation (tenant-scoped)
     const docsResult = await c.env.DB.prepare(
-      `SELECT * FROM project_documentation WHERE project_id = ? ORDER BY section_id, subsection_key`
-    ).bind(projectId).all<ProjectDocumentationRow>();
+      `SELECT * FROM project_documentation WHERE tenant_id = ? AND project_id = ? ORDER BY section_id, subsection_key`
+    ).bind(tenantId, projectId).all<ProjectDocumentationRow>();
 
     if (!docsResult.results) {
       return c.json({ error: "Failed to fetch documentation" }, 500);
@@ -300,15 +334,17 @@ projectDocsRouter.get("/api/projects/:projectId/docs/export", async (c) => {
     for (const row of docsResult.results) {
       try {
         const content = JSON.parse(row.content);
+        const sectionId = row.section_id as SectionId;
 
-        if (!sections[row.section_id as SectionId]) {
-          sections[row.section_id as SectionId] = {};
+        if (!sections[sectionId]) {
+          sections[sectionId] = {} as never;
         }
 
         if (row.subsection_key) {
-          sections[row.section_id as SectionId]![row.subsection_key] = content;
+          // Use type assertion to allow dynamic property access
+          (sections[sectionId] as Record<string, unknown>)[row.subsection_key] = content;
         } else {
-          sections[row.section_id as SectionId] = content;
+          sections[sectionId] = content as never;
         }
       } catch (e) {
         console.error(`Failed to parse content for section ${row.section_id}:`, e);
@@ -340,23 +376,23 @@ projectDocsRouter.get("/api/projects/:projectId/docs/export", async (c) => {
 // HELPER FUNCTIONS
 // ============================================================================
 
-async function updateDocumentationMetadata(db: D1Database, projectId: string) {
-  // Count populated sections
+async function updateDocumentationMetadata(db: D1Database, tenantId: string, projectId: string) {
+  // Count populated sections (tenant-scoped)
   const countResult = await db
     .prepare(
-      `SELECT COUNT(DISTINCT section_id) as populated_sections FROM project_documentation WHERE project_id = ? AND section_id != 'overview'`
+      `SELECT COUNT(DISTINCT section_id) as populated_sections FROM project_documentation WHERE tenant_id = ? AND project_id = ? AND section_id != 'overview'`
     )
-    .bind(projectId)
+    .bind(tenantId, projectId)
     .first<{ populated_sections: number }>();
 
   const populatedSections = countResult?.populated_sections ?? 0;
   const totalSections = 13; // A through M
   const completeness = Math.floor((populatedSections / totalSections) * 100);
 
-  // Check if unknowns are resolved (from Section A)
+  // Check if unknowns are resolved (from Section A) (tenant-scoped)
   const unknownsResult = await db
-    .prepare(`SELECT content FROM project_documentation WHERE project_id = ? AND section_id = 'A' AND subsection_key = 'A1_unknowns'`)
-    .bind(projectId)
+    .prepare(`SELECT content FROM project_documentation WHERE tenant_id = ? AND project_id = ? AND section_id = 'A' AND subsection_key = 'A1_unknowns'`)
+    .bind(tenantId, projectId)
     .first<{ content: string }>();
 
   let unknownsResolved = 0;
@@ -374,12 +410,13 @@ async function updateDocumentationMetadata(db: D1Database, projectId: string) {
 
   await db
     .prepare(
-      `INSERT INTO project_documentation_metadata (project_id, completeness_percentage, total_sections, populated_sections, required_unknowns_resolved, status, last_updated)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO project_documentation_metadata (tenant_id, project_id, completeness_percentage, total_sections, populated_sections, required_unknowns_resolved, status, last_updated)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(project_id)
        DO UPDATE SET completeness_percentage = ?, populated_sections = ?, required_unknowns_resolved = ?, status = ?, last_updated = ?`
     )
     .bind(
+      tenantId,
       projectId,
       completeness,
       totalSections,

@@ -28,7 +28,8 @@ async function fetchAPI(
   if (dev) {
     return fetch(`http://127.0.0.1:8787${path}`, options);
   } else if (platform?.env?.GATEWAY) {
-    return platform.env.GATEWAY.fetch(`https://_${path}`, options);
+    const publicPath = path.replace("/api/planning/", "/api/public/planning/");
+    return platform.env.GATEWAY.fetch(`https://_${publicPath}`, options);
   }
   throw new Error("Gateway not configured");
 }

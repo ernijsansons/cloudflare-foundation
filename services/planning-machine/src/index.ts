@@ -53,6 +53,7 @@ import { TechArchAgent } from "./agents/tech-arch-agent";
 import { AnalyticsAgent } from "./agents/analytics-agent";
 import { LaunchExecutionAgent } from "./agents/launch-execution-agent";
 import { SynthesisAgent } from "./agents/synthesis-agent";
+import { requireContextToken } from "./middleware/context-token";
 
 export type { Env };
 export { PlanningWorkflow };
@@ -79,6 +80,7 @@ export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    // Health check doesn't require authentication
     if (url.pathname === "/api/planning/health") {
       return Response.json({
         status: "ok",
@@ -86,6 +88,15 @@ export default {
         timestamp: new Date().toISOString(),
       });
     }
+
+    // Validate context token for all other routes
+    const contextOrError = await requireContextToken(request, env);
+    if (contextOrError instanceof Response) {
+      return contextOrError; // Return error response
+    }
+
+    // Context is valid, continue with request handling
+    // The tenant context is available in contextOrError.tid, contextOrError.uid, etc.
 
     if (url.pathname.startsWith("/api/planning/runs")) {
       return handleRuns(request, env, url);
@@ -166,6 +177,10 @@ async function handleRuns(request: Request, env: Env, url: URL): Promise<Respons
     if (request.method === "POST") {
       return syncArtifact(request, runId, phase, env);
     }
+  }
+
+  if (request.method === "GET" && subPath[0] === "artifacts" && subPath.length === 1) {
+    return listArtifacts(runId, env);
   }
 
   if (request.method === "POST" && subPath[0] === "context" && subPath.length === 1) {
@@ -1123,6 +1138,57 @@ async function getArtifact(runId: string, phase: string, env: Env): Promise<Resp
     });
   } catch (e) {
     console.error("getArtifact error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function listArtifacts(runId: string, env: Env): Promise<Response> {
+  try {
+    const result = await env.DB.prepare(
+      `SELECT id, phase, content, review_verdict, overall_score, version, created_at
+       FROM planning_artifacts
+       WHERE run_id = ?
+       ORDER BY phase ASC, version DESC, created_at DESC`
+    )
+      .bind(runId)
+      .all();
+
+    const latestByPhase = new Map<string, Record<string, unknown>>();
+    for (const row of (result.results ?? []) as Array<Record<string, unknown>>) {
+      const phase = String(row.phase ?? "");
+      if (!phase || latestByPhase.has(phase)) {
+        continue;
+      }
+      latestByPhase.set(phase, row);
+    }
+
+    const items = Array.from(latestByPhase.values()).map((row) => {
+      const contentRaw = row.content;
+      let content: unknown = {};
+      if (typeof contentRaw === "string") {
+        try {
+          content = JSON.parse(contentRaw);
+        } catch {
+          content = {};
+        }
+      } else if (contentRaw && typeof contentRaw === "object") {
+        content = contentRaw;
+      }
+
+      return {
+        id: row.id,
+        phase: row.phase,
+        version: row.version,
+        content,
+        review_verdict: row.review_verdict,
+        overall_score: row.overall_score,
+        created_at: row.created_at,
+      };
+    });
+
+    return Response.json(items);
+  } catch (e) {
+    console.error("listArtifacts error:", e);
     return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

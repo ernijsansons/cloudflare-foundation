@@ -1,3 +1,5 @@
+import type { SectionA } from "@foundation/shared";
+
 export interface Env {
   AGENT_SERVICE: Fetcher;
   PLANNING_SERVICE?: Fetcher;
@@ -37,8 +39,9 @@ export interface Variables {
 
 // Project Documentation Types
 export interface ChecklistItem {
+  task?: string;
   status?: string;
-  dependencies?: unknown;
+  dependencies?: string[];
   [key: string]: unknown;
 }
 
@@ -54,6 +57,7 @@ export interface ThreatModel {
 
 export interface Milestone {
   week?: number;
+  milestone_name?: string;
   [key: string]: unknown;
 }
 
@@ -116,36 +120,56 @@ export interface OverviewSection {
 }
 
 export interface ProjectDocumentation {
-  A?: {
-    concept?: {
-      [key: string]: unknown;
-    };
-    [key: string]: unknown;
-  };
+  A?: SectionA;
   B?: {
     constraints?: {
+      budget_cap?: string;
+      timeline?: string;
       [key: string]: unknown;
     };
     north_star?: {
       [key: string]: unknown;
     };
-    success_kill_switches?: unknown;
-    autonomous_success_rate_target?: unknown;
-    cost_per_outcome_target?: unknown;
+    success_metrics?: {
+      north_star?: string;
+      autonomous_success_rate_target?: string | number;
+      cost_per_outcome_target?: string | number;
+      [key: string]: unknown;
+    };
+    success_kill_switches?: Array<{ name: string; threshold: string; [key: string]: unknown }>;
+    autonomous_success_rate_target?: string | number;
+    cost_per_outcome_target?: string | number;
     unit_economics?: {
+      cac?: string | number;
+      ltv?: string | number;
       [key: string]: unknown;
     };
     [key: string]: unknown;
   };
-  C?: Record<string, unknown[] | unknown>;
+  C?: {
+    checklist?: ChecklistItem[];
+    [key: string]: unknown;
+  };
   D?: Record<string, unknown>;
+  G?: {
+    unit_economics?: {
+      gross_profit_per_outcome?: string | number;
+      breakeven_outcomes?: string | number;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
   J?: {
     security_controls?: SecurityControl[];
     threat_model?: ThreatModel[];
+    [key: string]: unknown;
   };
   M?: {
     weekly_milestones?: Milestone[];
+    roadmap?: Array<{ name: string; dependencies?: string[]; [key: string]: unknown }>;
+    [key: string]: unknown;
   };
+  overview?: OverviewSection;
   [key: string]: unknown;
 }
 
@@ -188,11 +212,11 @@ export interface GetProjectDocsResponse {
 }
 
 export interface GetSectionResponse {
-  project_id: string;
   section_id: SectionId;
-  content: unknown;
-  version: number;
-  updated_at: string;
+  content: Record<string, unknown>;
+  subsections: Record<string, unknown>;
+  status?: string;
+  last_updated: number;
 }
 
 export interface UpdateSectionRequest {

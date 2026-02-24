@@ -8,8 +8,8 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
   try {
     // Fetch run details and all artifacts
     const [runRes, artifactsRes] = await Promise.all([
-      fetch(`/api/planning/runs/${runId}`),
-      fetch(`/api/planning/runs/${runId}/artifacts`),
+      fetch(`/api/public/planning/runs/${runId}`),
+      fetch(`/api/public/planning/runs/${runId}/artifacts`),
     ]);
 
     if (!runRes.ok) {

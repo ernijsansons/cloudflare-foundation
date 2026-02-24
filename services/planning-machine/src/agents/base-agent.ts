@@ -9,7 +9,7 @@ import { getFoundationContext } from "../lib/foundation-context";
 import type { OrchestrationResult, OrchestratorConfig } from "../lib/orchestrator";
 import { orchestrateModels } from "../lib/orchestrator";
 import { validatePhaseOutput, type ValidationResult } from "../lib/schema-validator";
-import type { PhaseName } from "@foundation/shared/ontology";
+import type { PlanningWorkflowPhaseName } from "@foundation/shared";
 
 export interface AgentContext {
   runId: string;
@@ -111,7 +111,7 @@ export abstract class BaseAgent<TInput = unknown, TOutput = unknown> {
    * ```
    */
   protected validateOutput(output: unknown): ValidationResult {
-    const phase = this.config.phase as PhaseName;
+    const phase = this.config.phase as PlanningWorkflowPhaseName;
     return validatePhaseOutput(phase, output);
   }
 

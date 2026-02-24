@@ -9,6 +9,8 @@ import { embedAndStore, getContextForPhase } from "../lib/rag";
 import { reviewArtifact, tiebreakerReview } from "../lib/reviewer";
 import type { OrchestrationResult } from "../lib/orchestrator";
 import { populateDocumentation, generateOverviewSection } from "../lib/doc-populator";
+import { validatePhaseOutput } from "../lib/schema-validator";
+import { scoreArtifact, type QualityScore } from "../lib/quality-scorer";
 
 /** Emit webhook event for external reporting (e.g., to erlvinc.com) */
 async function emitWebhookEvent(
@@ -33,6 +35,91 @@ async function emitWebhookEvent(
   }
 }
 
+function extractCitationsFromArtifact(artifact: unknown): Array<{
+  passage: string;
+  confidence: number;
+  sourceArtifactId?: string;
+}> {
+  if (!artifact || typeof artifact !== "object") {
+    return [];
+  }
+
+  const record = artifact as Record<string, unknown>;
+  const directCitations = Array.isArray(record.citations) ? record.citations : [];
+  if (directCitations.length > 0) {
+    return directCitations
+      .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
+      .map((entry) => ({
+        passage: String(entry.claim ?? entry.snippet ?? ""),
+        confidence:
+          entry.confidence === "high"
+            ? 0.95
+            : entry.confidence === "low"
+              ? 0.6
+              : typeof entry.confidence === "number"
+                ? entry.confidence
+                : 0.8,
+        sourceArtifactId: typeof entry.url === "string" ? entry.url : undefined,
+      }))
+      .filter((citation) => citation.passage.length > 0);
+  }
+
+  const refinedOpportunities = Array.isArray(record.refinedOpportunities)
+    ? record.refinedOpportunities
+    : [];
+
+  return refinedOpportunities
+    .flatMap((variant) => {
+      if (!variant || typeof variant !== "object") {
+        return [];
+      }
+      const sources = (variant as Record<string, unknown>).sources;
+      return Array.isArray(sources) ? sources : [];
+    })
+    .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
+    .map((entry) => ({
+      passage: String(entry.claim ?? entry.snippet ?? ""),
+      confidence: 0.75,
+      sourceArtifactId: typeof entry.url === "string" ? entry.url : undefined,
+    }))
+    .filter((citation) => citation.passage.length > 0);
+}
+
+function toQualityOrchestration(
+  orchestration: OrchestrationResult | undefined
+): { consensusScore: number; modelCount: number; wildIdeas: Array<{ model: string; wildIdea: string }> } | undefined {
+  if (!orchestration) {
+    return undefined;
+  }
+
+  const successfulModels = orchestration.modelOutputs.filter((output) => output.text.length > 0);
+  const modelCount = successfulModels.length;
+  const wildIdeaPenalty = modelCount > 0 ? orchestration.wildIdeas.length / modelCount : 0;
+  const consensusScore = Math.max(0.5, 1 - wildIdeaPenalty * 0.4);
+
+  return {
+    consensusScore,
+    modelCount,
+    wildIdeas: orchestration.wildIdeas.map((idea) => ({
+      model: idea.model,
+      wildIdea: idea.wildIdea,
+    })),
+  };
+}
+
+function evaluateArtifactQuality(
+  phase: PhaseName,
+  artifact: unknown,
+  orchestration?: OrchestrationResult
+): QualityScore {
+  return scoreArtifact({
+    phase,
+    artifact,
+    orchestration: toQualityOrchestration(orchestration),
+    citations: extractCitationsFromArtifact(artifact),
+  });
+}
+
 export type PlanningParams = {
   runId: string;
   idea: string;
@@ -49,6 +136,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
     let killVerdict: string | null = null;
     // Stores orchestration results keyed by phase — populated by runPhase when a model council ran
     const orchestrationDataByPhase = new Map<string, OrchestrationResult>();
+    const qualityScoreByPhase = new Map<string, number>();
 
     // Load pivotCount from DB for workflow resumption support
     let pivotCount = await step.do("load-pivot-count", async () => {
@@ -85,14 +173,43 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
         throw new Error(`Phase 0 (Intake) failed: ${result.errors?.join(", ")}`);
       }
 
+      const intakeValidation = validatePhaseOutput("phase-0-intake", result.output);
+      if (!intakeValidation.valid) {
+        throw new Error(
+          `Phase 0 (Intake) schema validation failed: ${intakeValidation.errors?.join("; ")}`
+        );
+      }
+
+      // Intake must block progression if critical unknowns are unresolved.
+      if (!result.output.ready_to_proceed) {
+        throw new Error(
+          `Phase 0 (Intake) is not ready_to_proceed. Blockers: ${result.output.blockers.join("; ")}`
+        );
+      }
+
       // Save intake to database
       const artifactId = crypto.randomUUID();
-      const contentStr = JSON.stringify(result.output);
+      const contentStr = JSON.stringify(intakeValidation.data);
+      const intakeQuality = scoreArtifact({
+        phase: "phase-0-intake",
+        artifact: intakeValidation.data,
+        citations: [],
+      });
 
       await this.env.DB.prepare(
         `INSERT INTO planning_artifacts (id, run_id, phase, version, content, review_verdict, review_iterations, overall_score, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-        .bind(artifactId, runId, "phase-0-intake", 1, contentStr, "ACCEPTED", 1, null, Math.floor(Date.now() / 1000))
+        .bind(
+          artifactId,
+          runId,
+          "phase-0-intake",
+          1,
+          contentStr,
+          "ACCEPTED",
+          1,
+          intakeQuality.overall,
+          Math.floor(Date.now() / 1000)
+        )
         .run();
 
       // Populate Section A documentation
@@ -139,19 +256,27 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
         throw new Error(`Phase ${phaseName} failed: ${result.errors?.join(", ")}`);
       }
 
+      const validation = validatePhaseOutput(phaseName, result.output);
+      if (!validation.valid) {
+        throw new Error(
+          `Phase ${phaseName} schema validation failed: ${validation.errors?.join("; ")}`
+        );
+      }
+      const validatedOutput = validation.data;
+
       // Capture orchestration data (per-model outputs + wild ideas) for DB persistence
       if (result.orchestration) {
         orchestrationDataByPhase.set(phaseName, result.orchestration);
       }
 
-      priorOutputs[phaseName] = result.output;
+      priorOutputs[phaseName] = validatedOutput;
 
-      if (phaseName === "kill-test" && result.output && typeof result.output === "object" && "verdict" in result.output) {
-        killVerdict = String((result.output as { verdict: string }).verdict);
+      if (phaseName === "kill-test" && validatedOutput && typeof validatedOutput === "object" && "verdict" in validatedOutput) {
+        killVerdict = String((validatedOutput as { verdict: string }).verdict);
       }
 
-      if (phaseName === "opportunity" && result.output && typeof result.output === "object" && "refinedOpportunities" in result.output) {
-        const opp = result.output as { refinedOpportunities?: Array<{ idea: string }>; recommendedIndex?: number };
+      if (phaseName === "opportunity" && validatedOutput && typeof validatedOutput === "object" && "refinedOpportunities" in validatedOutput) {
+        const opp = validatedOutput as { refinedOpportunities?: Array<{ idea: string }>; recommendedIndex?: number };
         const idx = opp.recommendedIndex ?? 0;
         const chosen = opp.refinedOpportunities?.[idx];
         if (chosen?.idea) {
@@ -165,7 +290,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
         }
       }
 
-      return result.output;
+      return validatedOutput;
     };
 
     for (let i = 0; i < PHASE_ORDER.length; i++) {
@@ -174,7 +299,31 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
       if (phase === "kill-test") {
         // Use versioned step key to ensure fresh execution after PIVOT
         const killTestStepKey = pivotCount > 0 ? `phase-${phase}-v${pivotCount}` : `phase-${phase}`;
-        const output = await step.do(killTestStepKey, async () => runPhase(phase) as object) as { verdict?: string } | undefined;
+        const rawOutput = await step.do(killTestStepKey, async () => runPhase(phase) as object);
+        const validation = validatePhaseOutput(phase, rawOutput);
+        if (!validation.valid) {
+          throw new Error(
+            `Phase ${phase} schema validation failed: ${validation.errors?.join("; ")}`
+          );
+        }
+
+        const orchData = orchestrationDataByPhase.get(phase);
+        const killTestQuality = evaluateArtifactQuality(
+          phase,
+          validation.data,
+          orchData
+        );
+        qualityScoreByPhase.set(phase, killTestQuality.overall);
+        if (killTestQuality.overall < 55) {
+          throw new Error(
+            `Phase ${phase} quality score ${killTestQuality.overall} is below minimum threshold (55).`
+          );
+        }
+
+        const output = validation.data as {
+          verdict?: string;
+          parkedForFuture?: { reason: string; revisitEstimateMonths: number; note?: string };
+        };
 
         if (output?.verdict === "KILL") {
           await step.do("save-kill", async () => {
@@ -184,8 +333,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
               .bind("killed", "KILL", phase, Math.floor(Date.now() / 1000), runId)
               .run();
 
-            const parked = output as { parkedForFuture?: { reason: string; revisitEstimateMonths: number; note?: string } };
-            if (parked.parkedForFuture) {
+            if (output.parkedForFuture) {
               const parkedId = crypto.randomUUID();
               const artifactSummary = Object.keys(priorOutputs).length > 0
                 ? JSON.stringify(
@@ -204,9 +352,9 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
                   refinedIdea,
                   runId,
                   "kill-test",
-                  parked.parkedForFuture.reason,
-                  parked.parkedForFuture.revisitEstimateMonths,
-                  parked.parkedForFuture.note ?? null,
+                  output.parkedForFuture.reason,
+                  output.parkedForFuture.revisitEstimateMonths,
+                  output.parkedForFuture.note ?? null,
                   artifactSummary,
                   Math.floor(Date.now() / 1000)
                 )
@@ -332,7 +480,17 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
           await this.env.DB.prepare(
             `INSERT INTO planning_artifacts (id, run_id, phase, version, content, review_verdict, review_iterations, overall_score, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
           )
-            .bind(artifactId, runId, phase, pivotCount + 1, contentStr, "GO", 1, null, Math.floor(Date.now() / 1000))
+            .bind(
+              artifactId,
+              runId,
+              phase,
+              pivotCount + 1,
+              contentStr,
+              "GO",
+              1,
+              killTestQuality.overall,
+              Math.floor(Date.now() / 1000)
+            )
             .run();
 
           const orchData = orchestrationDataByPhase.get(phase);
@@ -369,6 +527,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
             phase,
             status: "running",
             verdict: "GO",
+            score: killTestQuality.overall,
             timestamp: Math.floor(Date.now() / 1000),
           });
           return { emitted: true };
@@ -399,6 +558,13 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
         const MAX_REVISION_ITERATIONS = 3;
         let currentIteration = 1;
         let output: unknown = await runPhase(phase);
+        let validation = validatePhaseOutput(phase, output);
+        if (!validation.valid) {
+          throw new Error(
+            `Phase ${phase} schema validation failed: ${validation.errors?.join("; ")}`
+          );
+        }
+        output = validation.data;
         let contentStr = JSON.stringify(output);
         const artifactId = crypto.randomUUID();
         let reviewVerdict: string | null = null;
@@ -461,9 +627,33 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
             // Re-run agent with feedback for revision
             currentIteration++;
             output = await runPhase(phase, review.feedback);
+            validation = validatePhaseOutput(phase, output);
+            if (!validation.valid) {
+              throw new Error(
+                `Phase ${phase} schema validation failed after revision ${currentIteration}: ${validation.errors?.join("; ")}`
+              );
+            }
+            output = validation.data;
             contentStr = JSON.stringify(output);
           }
         }
+
+        const automatedQuality = evaluateArtifactQuality(
+          phase,
+          output,
+          orchestrationDataByPhase.get(phase)
+        );
+        if (automatedQuality.overall < 55) {
+          throw new Error(
+            `Phase ${phase} quality score ${automatedQuality.overall} is below minimum threshold (55).`
+          );
+        }
+        const finalQualityScore =
+          overallScore === null
+            ? automatedQuality.overall
+            : Math.round((overallScore + automatedQuality.overall) / 2);
+        overallScore = finalQualityScore;
+        qualityScoreByPhase.set(phase, finalQualityScore);
 
         await this.env.DB.prepare(
           "UPDATE planning_runs SET current_phase = ?, updated_at = ? WHERE id = ?"
@@ -518,7 +708,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
           runId,
           phase,
           status: "running",
-          score: null,
+          score: qualityScoreByPhase.get(phase) ?? null,
           timestamp: Math.floor(Date.now() / 1000),
         });
         return { emitted: true };
@@ -582,7 +772,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
       const result = await agent.run(
         { runId, idea, refinedIdea, priorOutputs },
         {
-          draftTasksByPhase: draftTasksByPhase as Record<string, Array<Record<string, unknown>>>,
+          draftTasksByPhase: draftTasksByPhase as unknown as Record<string, Array<{ title: string; [key: string]: unknown }>>,
           intakeConstraints,
           techArchSummary,
           productDesignSummary,
@@ -604,10 +794,24 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
       return result.output as object;
     });
 
+    const taskValidation = validatePhaseOutput("task-reconciliation", taskReconciliationOutput);
+    if (!taskValidation.valid) {
+      throw new Error(
+        `Phase task-reconciliation schema validation failed: ${taskValidation.errors?.join("; ")}`
+      );
+    }
+    const validatedTaskReconciliationOutput = taskValidation.data as object;
+    const taskReconciliationQuality = scoreArtifact({
+      phase: "task-reconciliation",
+      artifact: validatedTaskReconciliationOutput,
+      citations: [],
+    });
+    qualityScoreByPhase.set("task-reconciliation", taskReconciliationQuality.overall);
+
     // Save Phase 16 artifact + TASKS.json to R2
     await step.do("save-task-reconciliation-artifact", async () => {
       const artifactId = crypto.randomUUID();
-      const contentStr = JSON.stringify(taskReconciliationOutput);
+      const contentStr = JSON.stringify(validatedTaskReconciliationOutput);
 
       await this.env.DB.prepare(
         "UPDATE planning_runs SET current_phase = ?, updated_at = ? WHERE id = ?"
@@ -615,7 +819,17 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 
       await this.env.DB.prepare(
         `INSERT INTO planning_artifacts (id, run_id, phase, version, content, review_verdict, review_iterations, overall_score, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(artifactId, runId, "task-reconciliation", 1, contentStr, "ACCEPTED", 1, null, Math.floor(Date.now() / 1000)).run();
+      ).bind(
+        artifactId,
+        runId,
+        "task-reconciliation",
+        1,
+        contentStr,
+        "ACCEPTED",
+        1,
+        taskReconciliationQuality.overall,
+        Math.floor(Date.now() / 1000)
+      ).run();
 
       // Store TASKS.json to R2 for direct download by Naomi bridge
       if (this.env.FILES) {
@@ -628,7 +842,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
       return { saved: true, artifactId };
     });
 
-    priorOutputs["task-reconciliation"] = taskReconciliationOutput;
+    priorOutputs["task-reconciliation"] = validatedTaskReconciliationOutput;
     // ── End Phase 16 ───────────────────────────────────────────────────────────
 
     await step.do("complete", async () => {
@@ -648,10 +862,25 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
         });
       }
 
+      const qualityValues = Array.from(qualityScoreByPhase.values());
+      const aggregateQuality =
+        qualityValues.length > 0
+          ? Math.round(
+              qualityValues.reduce((total, score) => total + score, 0) /
+                qualityValues.length
+            )
+          : null;
+
       await this.env.DB.prepare(
-        "UPDATE planning_runs SET status = ?, package_key = ?, updated_at = ? WHERE id = ?"
+        "UPDATE planning_runs SET status = ?, package_key = ?, quality_score = ?, updated_at = ? WHERE id = ?"
       )
-        .bind("completed", packageKey, Math.floor(Date.now() / 1000), runId)
+        .bind(
+          "completed",
+          packageKey,
+          aggregateQuality,
+          Math.floor(Date.now() / 1000),
+          runId
+        )
         .run();
 
       // Emit run_completed webhook

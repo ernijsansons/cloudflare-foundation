@@ -1,23 +1,10 @@
+import type { PlanningAgentPhaseName } from "@foundation/shared";
+
 // Run status from planning_runs table
-export type RunStatus = "running" | "paused" | "completed" | "killed";
+export type RunStatus = "active" | "running" | "pending" | "paused" | "completed" | "killed" | "cancelled";
 
 // Phase names from registry
-export type PhaseName =
-  | "opportunity"
-  | "customer-intel"
-  | "market-research"
-  | "competitive-intel"
-  | "kill-test"
-  | "revenue-expansion"
-  | "strategy"
-  | "business-model"
-  | "product-design"
-  | "gtm-marketing"
-  | "content-engine"
-  | "tech-arch"
-  | "analytics"
-  | "launch-execution"
-  | "synthesis";
+export type PhaseName = PlanningAgentPhaseName;
 
 // Run mode (local = CLI/Claude Code, cloud = Cloudflare Workers AI)
 export type RunMode = "local" | "cloud";
@@ -142,6 +129,6 @@ export const STAGES: Stage[] = [
   {
     id: "execution",
     title: "Execution",
-    phases: ["tech-arch", "analytics", "launch-execution", "synthesis"],
+    phases: ["tech-arch", "analytics", "launch-execution", "synthesis", "task-reconciliation"],
   },
 ];

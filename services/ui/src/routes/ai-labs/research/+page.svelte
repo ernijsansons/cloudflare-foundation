@@ -19,7 +19,7 @@
 
   async function handleCreateRun(data: { type: "idea" | "run"; idea: string; mode?: "local" | "cloud" }) {
     // eslint-disable-next-line no-undef
-    const res = await fetch("/api/planning/runs", {
+    const res = await fetch("/api/public/planning/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idea: data.idea, mode: data.mode ?? "cloud" }),
@@ -57,6 +57,7 @@
     "analytics": "#059669",
     "launch-execution": "#047857",
     "synthesis": "#065f46",
+    "task-reconciliation": "#064e3b",
   };
 
   // Build 15 columns from PHASE_ORDER
@@ -69,7 +70,7 @@
 
   // Filter out killed runs (they go to Parked Ideas page)
   // eslint-disable-next-line no-undef
-  const activeRuns = $derived(data.runs.filter((r) => r.status !== "killed"));
+  const activeRuns = $derived(data.runs.filter((r) => r.status !== "killed" && r.status !== "cancelled"));
 
   // Map runs to Kanban cards based on their current_phase
   // eslint-disable-next-line no-undef
@@ -109,7 +110,7 @@
   <div class="header-content">
     <div>
       <h1>Research Pipeline</h1>
-      <p class="subtitle">15-phase validation: Discovery → Validation → Strategy → Design → Execution</p>
+      <p class="subtitle">16-stage validation: Discovery → Validation → Strategy → Design → Execution</p>
     </div>
     <button class="start-research-btn" onclick={() => showCreateModal = true}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

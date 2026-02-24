@@ -1,30 +1,15 @@
 import type { PageServerLoad } from './$types';
+import { createGatewayClient } from '$lib/server/gateway';
 
-export const load: PageServerLoad = async ({ platform, fetch }) => {
+export const load: PageServerLoad = async ({ platform, fetch, locals }) => {
 	try {
-		// Try using the GATEWAY service binding first (internal, no auth required)
-		const gateway = platform?.env?.GATEWAY;
+		const gateway = createGatewayClient(platform, locals, fetch);
 
-		let response;
-		if (gateway) {
-			// Use service binding - create a proper request object
-			const request = new Request('https://placeholder/api/public/dashboard/agents?tenant_id=erlvinc&business_id=naomi');
-			response = await gateway.fetch(request);
-		} else {
-			// Fallback to HTTP call (requires external access)
-			response = await fetch('https://foundation-gateway-production.ernijs-ansons.workers.dev/api/public/dashboard/agents?tenant_id=erlvinc&business_id=naomi');
-		}
+		// No need to hardcode tenant_id - gateway client handles it
+		const data = await gateway.fetchJson<{ agents: unknown[] }>(
+			'/public/dashboard/agents?business_id=naomi'
+		);
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			console.error('Failed to fetch agents:', response.status, response.statusText, errorText);
-			return {
-				agents: [],
-				error: `Failed to load agents: ${response.statusText}`
-			};
-		}
-
-		const data = await response.json();
 		return {
 			agents: data.agents || [],
 			error: null

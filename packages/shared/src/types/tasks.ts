@@ -122,7 +122,7 @@ export interface CodeTask {
 
 // ── Marketing Task ─────────────────────────────────────────────────────────
 
-export interface ContentTemplate {
+export interface MarketingContentTemplate {
   sections: string[];
   maxWords?: number;
   format?: string;
@@ -139,7 +139,7 @@ export interface MarketingTask {
   targetAudience: string;
   brandVoice: string;
   conversionObjective: string;
-  contentTemplate?: ContentTemplate;
+  contentTemplate?: MarketingContentTemplate;
   competitorExamples?: string[];
   acceptanceCriteria: AcceptanceCriterion[];
   /** Marketing tasks always require human review before publishing */

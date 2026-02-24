@@ -106,6 +106,13 @@ export const phaseDocs: Record<PhaseName, PhaseDocumentation> = {
     outputs: ["Executive summary", "Full business plan", "Investment thesis", "Next actions"],
     successCriteria: ["Coherent narrative", "All sections aligned", "Clear call to action"],
   },
+  "task-reconciliation": {
+    title: "Task Reconciliation",
+    purpose: "Merge draft tasks from all phases into an executable one-shot build plan",
+    inputs: ["Draft tasks from design, GTM, architecture, analytics, and launch phases"],
+    outputs: ["Unified TASKS.json", "Critical path", "Build phase sequencing", "Naomi-ready prompts"],
+    successCriteria: ["No duplicate tasks", "Resolved dependencies", "Coverage across code and marketing", "Executable critical path"],
+  },
 };
 
 // Get all phases in order
@@ -125,6 +132,7 @@ export const PHASE_ORDER: PhaseName[] = [
   "analytics",
   "launch-execution",
   "synthesis",
+  "task-reconciliation",
 ];
 
 // Get phase index (1-15)

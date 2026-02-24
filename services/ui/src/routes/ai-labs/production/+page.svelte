@@ -5,7 +5,7 @@
   import Kanban from "$lib/components/Kanban.svelte";
   import ProjectCard from "$lib/components/ProjectCard/ProjectCard.svelte";
   import type { PlanningRun, NaomiTask, KanbanCard, KanbanColumn } from "$lib/types";
-  import type { ProjectDocumentation } from "@cloudflare/shared";
+  import type { ProjectDocumentation } from "@foundation/shared";
 
   interface PageData {
     runs: PlanningRun[];

@@ -11,7 +11,7 @@
 import type { Env } from "../types";
 import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
-import type { Unknowns, GlobalInvariants, SectionA } from "@cloudflare/shared";
+import type { Unknowns, GlobalInvariants, SectionA } from "@foundation/shared";
 
 export interface IntakeAgentInput {
   idea: string;
@@ -326,12 +326,13 @@ ${input.mode === "auto" ? "Please make reasonable assumptions where specific det
           "fail_closed",
         ];
         for (const invariant of requiredInvariants) {
+          const invariantName = String(invariant);
           if (invariant === "llm_gateway") {
             if (!sectionA.A2_invariants[invariant]) {
-              blockers.push(`Invariant not confirmed: ${invariant}`);
+              blockers.push(`Invariant not confirmed: ${invariantName}`);
             }
           } else if (!sectionA.A2_invariants[invariant]) {
-            blockers.push(`Invariant not confirmed: ${invariant}`);
+            blockers.push(`Invariant not confirmed: ${invariantName}`);
           }
         }
       }

@@ -45,11 +45,11 @@ jobs:
         if: steps.changed-files.outputs.services > 0 || steps.changed-files.outputs.packages > 0
         run: |
           if [ ${{ steps.changed-files.outputs.packages }} -gt 0 ]; then
-            pnpm --filter @foundation/shared run typecheck || true
-            pnpm --filter @foundation/db run typecheck || true
+            pnpm --filter @foundation/shared run typecheck
+            pnpm --filter @foundation/db run typecheck
           fi
           if [ ${{ steps.changed-files.outputs.services }} -gt 0 ]; then
-            pnpm run typecheck:workers || true
+            pnpm run typecheck:workers
           fi
 
       - name: Run schema validator tests (if schema changed)
@@ -57,7 +57,7 @@ jobs:
         run: pnpm --filter foundation-planning-machine run test src/lib/__tests__/schema-validator.test.ts
 
       - name: Run lint on changed files
-        run: pnpm run lint || true
+        run: pnpm run lint
 
       - name: Check PR title format
         run: |

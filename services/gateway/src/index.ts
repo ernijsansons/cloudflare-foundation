@@ -69,7 +69,7 @@ app.route("/api/images", imagesRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/analytics", analyticsRoutes);
 app.route("/api/naomi", naomiRoutes);
-app.route("/api/project-docs", projectDocsRouter);
+app.route("/api/projects", projectDocsRouter);
 
 export default app;
 export { FoundationMcpServer };

@@ -56,7 +56,7 @@ export default defineConfig({
 
   // Optimize dependencies
   optimizeDeps: {
-    include: ["@cloudflare/shared"],
+    include: ["@foundation/shared"],
     exclude: [],
   },
 });

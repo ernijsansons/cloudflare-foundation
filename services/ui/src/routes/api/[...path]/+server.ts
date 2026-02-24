@@ -21,16 +21,28 @@ async function proxy(request: Request, path: string, gateway: Fetcher): Promise<
   });
 }
 
+async function proxyWithoutGateway(request: Request, path: string): Promise<Response> {
+  const target = path.startsWith("public/planning/")
+    ? `http://127.0.0.1:8787/api/planning/${path.replace("public/planning/", "")}${new URL(request.url).search}`
+    : `http://127.0.0.1:8788/api/${path}${new URL(request.url).search}`;
+
+  return fetch(target, {
+    method: request.method,
+    headers: request.headers,
+    body: request.method !== "GET" ? request.body : undefined,
+  });
+}
+
 export const GET: RequestHandler = async ({ request, platform, params }) => {
-  if (!platform?.env?.GATEWAY) return new Response("Gateway not configured", { status: 503 });
+  if (!platform?.env?.GATEWAY) return proxyWithoutGateway(request, params.path ?? "");
   return proxy(request, params.path ?? "", platform.env.GATEWAY);
 };
 
 export const POST: RequestHandler = async ({ request, platform, params }) => {
-  if (!platform?.env?.GATEWAY) return new Response("Gateway not configured", { status: 503 });
+  if (!platform?.env?.GATEWAY) return proxyWithoutGateway(request, params.path ?? "");
   return proxy(request, params.path ?? "", platform.env.GATEWAY);
 };
 
-export const PATCH: RequestHandler = async (e) => (e.platform?.env?.GATEWAY ? proxy(e.request, e.params.path ?? "", e.platform.env.GATEWAY) : new Response("Gateway not configured", { status: 503 }));
-export const PUT: RequestHandler = async (e) => (e.platform?.env?.GATEWAY ? proxy(e.request, e.params.path ?? "", e.platform.env.GATEWAY) : new Response("Gateway not configured", { status: 503 }));
-export const DELETE: RequestHandler = async (e) => (e.platform?.env?.GATEWAY ? proxy(e.request, e.params.path ?? "", e.platform.env.GATEWAY) : new Response("Gateway not configured", { status: 503 }));
+export const PATCH: RequestHandler = async (e) => (e.platform?.env?.GATEWAY ? proxy(e.request, e.params.path ?? "", e.platform.env.GATEWAY) : proxyWithoutGateway(e.request, e.params.path ?? ""));
+export const PUT: RequestHandler = async (e) => (e.platform?.env?.GATEWAY ? proxy(e.request, e.params.path ?? "", e.platform.env.GATEWAY) : proxyWithoutGateway(e.request, e.params.path ?? ""));
+export const DELETE: RequestHandler = async (e) => (e.platform?.env?.GATEWAY ? proxy(e.request, e.params.path ?? "", e.platform.env.GATEWAY) : proxyWithoutGateway(e.request, e.params.path ?? ""));

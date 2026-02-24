@@ -9,6 +9,7 @@
   }
 
   const data = $derived($page.data as PageData);
+  const artifactEntries = $derived(Object.entries(data.artifacts));
 </script>
 
 <svelte:head>
@@ -30,6 +31,16 @@
     <p><strong>Quality Score:</strong> {data.run.quality_score || "N/A"}</p>
     <p><strong>Revenue Potential:</strong> {data.run.revenue_potential || "N/A"}</p>
     <p><strong>Mode:</strong> {data.run.mode || "N/A"}</p>
+    <p><strong>Artifacts:</strong> {artifactEntries.length}</p>
+    {#if artifactEntries.length > 0}
+      <h2>Phase Artifacts</h2>
+      {#each artifactEntries as [phase, artifact]}
+        <details style="margin-bottom: 1rem;">
+          <summary>{phase}</summary>
+          <pre style="padding: 0.75rem; background: #f5f5f5; border-radius: 6px; overflow-x: auto;">{JSON.stringify(artifact, null, 2)}</pre>
+        </details>
+      {/each}
+    {/if}
   </div>
 {:else}
   <div style="padding: 2rem;">

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import type { ProjectDocumentation } from '@cloudflare/shared';
+	import type { ProjectDocumentation } from '@foundation/shared';
 	import Sidebar from './Sidebar.svelte';
 	import OverviewTab from './OverviewTab.svelte';
 	import SectionA from './SectionA.svelte';

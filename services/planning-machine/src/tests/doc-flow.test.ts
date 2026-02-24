@@ -92,7 +92,7 @@ import type { D1Database, Ai } from "@cloudflare/workers-types";
 import { IntakeAgent } from "../agents/intake-agent";
 import { mapPhaseToSections } from "../lib/phase-to-section-mapper";
 import { populateDocumentation, validateDocumentationCompleteness } from "../lib/doc-populator";
-import type { SectionA } from "@cloudflare/shared";
+import type { SectionA } from "@foundation/shared";
 import type { Env } from "../types";
 
 // Mock D1 Database for testing

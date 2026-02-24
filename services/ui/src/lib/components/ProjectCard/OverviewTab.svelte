@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { OverviewSection } from '@cloudflare/shared';
+	import type { OverviewSection } from '@foundation/shared';
 
 	export let overview: OverviewSection | undefined;
 </script>

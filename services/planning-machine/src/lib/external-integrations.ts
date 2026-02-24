@@ -4,8 +4,6 @@
  * Supports webhooks, third-party APIs, data connectors, and event publishing
  */
 
-import type { PhaseName } from '@foundation/shared';
-
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -78,7 +76,7 @@ export interface WebhookPayload {
   timestamp: string;
   runId?: string;
   artifactId?: string;
-  phase?: PhaseName;
+  phase?: string;
   data: unknown;
   signature?: string; // HMAC signature for verification
 }
@@ -249,7 +247,7 @@ export async function sendSlackMessage(
  */
 export function formatArtifactCompletionMessage(
   artifactId: string,
-  phase: PhaseName,
+  phase: string,
   qualityScore: number,
   runId: string
 ): SlackMessage {

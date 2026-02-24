@@ -3,6 +3,10 @@
  */
 
 import type { Env } from "../types";
+import {
+  PLANNING_AGENT_PHASE_ORDER,
+  type PlanningAgentPhaseName,
+} from "@foundation/shared";
 import type { BaseAgent } from "./base-agent";
 import { OpportunityAgent } from "./opportunity-agent";
 import { CustomerIntelAgent } from "./customer-intel-agent";
@@ -21,26 +25,9 @@ import { LaunchExecutionAgent } from "./launch-execution-agent";
 import { SynthesisAgent } from "./synthesis-agent";
 import { TaskReconciliationAgent } from "./task-reconciliation-agent";
 
-export const PHASE_ORDER = [
-  "opportunity",
-  "customer-intel",
-  "market-research",
-  "competitive-intel",
-  "kill-test",
-  "revenue-expansion",
-  "strategy",
-  "business-model",
-  "product-design",
-  "gtm-marketing",
-  "content-engine",
-  "tech-arch",
-  "analytics",
-  "launch-execution",
-  "synthesis",
-  "task-reconciliation",
-] as const;
+export const PHASE_ORDER = PLANNING_AGENT_PHASE_ORDER;
 
-export type PhaseName = (typeof PHASE_ORDER)[number];
+export type PhaseName = PlanningAgentPhaseName;
 
 const AGENT_FACTORIES: Record<PhaseName, new (env: Env) => BaseAgent> = {
   opportunity: OpportunityAgent as new (env: Env) => BaseAgent,

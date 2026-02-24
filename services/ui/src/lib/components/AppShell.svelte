@@ -21,7 +21,7 @@
   }
 
   async function handleCreateSubmit(data: { type: "idea" | "run"; idea: string; mode?: "local" | "cloud" }) {
-    const res = await fetch("/api/planning/runs", {
+    const res = await fetch("/api/public/planning/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idea: data.idea, mode: data.mode ?? "cloud" }),

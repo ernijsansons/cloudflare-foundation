@@ -1,39 +1,16 @@
 /**
  * Phase-to-Section Mapper
  *
- * Maps planning phase outputs (Phases 1-15) to documentation sections (A-M).
- * This enables automatic documentation population as the planning pipeline executes.
- *
- * Mapping Strategy:
- * - Phase 0 (Intake) → Section A
- * - Phases 1-4 (Discovery) → Section A (enrichment)
- * - Phase 5 (Kill Test) → Section A (validation)
- * - Phases 6-8 (Strategy) → Sections B, G
- * - Phases 9-11 (Design) → Sections E, F, H, I
- * - Phases 12-14 (Execution) → Sections C, D, J, K, L
- * - Phase 15 (Synthesis) → Sections B, M, Overview
+ * Maps planning phase outputs to documentation sections (A-M) using canonical
+ * phase names. Legacy phase ids are normalized before mapping.
  */
 
-import type {
-  SectionA,
-  SectionB,
-  SectionC,
-  SectionD,
-  SectionE,
-  SectionF,
-  SectionG,
-  SectionH,
-  SectionI,
-  SectionJ,
-  SectionK,
-  SectionL,
-  SectionM,
-  SectionId,
-} from "@cloudflare/shared";
-
-// ============================================================================
-// PHASE OUTPUT INTERFACES
-// ============================================================================
+import {
+  normalizePlanningPhase,
+  type SectionA,
+  type SectionId,
+  type PlanningWorkflowPhaseName,
+} from "@foundation/shared";
 
 interface PhaseOutput {
   phase: string;
@@ -48,468 +25,512 @@ interface SectionUpdate {
   populatedBy: string;
 }
 
-// ============================================================================
-// PHASE-TO-SECTION MAPPING REGISTRY
-// ============================================================================
+type PhaseMapper = (output: PhaseOutput, phase: PlanningWorkflowPhaseName) => SectionUpdate[];
 
-type PhaseMapper = (output: PhaseOutput) => SectionUpdate[];
-
-const PHASE_MAPPERS: Record<string, PhaseMapper> = {
+const PHASE_MAPPERS: Record<PlanningWorkflowPhaseName, PhaseMapper> = {
   "phase-0-intake": mapIntakeToSectionA,
-  "phase-1-opportunity": mapOpportunityToSectionA,
-  "phase-2-customer-intel": mapCustomerIntelToSectionA,
-  "phase-3-market-research": mapMarketResearchToSectionA,
-  "phase-4-competitive-intel": mapCompetitiveIntelToSectionA,
-  "phase-5-kill-test": mapKillTestToSectionA,
-  "phase-6-revenue-expansion": mapRevenueToSectionG,
-  "phase-7-strategy": mapStrategyToSectionB,
-  "phase-8-business-model": mapBusinessModelToSectionG,
-  "phase-9-product-design": mapProductDesignToSections,
-  "phase-10-gtm": mapGTMToSectionH,
-  "phase-11-content-engine": mapContentToSectionI,
-  "phase-12-tech-arch": mapTechArchToSections,
-  "phase-13-analytics": mapAnalyticsToSectionK,
-  "phase-14-launch": mapLaunchToSections,
-  "phase-15-synthesis": mapSynthesisToSections,
+  opportunity: mapOpportunityToSectionA,
+  "customer-intel": mapCustomerIntelToSectionA,
+  "market-research": mapMarketResearchToSectionA,
+  "competitive-intel": mapCompetitiveIntelToSectionA,
+  "kill-test": mapKillTestToSectionA,
+  "revenue-expansion": mapRevenueToSectionG,
+  strategy: mapStrategyToSectionB,
+  "business-model": mapBusinessModelToSectionG,
+  "product-design": mapProductDesignToSections,
+  "gtm-marketing": mapGTMToSectionH,
+  "content-engine": mapContentToSectionI,
+  "tech-arch": mapTechArchToSections,
+  analytics: mapAnalyticsToSectionK,
+  "launch-execution": mapLaunchToSections,
+  synthesis: mapSynthesisToSections,
+  "task-reconciliation": mapTaskReconciliationToSections,
 };
 
-// ============================================================================
-// MAIN MAPPING FUNCTION
-// ============================================================================
+function createUpdate(
+  sectionId: SectionId,
+  subsectionKey: string,
+  content: Record<string, unknown>,
+  phase: PlanningWorkflowPhaseName
+): SectionUpdate {
+  return {
+    sectionId,
+    subsectionKey,
+    content,
+    populatedBy: phase,
+  };
+}
 
 /**
- * Map a phase output to one or more documentation section updates
+ * Map a phase output to one or more documentation section updates.
  */
 export function mapPhaseToSections(output: PhaseOutput): SectionUpdate[] {
-  const mapper = PHASE_MAPPERS[output.phase];
+  const normalizedPhase = normalizePlanningPhase(output.phase);
+  if (!normalizedPhase) {
+    console.warn(`No mapper found for unknown phase: ${output.phase}`);
+    return [];
+  }
 
+  const mapper = PHASE_MAPPERS[normalizedPhase];
   if (!mapper) {
-    console.warn(`No mapper found for phase: ${output.phase}`);
+    console.warn(`No mapper implemented for phase: ${normalizedPhase}`);
     return [];
   }
 
   try {
-    return mapper(output);
+    return mapper(output, normalizedPhase);
   } catch (error) {
-    console.error(`Failed to map phase ${output.phase}:`, error);
+    console.error(`Failed to map phase ${normalizedPhase}:`, error);
     return [];
   }
 }
 
-// ============================================================================
-// PHASE 0: INTAKE → SECTION A
-// ============================================================================
-
-function mapIntakeToSectionA(output: PhaseOutput): SectionUpdate[] {
-  const data = output.data as { sectionA: SectionA };
+function mapIntakeToSectionA(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
+  const data = output.data as { sectionA?: SectionA };
+  if (!data.sectionA) {
+    return [];
+  }
 
   return [
-    {
-      sectionId: "A",
-      subsectionKey: "A0_intake",
-      content: data.sectionA.A0_intake as unknown as Record<string, unknown>,
-      populatedBy: "phase-0-intake",
-    },
-    {
-      sectionId: "A",
-      subsectionKey: "A1_unknowns",
-      content: data.sectionA.A1_unknowns as unknown as Record<string, unknown>,
-      populatedBy: "phase-0-intake",
-    },
-    {
-      sectionId: "A",
-      subsectionKey: "A2_invariants",
-      content: data.sectionA.A2_invariants as unknown as Record<string, unknown>,
-      populatedBy: "phase-0-intake",
-    },
+    createUpdate("A", "A0_intake", data.sectionA.A0_intake as unknown as Record<string, unknown>, phase),
+    createUpdate("A", "A1_unknowns", data.sectionA.A1_unknowns as unknown as Record<string, unknown>, phase),
+    createUpdate("A", "A2_invariants", data.sectionA.A2_invariants as unknown as Record<string, unknown>, phase),
   ];
 }
 
-// ============================================================================
-// PHASES 1-4: DISCOVERY → SECTION A ENRICHMENT
-// ============================================================================
-
-function mapOpportunityToSectionA(output: PhaseOutput): SectionUpdate[] {
+function mapOpportunityToSectionA(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    refined_opportunities?: Array<{ title: string; description: string }>;
-    recommended_index?: number;
+    refinedOpportunities?: Array<Record<string, unknown>>;
+    recommendedIndex?: number;
+    keyInsight?: string;
+    unknowns?: string[];
   };
 
-  if (!data.refined_opportunities) return [];
+  if (!Array.isArray(data.refinedOpportunities) || data.refinedOpportunities.length === 0) {
+    return [];
+  }
 
   return [
-    {
-      sectionId: "A",
-      subsectionKey: "discovery_opportunities",
-      content: {
-        opportunities: data.refined_opportunities,
-        recommended: data.recommended_index ?? 0,
+    createUpdate(
+      "A",
+      "discovery_opportunities",
+      {
+        opportunities: data.refinedOpportunities,
+        recommended_index: data.recommendedIndex ?? 0,
+        key_insight: data.keyInsight ?? null,
+        unknowns: data.unknowns ?? [],
       },
-      populatedBy: "phase-1-opportunity",
-    },
+      phase
+    ),
   ];
 }
 
-function mapCustomerIntelToSectionA(output: PhaseOutput): SectionUpdate[] {
+function mapCustomerIntelToSectionA(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    customer_segments?: Array<{ name: string; pain_points: string[] }>;
-  };
-
-  if (!data.customer_segments) return [];
-
-  return [
-    {
-      sectionId: "A",
-      subsectionKey: "discovery_customers",
-      content: {
-        segments: data.customer_segments,
-      },
-      populatedBy: "phase-2-customer-intel",
-    },
-  ];
-}
-
-function mapMarketResearchToSectionA(output: PhaseOutput): SectionUpdate[] {
-  const data = output.data as {
-    tam?: string;
-    sam?: string;
-    som?: string;
-    market_trends?: string[];
+    icp?: Record<string, unknown>;
+    personas?: Record<string, unknown>;
+    customerLanguage?: unknown;
+    jobsToBeDone?: unknown;
   };
 
   return [
-    {
-      sectionId: "A",
-      subsectionKey: "discovery_market",
-      content: {
-        tam: data.tam,
-        sam: data.sam,
-        som: data.som,
-        trends: data.market_trends,
+    createUpdate(
+      "A",
+      "discovery_customers",
+      {
+        icp: data.icp ?? null,
+        personas: data.personas ?? null,
+        customer_language: data.customerLanguage ?? null,
+        jobs_to_be_done: data.jobsToBeDone ?? null,
       },
-      populatedBy: "phase-3-market-research",
-    },
+      phase
+    ),
   ];
 }
 
-function mapCompetitiveIntelToSectionA(output: PhaseOutput): SectionUpdate[] {
+function mapMarketResearchToSectionA(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    competitors?: Array<{ name: string; strengths: string[]; weaknesses: string[] }>;
-    positioning_gaps?: string[];
+    marketSize?: Record<string, unknown>;
+    growthRate?: string;
+    marketTiming?: Record<string, unknown>;
+    regulatoryFactors?: string[];
+    marketRisks?: unknown;
+    citations?: Array<Record<string, unknown>>;
   };
 
   return [
-    {
-      sectionId: "A",
-      subsectionKey: "discovery_competitive",
-      content: {
-        competitors: data.competitors,
-        positioning_gaps: data.positioning_gaps,
+    createUpdate(
+      "A",
+      "discovery_market",
+      {
+        market_size: data.marketSize ?? null,
+        growth_rate: data.growthRate ?? null,
+        timing: data.marketTiming ?? null,
+        regulatory_factors: data.regulatoryFactors ?? [],
+        market_risks: data.marketRisks ?? null,
+        citations: data.citations ?? [],
       },
-      populatedBy: "phase-4-competitive-intel",
-    },
+      phase
+    ),
   ];
 }
 
-function mapKillTestToSectionA(output: PhaseOutput): SectionUpdate[] {
+function mapCompetitiveIntelToSectionA(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    verdict?: "KILL" | "PIVOT" | "GO";
-    risk_assessment?: Record<string, unknown>;
+    competitors?: Array<Record<string, unknown>>;
+    positioningGaps?: string[];
+    messagingGaps?: string[];
+    pricingGaps?: string[];
+    vulnerabilities?: string[];
+    citations?: Array<Record<string, unknown>>;
   };
 
   return [
-    {
-      sectionId: "A",
-      subsectionKey: "validation_kill_test",
-      content: {
-        verdict: data.verdict,
-        risk_assessment: data.risk_assessment,
+    createUpdate(
+      "A",
+      "discovery_competitive",
+      {
+        competitors: data.competitors ?? [],
+        positioning_gaps: data.positioningGaps ?? [],
+        messaging_gaps: data.messagingGaps ?? [],
+        pricing_gaps: data.pricingGaps ?? [],
+        vulnerabilities: data.vulnerabilities ?? [],
+        citations: data.citations ?? [],
       },
-      populatedBy: "phase-5-kill-test",
-    },
+      phase
+    ),
   ];
 }
 
-// ============================================================================
-// PHASES 6-8: STRATEGY → SECTIONS B, G
-// ============================================================================
-
-function mapRevenueToSectionG(output: PhaseOutput): SectionUpdate[] {
+function mapKillTestToSectionA(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    revenue_streams?: string[];
-    pricing_model?: string;
-    revenue_projections?: Record<string, unknown>;
+    verdict?: string;
+    reasoning?: string;
+    topRisks?: string[];
+    bootstrapFeasibility?: unknown;
+    decisionRationale?: unknown;
   };
 
   return [
-    {
-      sectionId: "G",
-      subsectionKey: "revenue_streams",
-      content: {
-        streams: data.revenue_streams,
-        pricing_model: data.pricing_model,
-        projections: data.revenue_projections,
+    createUpdate(
+      "A",
+      "validation_kill_test",
+      {
+        verdict: data.verdict ?? null,
+        reasoning: data.reasoning ?? null,
+        top_risks: data.topRisks ?? [],
+        bootstrap_feasibility: data.bootstrapFeasibility ?? null,
+        decision_rationale: data.decisionRationale ?? null,
       },
-      populatedBy: "phase-6-revenue-expansion",
-    },
+      phase
+    ),
   ];
 }
 
-function mapStrategyToSectionB(output: PhaseOutput): SectionUpdate[] {
+function mapRevenueToSectionG(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    strategic_pillars?: string[];
-    positioning_statement?: string;
-    differentiators?: string[];
+    expansionArcs?: Array<Record<string, unknown>>;
+    recommendedPricingModel?: string;
+    projectedMRR?: Record<string, unknown>;
+    recommendation?: Record<string, unknown>;
   };
 
   return [
-    {
-      sectionId: "B",
-      subsectionKey: "strategy_pillars",
-      content: {
-        pillars: data.strategic_pillars,
-        positioning: data.positioning_statement,
-        differentiators: data.differentiators,
+    createUpdate(
+      "G",
+      "revenue_expansion",
+      {
+        expansion_arcs: data.expansionArcs ?? [],
+        recommended_pricing_model: data.recommendedPricingModel ?? null,
+        projected_mrr: data.projectedMRR ?? null,
+        recommendation: data.recommendation ?? null,
       },
-      populatedBy: "phase-7-strategy",
-    },
+      phase
+    ),
   ];
 }
 
-function mapBusinessModelToSectionG(output: PhaseOutput): SectionUpdate[] {
+function mapStrategyToSectionB(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    unit_economics?: {
-      cac?: string;
-      ltv?: string;
-      payback_period?: string;
-      gross_margin?: string;
-    };
-    cost_structure?: Record<string, unknown>;
+    strategyNorthStar?: string;
+    positioning?: Record<string, unknown>;
+    strategicPillars?: Array<Record<string, unknown>>;
+    recommendation?: Record<string, unknown>;
   };
 
   return [
-    {
-      sectionId: "G",
-      subsectionKey: "unit_economics",
-      content: {
-        cac: data.unit_economics?.cac,
-        ltv: data.unit_economics?.ltv,
-        payback_period: data.unit_economics?.payback_period,
-        gross_margin: data.unit_economics?.gross_margin,
-        cost_structure: data.cost_structure,
+    createUpdate(
+      "B",
+      "strategy_pillars",
+      {
+        north_star: data.strategyNorthStar ?? null,
+        positioning: data.positioning ?? null,
+        pillars: data.strategicPillars ?? [],
+        recommendation: data.recommendation ?? null,
       },
-      populatedBy: "phase-8-business-model",
-    },
+      phase
+    ),
   ];
 }
 
-// ============================================================================
-// PHASES 9-11: DESIGN → SECTIONS E, F, H, I
-// ============================================================================
-
-function mapProductDesignToSections(output: PhaseOutput): SectionUpdate[] {
+function mapBusinessModelToSectionG(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    mvp_features?: string[];
-    user_flows?: string[];
-    product_roadmap?: Array<{ quarter: string; features: string[] }>;
+    model?: unknown;
+    pricingTiers?: Array<Record<string, unknown>>;
+    unitEconomics?: Record<string, unknown>;
+    recommendation?: Record<string, unknown>;
   };
 
   return [
-    {
-      sectionId: "E",
-      subsectionKey: "mvp_features",
-      content: {
-        features: data.mvp_features,
-        user_flows: data.user_flows,
+    createUpdate(
+      "G",
+      "unit_economics",
+      {
+        model: data.model ?? null,
+        pricing_tiers: data.pricingTiers ?? [],
+        unit_economics: data.unitEconomics ?? null,
+        recommendation: data.recommendation ?? null,
       },
-      populatedBy: "phase-9-product-design",
-    },
-    {
-      sectionId: "M",
-      subsectionKey: "product_roadmap",
-      content: {
-        roadmap: data.product_roadmap,
-      },
-      populatedBy: "phase-9-product-design",
-    },
+      phase
+    ),
   ];
 }
 
-function mapGTMToSectionH(output: PhaseOutput): SectionUpdate[] {
+function mapProductDesignToSections(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    gtm_strategy?: string;
-    acquisition_channels?: Array<{ channel: string; cac_estimate: string }>;
-    launch_plan?: string[];
+    landingPageBlueprint?: unknown;
+    designSystem?: unknown;
+    appPages?: unknown;
+    draftTasks?: Array<Record<string, unknown>>;
   };
 
   return [
-    {
-      sectionId: "H",
-      subsectionKey: "gtm_strategy",
-      content: {
-        strategy: data.gtm_strategy,
-        channels: data.acquisition_channels,
-        launch_plan: data.launch_plan,
+    createUpdate(
+      "E",
+      "product_design",
+      {
+        landing_page_blueprint: data.landingPageBlueprint ?? null,
+        design_system: data.designSystem ?? null,
+        app_pages: data.appPages ?? null,
       },
-      populatedBy: "phase-10-gtm",
-    },
+      phase
+    ),
+    createUpdate(
+      "M",
+      "product_tasks",
+      {
+        draft_tasks: data.draftTasks ?? [],
+      },
+      phase
+    ),
   ];
 }
 
-function mapContentToSectionI(output: PhaseOutput): SectionUpdate[] {
+function mapGTMToSectionH(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    content_pillars?: string[];
-    seo_strategy?: string;
-    brand_voice?: string;
+    seoStrategy?: unknown;
+    contentMarketing?: unknown;
+    launchPlaybook?: unknown;
+    growthLoops?: unknown;
+    draftTasks?: Array<Record<string, unknown>>;
   };
 
   return [
-    {
-      sectionId: "I",
-      subsectionKey: "content_strategy",
-      content: {
-        pillars: data.content_pillars,
-        seo: data.seo_strategy,
-        voice: data.brand_voice,
+    createUpdate(
+      "H",
+      "gtm_strategy",
+      {
+        seo_strategy: data.seoStrategy ?? null,
+        content_marketing: data.contentMarketing ?? null,
+        launch_playbook: data.launchPlaybook ?? null,
+        growth_loops: data.growthLoops ?? [],
+        draft_tasks: data.draftTasks ?? [],
       },
-      populatedBy: "phase-11-content-engine",
-    },
+      phase
+    ),
   ];
 }
 
-// ============================================================================
-// PHASES 12-14: EXECUTION → SECTIONS C, D, J, K, L
-// ============================================================================
-
-function mapTechArchToSections(output: PhaseOutput): SectionUpdate[] {
+function mapContentToSectionI(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    architecture_diagram?: string;
-    tech_stack?: string[];
-    infrastructure_plan?: Record<string, unknown>;
-    security_considerations?: string[];
+    contentPillars?: unknown;
+    channelPlan?: unknown;
+    campaignCalendar?: unknown;
+    draftTasks?: Array<Record<string, unknown>>;
   };
 
   return [
-    {
-      sectionId: "D",
-      subsectionKey: "architecture",
-      content: {
-        diagram_url: data.architecture_diagram,
-        tech_stack: data.tech_stack,
-        infrastructure: data.infrastructure_plan,
+    createUpdate(
+      "I",
+      "content_strategy",
+      {
+        pillars: data.contentPillars ?? null,
+        channel_plan: data.channelPlan ?? null,
+        campaign_calendar: data.campaignCalendar ?? null,
+        draft_tasks: data.draftTasks ?? [],
       },
-      populatedBy: "phase-12-tech-arch",
-    },
-    {
-      sectionId: "J",
-      subsectionKey: "security_architecture",
-      content: {
-        considerations: data.security_considerations,
-      },
-      populatedBy: "phase-12-tech-arch",
-    },
-    {
-      sectionId: "C",
-      subsectionKey: "infrastructure_checklist",
-      content: {
-        items: [], // To be populated by task reconciliation
-      },
-      populatedBy: "phase-12-tech-arch",
-    },
+      phase
+    ),
   ];
 }
 
-function mapAnalyticsToSectionK(output: PhaseOutput): SectionUpdate[] {
+function mapTechArchToSections(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    kpi_framework?: {
-      north_star?: string;
-      supporting_metrics?: string[];
-    };
-    analytics_plan?: Record<string, unknown>;
+    architecture?: unknown;
+    components?: unknown;
+    dataModel?: unknown;
+    security?: unknown;
+    draftTasks?: Array<Record<string, unknown>>;
   };
 
   return [
-    {
-      sectionId: "K",
-      subsectionKey: "analytics_framework",
-      content: {
-        north_star: data.kpi_framework?.north_star,
-        supporting_metrics: data.kpi_framework?.supporting_metrics,
-        implementation_plan: data.analytics_plan,
+    createUpdate(
+      "D",
+      "architecture",
+      {
+        architecture: data.architecture ?? null,
+        components: data.components ?? [],
+        data_model: data.dataModel ?? null,
       },
-      populatedBy: "phase-13-analytics",
-    },
+      phase
+    ),
+    createUpdate(
+      "J",
+      "security_architecture",
+      {
+        security: data.security ?? null,
+      },
+      phase
+    ),
+    createUpdate(
+      "C",
+      "infra_tasks",
+      {
+        draft_tasks: data.draftTasks ?? [],
+      },
+      phase
+    ),
   ];
 }
 
-function mapLaunchToSections(output: PhaseOutput): SectionUpdate[] {
+function mapAnalyticsToSectionK(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    launch_checklist?: string[];
-    timeline?: Array<{ week: number; milestone: string }>;
-    risk_mitigation?: Record<string, unknown>;
+    northStarMetric?: unknown;
+    supportingMetrics?: unknown;
+    instrumentationPlan?: unknown;
+    dashboardSpec?: unknown;
+    draftTasks?: Array<Record<string, unknown>>;
   };
 
   return [
-    {
-      sectionId: "L",
-      subsectionKey: "launch_operations",
-      content: {
-        checklist: data.launch_checklist,
-        risk_mitigation: data.risk_mitigation,
+    createUpdate(
+      "K",
+      "analytics_framework",
+      {
+        north_star_metric: data.northStarMetric ?? null,
+        supporting_metrics: data.supportingMetrics ?? [],
+        instrumentation_plan: data.instrumentationPlan ?? null,
+        dashboard_spec: data.dashboardSpec ?? null,
+        draft_tasks: data.draftTasks ?? [],
       },
-      populatedBy: "phase-14-launch",
-    },
-    {
-      sectionId: "M",
-      subsectionKey: "launch_timeline",
-      content: {
-        timeline: data.timeline,
-      },
-      populatedBy: "phase-14-launch",
-    },
+      phase
+    ),
   ];
 }
 
-// ============================================================================
-// PHASE 15: SYNTHESIS → SECTIONS B, M, OVERVIEW
-// ============================================================================
-
-function mapSynthesisToSections(output: PhaseOutput): SectionUpdate[] {
+function mapLaunchToSections(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
   const data = output.data as {
-    executive_summary?: string;
-    business_plan?: Record<string, unknown>;
-    prioritized_actions?: string[];
-    roadmap?: Array<{ phase: string; duration_weeks: number; deliverables: string[] }>;
+    launchChecklist?: unknown;
+    launchTimeline?: unknown;
+    riskMitigation?: unknown;
+    draftTasks?: Array<Record<string, unknown>>;
   };
 
   return [
-    {
-      sectionId: "B",
-      subsectionKey: "executive_summary",
-      content: {
-        summary: data.executive_summary,
-        prioritized_actions: data.prioritized_actions,
+    createUpdate(
+      "L",
+      "launch_operations",
+      {
+        checklist: data.launchChecklist ?? [],
+        risk_mitigation: data.riskMitigation ?? null,
+        draft_tasks: data.draftTasks ?? [],
       },
-      populatedBy: "phase-15-synthesis",
-    },
-    {
-      sectionId: "M",
-      subsectionKey: "execution_roadmap",
-      content: {
-        roadmap_phases: data.roadmap,
+      phase
+    ),
+    createUpdate(
+      "M",
+      "launch_timeline",
+      {
+        timeline: data.launchTimeline ?? [],
       },
-      populatedBy: "phase-15-synthesis",
-    },
-    // Note: Overview is auto-generated separately via doc-generator.ts
+      phase
+    ),
   ];
 }
 
-// ============================================================================
-// HELPER: BATCH UPDATE SECTIONS
-// ============================================================================
+function mapSynthesisToSections(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
+  const data = output.data as {
+    executiveSummary?: string;
+    recommendation?: string;
+    phasedRoadmap?: unknown;
+    oneShotBuildPlan?: unknown;
+  };
+
+  return [
+    createUpdate(
+      "B",
+      "executive_summary",
+      {
+        summary: data.executiveSummary ?? null,
+        recommendation: data.recommendation ?? null,
+      },
+      phase
+    ),
+    createUpdate(
+      "M",
+      "execution_roadmap",
+      {
+        phased_roadmap: data.phasedRoadmap ?? [],
+        one_shot_build_plan: data.oneShotBuildPlan ?? null,
+      },
+      phase
+    ),
+  ];
+}
+
+function mapTaskReconciliationToSections(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
+  const data = output.data as {
+    tasks?: Array<Record<string, unknown>>;
+    marketingTasks?: Array<Record<string, unknown>>;
+    buildPhases?: Array<Record<string, unknown>>;
+    summary?: Record<string, unknown>;
+  };
+
+  return [
+    createUpdate(
+      "C",
+      "master_tasks",
+      {
+        tasks: data.tasks ?? [],
+        marketing_tasks: data.marketingTasks ?? [],
+        summary: data.summary ?? {},
+      },
+      phase
+    ),
+    createUpdate(
+      "M",
+      "build_phases",
+      {
+        build_phases: data.buildPhases ?? [],
+        critical_path: (data.summary as { criticalPath?: unknown[] } | undefined)?.criticalPath ?? [],
+      },
+      phase
+    ),
+  ];
+}
 
 /**
- * Helper to batch multiple section updates into a single database transaction
+ * Helper to batch multiple section updates into a single database transaction.
  */
 export async function batchUpdateSections(
   db: D1Database,
@@ -517,7 +538,6 @@ export async function batchUpdateSections(
   updates: SectionUpdate[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Prepare batch insert/update statements
     const statements = updates.map((update) => {
       const id = crypto.randomUUID();
       const now = Math.floor(Date.now() / 1000);
@@ -540,19 +560,14 @@ export async function batchUpdateSections(
           update.populatedBy,
           now,
           now,
-          // ON CONFLICT update values
           contentJson,
           update.populatedBy,
           now
         );
     });
 
-    // Execute batch
     await db.batch(statements);
-
-    // Update metadata
     await updateDocumentationMetadata(db, projectId);
-
     return { success: true };
   } catch (error) {
     console.error("Failed to batch update sections:", error);
@@ -563,11 +578,7 @@ export async function batchUpdateSections(
   }
 }
 
-/**
- * Update project documentation metadata after section updates
- */
-async function updateDocumentationMetadata(db: D1Database, projectId: string) {
-  // Count populated sections
+async function updateDocumentationMetadata(db: D1Database, projectId: string): Promise<void> {
   const countResult = await db
     .prepare(
       `SELECT COUNT(DISTINCT section_id) as populated_sections
@@ -578,10 +589,9 @@ async function updateDocumentationMetadata(db: D1Database, projectId: string) {
     .first<{ populated_sections: number }>();
 
   const populatedSections = countResult?.populated_sections ?? 0;
-  const totalSections = 13; // A through M
+  const totalSections = 13;
   const completeness = Math.floor((populatedSections / totalSections) * 100);
 
-  // Check if unknowns are resolved
   const unknownsResult = await db
     .prepare(
       `SELECT content FROM project_documentation
@@ -593,10 +603,12 @@ async function updateDocumentationMetadata(db: D1Database, projectId: string) {
   let unknownsResolved = 0;
   if (unknownsResult) {
     try {
-      const unknowns = JSON.parse(unknownsResult.content);
-      unknownsResolved = Object.values(unknowns).filter((v) => v === "RESOLVED" || (typeof v === "string" && v !== "UNKNOWN")).length;
-    } catch (e) {
-      console.error("Failed to parse unknowns:", e);
+      const unknowns = JSON.parse(unknownsResult.content) as Record<string, unknown>;
+      unknownsResolved = Object.values(unknowns).filter((value) => {
+        return value === "RESOLVED" || (typeof value === "string" && value !== "UNKNOWN");
+      }).length;
+    } catch (error) {
+      console.error("Failed to parse unknowns:", error);
     }
   }
 
@@ -618,7 +630,6 @@ async function updateDocumentationMetadata(db: D1Database, projectId: string) {
       unknownsResolved,
       status,
       now,
-      // ON CONFLICT update values
       completeness,
       populatedSections,
       unknownsResolved,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionL } from '@cloudflare/shared';
+	import type { SectionL } from '@foundation/shared';
 	export let data: SectionL | undefined;
 </script>
 

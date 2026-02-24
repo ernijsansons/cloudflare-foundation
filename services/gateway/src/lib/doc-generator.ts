@@ -164,13 +164,25 @@ function extractKeyMetrics(sections: Partial<ProjectDocumentation>): Record<stri
   }
 
   if (sections.B?.success_metrics) {
-    metrics["Target ASR"] = `${sections.B.success_metrics.autonomous_success_rate_target}%`;
-    metrics["Target Cost/Outcome"] = sections.B.success_metrics.cost_per_outcome_target;
+    const asr = sections.B.success_metrics.autonomous_success_rate_target;
+    const cost = sections.B.success_metrics.cost_per_outcome_target;
+    if (asr !== undefined) {
+      metrics["Target ASR"] = `${asr}%`;
+    }
+    if (cost !== undefined) {
+      metrics["Target Cost/Outcome"] = cost;
+    }
   }
 
   if (sections.G?.unit_economics) {
-    metrics["Gross Profit/Outcome"] = sections.G.unit_economics.gross_profit_per_outcome;
-    metrics["Breakeven Outcomes"] = sections.G.unit_economics.breakeven_outcomes;
+    const grossProfit = sections.G.unit_economics.gross_profit_per_outcome;
+    const breakeven = sections.G.unit_economics.breakeven_outcomes;
+    if (grossProfit !== undefined) {
+      metrics["Gross Profit/Outcome"] = grossProfit;
+    }
+    if (breakeven !== undefined) {
+      metrics["Breakeven Outcomes"] = breakeven;
+    }
   }
 
   return metrics;
@@ -284,7 +296,7 @@ function getNextMilestone(sections: Partial<ProjectDocumentation>): string {
     return true;
   });
 
-  return nextMilestone ? nextMilestone.milestone_name : "All milestones complete";
+  return nextMilestone ? (nextMilestone.milestone_name ?? "Unnamed milestone") : "All milestones complete";
 }
 
 function identifyBlockers(sections: Partial<ProjectDocumentation>): string[] {
@@ -331,8 +343,8 @@ function extractCriticalDependencies(sections: Partial<ProjectDocumentation>): s
     const items = sections.C[key as keyof typeof sections.C];
     if (Array.isArray(items)) {
       for (const item of items as ChecklistItem[]) {
-        if (item.status === "pending" && item.dependencies.length > 0) {
-          dependencies.push(`${item.task} depends on: ${item.dependencies.join(", ")}`);
+        if (item.status === "pending" && item.dependencies && item.dependencies.length > 0) {
+          dependencies.push(`${item.task || 'Task'} depends on: ${item.dependencies.join(", ")}`);
         }
       }
     }

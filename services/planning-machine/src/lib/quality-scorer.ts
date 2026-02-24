@@ -12,7 +12,6 @@
  * Target: 85+ for production artifacts
  */
 
-import type { PhaseName } from '@foundation/shared/ontology';
 import { validatePhaseOutput } from './schema-validator';
 
 // ============================================================================
@@ -21,11 +20,19 @@ import { validatePhaseOutput } from './schema-validator';
 
 export interface QualityScore {
   overall: number; // 0-100
+  overallScore?: number; // Backward-compatible alias
   dimensions: QualityDimension[];
   evaluator: 'automated' | 'operator' | 'hybrid';
   evaluatorId?: string;
   timestamp: number;
   feedback?: string;
+  evidenceCoverage?: number;
+  factualAccuracy?: number;
+  completeness?: number;
+  citationQuality?: number;
+  reasoningDepth?: number;
+  tier?: 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical';
+  productionReady?: boolean;
 }
 
 export interface QualityDimension {
@@ -44,7 +51,7 @@ export type DimensionName =
   | 'reasoning_depth';
 
 export interface ScoringContext {
-  phase: PhaseName;
+  phase: string;
   artifact: unknown;
   orchestration?: {
     consensusScore: number;
@@ -96,12 +103,31 @@ export function scoreArtifact(context: ScoringContext): QualityScore {
     0
   );
 
+  const roundedOverall = Math.round(overall);
+  const byDimension = Object.fromEntries(
+    dimensions.map((dimension) => [dimension.dimension, dimension.score])
+  ) as Record<DimensionName, number>;
+  const tier = getQualityTier(roundedOverall);
+  const productionReady = roundedOverall >= 85;
+
   return {
-    overall: Math.round(overall),
+    overall: roundedOverall,
+    overallScore: roundedOverall,
     dimensions,
     evaluator: 'automated',
     timestamp: Math.floor(Date.now() / 1000),
+    evidenceCoverage: byDimension.evidence_coverage,
+    factualAccuracy: byDimension.factual_accuracy,
+    completeness: byDimension.completeness,
+    citationQuality: byDimension.citation_quality,
+    reasoningDepth: byDimension.reasoning_depth,
+    tier,
+    productionReady,
   };
+}
+
+export function calculateQualityScore(context: ScoringContext): QualityScore {
+  return scoreArtifact(context);
 }
 
 /**
@@ -231,7 +257,7 @@ function scoreCompleteness(context: ScoringContext): QualityDimension {
 
   if (!validation.valid) {
     const errorCount = validation.errors?.length || 0;
-    const score = Math.max(0, 10 - errorCount * 2); // -2 points per error
+    const score = Math.max(0, 10 - errorCount * 4); // -4 points per error
 
     return {
       dimension: 'completeness',
@@ -427,17 +453,19 @@ export function getQualityTier(score: number): 'excellent' | 'good' | 'acceptabl
  * Check if artifact meets production quality threshold
  */
 export function meetsProductionQuality(score: QualityScore): boolean {
-  return score.overall >= 85;
+  const value = score.overallScore ?? score.overall;
+  return value >= 85;
 }
 
 /**
  * Generate quality report
  */
 export function generateQualityReport(score: QualityScore): string {
-  const tier = getQualityTier(score.overall);
+  const value = score.overallScore ?? score.overall;
+  const tier = getQualityTier(value);
   const lines: string[] = [];
 
-  lines.push(`Quality Score: ${score.overall}/100 (${tier.toUpperCase()})`);
+  lines.push(`Quality Score: ${value}/100 (${tier.toUpperCase()})`);
   lines.push('');
   lines.push('Dimensional Breakdown:');
 
