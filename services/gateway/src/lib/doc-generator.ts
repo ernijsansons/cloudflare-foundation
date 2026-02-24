@@ -13,7 +13,10 @@ import type {
   CriticalPath,
   QuickAction,
   ChecklistItem,
-} from "@cloudflare/shared";
+  SecurityControl,
+  ThreatModel,
+  Milestone,
+} from "../types";
 
 export function generateOverview(sections: Partial<ProjectDocumentation>): OverviewSection {
   const executiveSummary = generateExecutiveSummary(sections);
@@ -254,12 +257,12 @@ function calculateSecurityCoverage(sections: Partial<ProjectDocumentation>): num
 
   if (sections.J.security_controls) {
     totalControls += sections.J.security_controls.length;
-    implementedControls += sections.J.security_controls.filter((control) => control.implementation_status === "implemented").length;
+    implementedControls += sections.J.security_controls.filter((control: SecurityControl) => control.implementation_status === "implemented").length;
   }
 
   if (sections.J.threat_model) {
     totalControls += sections.J.threat_model.length;
-    implementedControls += sections.J.threat_model.filter((threat) => threat.mitigation && threat.mitigation.length > 0).length;
+    implementedControls += sections.J.threat_model.filter((threat: ThreatModel) => threat.mitigation && threat.mitigation.length > 0).length;
   }
 
   if (totalControls === 0) {
@@ -275,7 +278,7 @@ function getNextMilestone(sections: Partial<ProjectDocumentation>): string {
   }
 
   // Find the first incomplete milestone
-  const nextMilestone = sections.M.weekly_milestones.find((milestone) => {
+  const nextMilestone = sections.M.weekly_milestones.find((milestone: Milestone) => {
     // Milestones are considered incomplete if we haven't passed their week yet
     // This is a simplified heuristic - in practice you'd compare against current date
     return true;
@@ -309,7 +312,7 @@ function identifyBlockers(sections: Partial<ProjectDocumentation>): string[] {
   const criticalSections: Array<keyof ProjectDocumentation> = ["A", "B", "C", "D"];
   for (const sectionId of criticalSections) {
     if (!sections[sectionId] || Object.keys(sections[sectionId]!).length === 0) {
-      blockers.push(`Missing critical section: ${sectionId}`);
+      blockers.push(`Missing critical section: ${String(sectionId)}`);
     }
   }
 

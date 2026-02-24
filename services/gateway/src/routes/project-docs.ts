@@ -6,8 +6,9 @@
  */
 
 import { Hono } from "hono";
-import type { Env, Variables } from "../types";
 import type {
+  Env,
+  Variables,
   ProjectDocumentation,
   ProjectDocumentationRow,
   ProjectDocumentationMetadataRow,
@@ -16,7 +17,7 @@ import type {
   UpdateSectionRequest,
   SectionId,
   OverviewSection,
-} from "@cloudflare/shared";
+} from "../types";
 import { generateOverview } from "../lib/doc-generator";
 
 const projectDocsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
