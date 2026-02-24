@@ -11,6 +11,7 @@
     emptyMessage?: string;
   }
 
+  // eslint-disable-next-line no-undef
   let { columns, cards, onCardClick, onCardMove, emptyMessage = "No items" }: Props = $props();
 
   // Group phases into stages
@@ -42,30 +43,31 @@
     }
   };
 
-  // Load expanded state from localStorage
-  let expandedStages = $state<Set<string>>(new Set());
+  // Load active tab from localStorage (default to first stage with projects)
+  // eslint-disable-next-line no-undef
+  let activeStage = $state<string>("discovery");
 
   onMount(() => {
-    const saved = localStorage.getItem("accordion-kanban-expanded");
-    if (saved) {
-      try {
-        expandedStages = new Set(JSON.parse(saved));
-      } catch {
-        expandedStages = new Set();
+    // eslint-disable-next-line no-undef
+    const saved = localStorage.getItem("kanban-active-stage");
+    if (saved && stageGroups[saved as keyof typeof stageGroups]) {
+      activeStage = saved;
+    } else {
+      // Auto-select first stage with projects
+      for (const [stageId, stage] of Object.entries(stageGroups)) {
+        if (getProjectCountForStage(stage.phases) > 0) {
+          activeStage = stageId;
+          break;
+        }
       }
     }
   });
 
-  function toggleStage(stageId: string) {
-    if (expandedStages.has(stageId)) {
-      expandedStages.delete(stageId);
-    } else {
-      expandedStages.add(stageId);
-    }
-    expandedStages = expandedStages; // trigger reactivity
-
+  function selectStage(stageId: string) {
+    activeStage = stageId;
     // Save to localStorage
-    localStorage.setItem("accordion-kanban-expanded", JSON.stringify([...expandedStages]));
+    // eslint-disable-next-line no-undef
+    localStorage.setItem("kanban-active-stage", stageId);
   }
 
   function getCardsForColumn(status: string): KanbanCard[] {
@@ -83,148 +85,129 @@
   }
 </script>
 
-<div class="accordion-kanban">
-  {#each Object.entries(stageGroups) as [stageId, stage]}
-    {@const projectCount = getProjectCountForStage(stage.phases)}
-    {@const isExpanded = expandedStages.has(stageId)}
-    {@const stageColumns = getColumnsForStage(stage.phases)}
+<div class="tabbed-kanban">
+  <!-- Horizontal Tabs -->
+  <div class="stage-tabs">
+    {#each Object.entries(stageGroups) as [stageId, stage]}
+      {@const projectCount = getProjectCountForStage(stage.phases)}
+      {@const isActive = activeStage === stageId}
 
-    <div class="stage-section" class:expanded={isExpanded}>
-      <!-- Stage Header -->
       <button
-        class="stage-header"
-        onclick={() => toggleStage(stageId)}
+        class="stage-tab"
+        class:active={isActive}
+        onclick={() => selectStage(stageId)}
         style="--stage-color: {stage.color}"
       >
-        <div class="stage-header-left">
-          <div class="stage-icon" class:expanded={isExpanded}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <h2 class="stage-title">{stage.name}</h2>
+        <div class="tab-content">
+          <span class="stage-name">{stage.name}</span>
           {#if projectCount > 0}
-            <div class="project-count" style="background: {stage.color}">
+            <div class="project-badge" style="background: {stage.color}">
               {projectCount}
             </div>
           {/if}
         </div>
-
-        <div class="stage-header-right">
-          <span class="phase-count">{stage.phases.length} {stage.phases.length === 1 ? 'phase' : 'phases'}</span>
-        </div>
+        {#if isActive}
+          <div class="active-indicator" style="background: {stage.color}" />
+        {/if}
       </button>
+    {/each}
+  </div>
 
-      <!-- Expandable Content -->
-      {#if isExpanded}
-        <div class="stage-content">
-          <div class="phase-columns">
-            {#each stageColumns as column, index (column.id)}
-              {@const columnCards = getCardsForColumn(column.status)}
-              <KanbanColumn
-                title={column.title}
-                status={column.status}
-                color={column.color}
-                phaseNumber={columns.findIndex(c => c.id === column.id) + 1}
-                cards={columnCards}
-                {onCardClick}
-                {onCardMove}
-                {emptyMessage}
-              />
-            {/each}
-          </div>
-        </div>
-      {/if}
+  <!-- Kanban Board Content -->
+  <div class="kanban-content">
+    {@const activeStageData = stageGroups[activeStage as keyof typeof stageGroups]}
+    {@const stageColumns = getColumnsForStage(activeStageData.phases)}
+
+    <div class="phase-columns" style="--stage-color: {activeStageData.color}">
+      {#each stageColumns as column (column.id)}
+        {@const columnCards = getCardsForColumn(column.status)}
+        <KanbanColumn
+          title={column.title}
+          status={column.status}
+          color={column.color}
+          phaseNumber={columns.findIndex(c => c.id === column.id) + 1}
+          cards={columnCards}
+          {onCardClick}
+          {onCardMove}
+          {emptyMessage}
+        />
+      {/each}
     </div>
-  {/each}
+  </div>
 </div>
 
 <style>
-  .accordion-kanban {
+  .tabbed-kanban {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1.5rem;
-    padding-bottom: 1rem;
     min-height: calc(100vh - var(--topbar-height) - 150px);
   }
 
-  .stage-section {
-    background: var(--color-bg);
-    border: 1px solid var(--color-border);
-    border-radius: 12px;
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .stage-section:hover {
-    border-color: color-mix(in srgb, var(--stage-color, var(--color-primary)) 40%, var(--color-border));
-    box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--stage-color, var(--color-primary)) 20%, transparent);
-  }
-
-  .stage-section.expanded {
-    background: var(--color-bg-secondary);
-  }
-
-  .stage-header {
-    width: 100%;
+  .stage-tabs {
     display: flex;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem 0;
+    border-bottom: 2px solid var(--color-border);
+    background: var(--color-bg);
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .stage-tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.5rem;
+    padding: 0.875rem 1.5rem;
     background: transparent;
     border: none;
     cursor: pointer;
-    transition: background 0.2s ease;
-    gap: 1rem;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border-radius: 8px 8px 0 0;
+    white-space: nowrap;
+    min-width: fit-content;
   }
 
-  .stage-header:hover {
-    background: color-mix(in srgb, var(--stage-color, var(--color-primary)) 5%, transparent);
+  .stage-tab:hover {
+    background: color-mix(in srgb, var(--stage-color) 8%, transparent);
   }
 
-  .stage-header:active {
-    background: color-mix(in srgb, var(--stage-color, var(--color-primary)) 8%, transparent);
+  .stage-tab.active {
+    background: var(--color-bg-secondary);
   }
 
-  .stage-header-left {
+  .stage-tab.active:hover {
+    background: var(--color-bg-secondary);
+  }
+
+  .tab-content {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    flex: 1;
+    gap: 0.625rem;
   }
 
-  .stage-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    color: var(--stage-color, var(--color-primary));
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .stage-icon.expanded {
-    transform: rotate(90deg);
-  }
-
-  .stage-title {
-    font-size: 1rem;
+  .stage-name {
+    font-size: 0.9375rem;
     font-weight: 600;
     letter-spacing: -0.01em;
     color: var(--color-text);
-    margin: 0;
+    transition: color 0.2s ease;
   }
 
-  .project-count {
+  .stage-tab.active .stage-name {
+    color: var(--stage-color);
+  }
+
+  .project-badge {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 24px;
-    height: 24px;
-    padding: 0 0.5rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 0.4rem;
+    border-radius: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     color: white;
     box-shadow: 0 2px 8px -2px currentColor;
@@ -245,24 +228,34 @@
     }
   }
 
-  .stage-header-right {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+  .active-indicator {
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    animation: slide-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  .phase-count {
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
-    font-weight: 500;
+  @keyframes slide-in {
+    from {
+      transform: scaleX(0);
+      opacity: 0;
+    }
+    to {
+      transform: scaleX(1);
+      opacity: 1;
+    }
   }
 
-  .stage-content {
-    animation: expand 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    overflow: hidden;
+  .kanban-content {
+    flex: 1;
+    background: var(--color-bg-secondary);
+    animation: fade-in 0.3s ease;
   }
 
-  @keyframes expand {
+  @keyframes fade-in {
     from {
       opacity: 0;
       transform: translateY(-10px);
@@ -276,52 +269,63 @@
   .phase-columns {
     display: flex;
     gap: 1rem;
-    padding: 1rem 1.5rem 1.5rem;
+    padding: 1.5rem;
+    padding-bottom: 1rem;
     overflow-x: auto;
+    min-height: 500px;
 
     /* Smooth horizontal scroll */
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
 
     /* Visible scrollbar styling */
-    scrollbar-width: thin;
-    scrollbar-color: var(--stage-color, var(--color-primary)) var(--color-bg);
+    scrollbar-width: auto;
+    scrollbar-color: var(--stage-color) var(--color-bg-secondary);
   }
 
   .phase-columns::-webkit-scrollbar {
-    height: 8px;
+    height: 14px;
   }
 
   .phase-columns::-webkit-scrollbar-track {
-    background: var(--color-bg);
-    border-radius: 4px;
+    background: var(--color-bg-secondary);
+    border-radius: 7px;
+    margin: 0 1rem;
+    border: 1px solid var(--color-border);
   }
 
   .phase-columns::-webkit-scrollbar-thumb {
-    background: var(--stage-color, var(--color-primary));
-    border-radius: 4px;
+    background: var(--stage-color);
+    border-radius: 7px;
+    border: 3px solid var(--color-bg-secondary);
+    min-width: 80px;
   }
 
   .phase-columns::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in srgb, var(--stage-color, var(--color-primary)) 80%, black);
+    background: color-mix(in srgb, var(--stage-color) 80%, black);
+  }
+
+  .phase-columns::-webkit-scrollbar-thumb:active {
+    background: color-mix(in srgb, var(--stage-color) 70%, black);
   }
 
   /* Responsive adjustments */
   @media (max-width: 768px) {
-    .accordion-kanban {
-      padding: 1rem;
+    .stage-tabs {
+      padding: 0.75rem 1rem 0;
+      gap: 0.375rem;
     }
 
-    .stage-header {
-      padding: 0.875rem 1rem;
+    .stage-tab {
+      padding: 0.75rem 1.125rem;
     }
 
-    .stage-title {
-      font-size: 0.9375rem;
+    .stage-name {
+      font-size: 0.875rem;
     }
 
     .phase-columns {
-      padding: 0.75rem 1rem 1rem;
+      padding: 1rem;
     }
   }
 </style>

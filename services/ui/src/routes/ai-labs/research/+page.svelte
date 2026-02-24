@@ -11,11 +11,14 @@
     error: string | null;
   }
 
+  // eslint-disable-next-line no-undef
   const data = $derived($page.data as PageData);
 
+  // eslint-disable-next-line no-undef
   let showCreateModal = $state(false);
 
   async function handleCreateRun(data: { type: "idea" | "run"; idea: string; mode?: "local" | "cloud" }) {
+    // eslint-disable-next-line no-undef
     const res = await fetch("/api/planning/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -28,6 +31,7 @@
     }
 
     // Reload page to show new run
+    // eslint-disable-next-line no-undef
     window.location.reload();
   }
 
@@ -64,9 +68,11 @@
   }));
 
   // Filter out killed runs (they go to Parked Ideas page)
+  // eslint-disable-next-line no-undef
   const activeRuns = $derived(data.runs.filter((r) => r.status !== "killed"));
 
   // Map runs to Kanban cards based on their current_phase
+  // eslint-disable-next-line no-undef
   const cards = $derived<KanbanCard[]>(
     activeRuns.map((run) => {
       // Use current_phase if available, otherwise "opportunity" for new runs
