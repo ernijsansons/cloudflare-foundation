@@ -1,16 +1,23 @@
 import type { PageServerLoad } from './$types';
 
-const NAOMI_API_BASE = 'https://naomi-oracle-cloudflare.erlvinc.workers.dev/v1';
-
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ platform, fetch }) => {
 	try {
-		// Fetch active roadmaps (which contain tasks)
-		const response = await fetch(
-			`${NAOMI_API_BASE}/dashboard/roadmaps?tenant_id=erlvinc&business_id=naomi&status=active`
-		);
+		// Try using the GATEWAY service binding first (internal, no auth required)
+		const gateway = platform?.env?.GATEWAY;
+
+		let response;
+		if (gateway) {
+			// Use service binding - create a proper request object
+			const request = new Request('https://placeholder/api/public/dashboard/roadmaps?tenant_id=erlvinc&business_id=naomi&status=active');
+			response = await gateway.fetch(request);
+		} else {
+			// Fallback to HTTP call (requires external access)
+			response = await fetch('https://foundation-gateway-production.ernijs-ansons.workers.dev/api/public/dashboard/roadmaps?tenant_id=erlvinc&business_id=naomi&status=active');
+		}
 
 		if (!response.ok) {
-			console.error('Failed to fetch tasks from Naomi API:', response.statusText);
+			const errorText = await response.text();
+			console.error('Failed to fetch tasks:', response.status, response.statusText, errorText);
 			return {
 				roadmaps: [],
 				error: `Failed to load tasks: ${response.statusText}`

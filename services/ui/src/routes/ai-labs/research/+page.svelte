@@ -2,6 +2,7 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import Kanban from "$lib/components/Kanban.svelte";
+  import CreateModal from "$lib/components/CreateModal.svelte";
   import type { PlanningRun, KanbanCard, KanbanColumn } from "$lib/types";
   import { PHASE_ORDER, phaseDocs } from "$lib/data/phase-docs";
 
@@ -11,6 +12,24 @@
   }
 
   const data = $derived($page.data as PageData);
+
+  let showCreateModal = $state(false);
+
+  async function handleCreateRun(data: { type: "idea" | "run"; idea: string; mode?: "local" | "cloud" }) {
+    const res = await fetch("/api/planning/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idea: data.idea, mode: data.mode ?? "cloud" }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error ?? "Failed to create run");
+    }
+
+    // Reload page to show new run
+    window.location.reload();
+  }
 
   // Stage colors for visual grouping (matching the 5 stages)
   const stageColors: Record<string, string> = {
@@ -81,8 +100,19 @@
 </svelte:head>
 
 <div class="page-header">
-  <h1>Research Pipeline</h1>
-  <p class="subtitle">15-phase validation: Discovery → Validation → Strategy → Design → Execution</p>
+  <div class="header-content">
+    <div>
+      <h1>Research Pipeline</h1>
+      <p class="subtitle">15-phase validation: Discovery → Validation → Strategy → Design → Execution</p>
+    </div>
+    <button class="start-research-btn" onclick={() => showCreateModal = true}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </svg>
+      Start Research
+    </button>
+  </div>
 </div>
 
 {#if data.error}
@@ -110,10 +140,23 @@
   />
 {/if}
 
+<CreateModal
+  open={showCreateModal}
+  onClose={() => showCreateModal = false}
+  onSubmit={handleCreateRun}
+/>
+
 <style>
   .page-header {
     padding: 1.5rem;
     border-bottom: 1px solid var(--color-border);
+  }
+
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
   }
 
   .page-header h1 {
@@ -125,6 +168,31 @@
     color: var(--color-text-muted);
     margin: 0.5rem 0 0;
     font-size: 0.875rem;
+  }
+
+  .start-research-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .start-research-btn:hover {
+    background: var(--color-primary-hover, #7c3aed);
+    transform: translateY(-1px);
+  }
+
+  .start-research-btn svg {
+    flex-shrink: 0;
   }
 
   .error-container {

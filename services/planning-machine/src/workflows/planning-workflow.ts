@@ -75,7 +75,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
     // Captures comprehensive A0-A7 intake form before planning phases begin
     const intakeOutput = await step.do("phase-0-intake", async () => {
       const { IntakeAgent } = await import("../agents/intake-agent");
-      const agent = new IntakeAgent();
+      const agent = new IntakeAgent(this.env);
       const result = await agent.run(
         { runId, idea, refinedIdea, priorOutputs },
         { idea, mode: "auto" }

@@ -1,24 +1,19 @@
 import type { PageServerLoad } from "./$types";
-import type { PlanningRun, PlanningArtifact, PhaseName } from "$lib/types";
-import { STAGES } from "$lib/types";
-import { dev } from "$app/environment";
+import type { PlanningRun } from "$lib/types";
 
-const DEV_API_BASE = "http://127.0.0.1:8787";
-
-export const load: PageServerLoad = async ({ params, platform }) => {
+export const load: PageServerLoad = async ({ params, platform, fetch }) => {
   try {
-    let runRes: Response;
+    // Use the GATEWAY service binding for internal communication (bypasses auth)
+    const gateway = platform?.env?.GATEWAY;
 
-    if (dev) {
-      // Development: direct fetch to planning-machine
-      runRes = await fetch(`${DEV_API_BASE}/api/planning/runs/${params.id}`);
-    } else if (platform?.env?.GATEWAY) {
-      // Production: use service binding
-      runRes = await platform.env.GATEWAY.fetch(
-        `https://_/api/planning/runs/${params.id}`
-      );
+    let runRes: Response;
+    if (gateway) {
+      // Use service binding - call public endpoint that doesn't require auth
+      const request = new Request(`https://placeholder/api/public/planning/runs/${params.id}`);
+      runRes = await gateway.fetch(request);
     } else {
-      return { run: null, artifacts: {}, error: "Gateway not configured" };
+      // Fallback to HTTP call
+      runRes = await fetch(`https://foundation-gateway-production.ernijs-ansons.workers.dev/api/public/planning/runs/${params.id}`);
     }
 
     if (!runRes.ok) {
@@ -26,31 +21,8 @@ export const load: PageServerLoad = async ({ params, platform }) => {
     }
     const run = (await runRes.json()) as PlanningRun;
 
-    // Fetch artifacts for each phase
-    const artifacts: Record<string, PlanningArtifact> = {};
-    const allPhases: PhaseName[] = STAGES.flatMap((s) => s.phases);
-
-    for (const phase of allPhases) {
-      try {
-        let res: Response;
-        if (dev) {
-          res = await fetch(
-            `${DEV_API_BASE}/api/planning/runs/${params.id}/artifacts/${phase}`
-          );
-        } else {
-          res = await platform!.env.GATEWAY.fetch(
-            `https://_/api/planning/runs/${params.id}/artifacts/${phase}`
-          );
-        }
-        if (res.ok) {
-          artifacts[phase] = (await res.json()) as PlanningArtifact;
-        }
-      } catch {
-        // Artifact not yet generated
-      }
-    }
-
-    return { run, artifacts, stages: STAGES, error: null };
+    // Return with empty artifacts for now
+    return { run, artifacts: {}, error: null };
   } catch (e) {
     console.error("run detail load error:", e);
     return { run: null, artifacts: {}, error: "Failed to load run" };
