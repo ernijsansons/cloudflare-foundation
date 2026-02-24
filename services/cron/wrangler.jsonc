@@ -10,5 +10,13 @@
       "0 * * * *",
       "0 0 * * *"
     ]
+  },
+  "env": {
+    "staging": {
+      "name": "foundation-cron-staging"
+    },
+    "production": {
+      "name": "foundation-cron-production"
+    }
   }
 }

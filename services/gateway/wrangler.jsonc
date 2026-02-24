@@ -7,7 +7,7 @@
   "observability": { "enabled": true },
   "vars": {
     "ENVIRONMENT": "development",
-    "ALLOWED_ORIGINS": "https://yourdomain.com,https://app.yourdomain.com",
+    "ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:3000",
     "USE_DO_RATE_LIMITING": "false"
   },
   "services": [
@@ -58,14 +58,14 @@
     "name": "foundation-gateway-staging",
     "vars": {
       "ENVIRONMENT": "staging",
-      "ALLOWED_ORIGINS": "https://staging.yourdomain.com"
+      "ALLOWED_ORIGINS": "https://dashboard-staging.erlvinc.com"
     }
   },
   "[env.production]": {
-    "name": "foundation-gateway",
+    "name": "foundation-gateway-production",
     "vars": {
       "ENVIRONMENT": "production",
-      "ALLOWED_ORIGINS": "https://yourdomain.com,https://app.yourdomain.com"
+      "ALLOWED_ORIGINS": "https://dashboard.erlvinc.com,https://naomi.erlvinc.com"
     }
   }
 }

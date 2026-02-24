@@ -11,10 +11,27 @@
   },
   "observability": { "enabled": true },
   "services": [
-    { "binding": "GATEWAY", "service": "foundation-gateway-production" }
+    { "binding": "GATEWAY", "service": "foundation-gateway" }
   ],
-  "routes": [
-    { "pattern": "dashboard.erlvinc.com/*", "zone_name": "erlvinc.com" },
-    { "pattern": "naomi.erlvinc.com/*", "zone_name": "erlvinc.com" }
-  ]
+  "env": {
+    "staging": {
+      "name": "foundation-ui-staging",
+      "services": [
+        { "binding": "GATEWAY", "service": "foundation-gateway-staging" }
+      ],
+      "routes": [
+        { "pattern": "dashboard-staging.erlvinc.com/*", "zone_name": "erlvinc.com" }
+      ]
+    },
+    "production": {
+      "name": "foundation-ui-production",
+      "services": [
+        { "binding": "GATEWAY", "service": "foundation-gateway-production" }
+      ],
+      "routes": [
+        { "pattern": "dashboard.erlvinc.com/*", "zone_name": "erlvinc.com" },
+        { "pattern": "naomi.erlvinc.com/*", "zone_name": "erlvinc.com" }
+      ]
+    }
+  }
 }

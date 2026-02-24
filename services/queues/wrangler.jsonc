@@ -18,5 +18,19 @@
   ],
   "analytics_engine_datasets": [
     { "binding": "ANALYTICS", "dataset": "foundation_events" }
-  ]
+  ],
+  "env": {
+    "staging": {
+      "name": "foundation-queues-staging",
+      "d1_databases": [
+        { "binding": "DB", "database_name": "foundation-primary-staging", "database_id": "STAGING_DB_ID" }
+      ]
+    },
+    "production": {
+      "name": "foundation-queues-production",
+      "d1_databases": [
+        { "binding": "DB", "database_name": "foundation-primary", "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244" }
+      ]
+    }
+  }
 }
