@@ -115,24 +115,26 @@
 
   <!-- Kanban Board Content -->
   <div class="kanban-content">
-    {@const activeStageData = stageGroups[activeStage as keyof typeof stageGroups]}
-    {@const stageColumns = getColumnsForStage(activeStageData.phases)}
+    {#if activeStage}
+      {@const activeStageData = stageGroups[activeStage as keyof typeof stageGroups]}
+      {@const stageColumns = getColumnsForStage(activeStageData.phases)}
 
-    <div class="phase-columns" style="--stage-color: {activeStageData.color}">
-      {#each stageColumns as column (column.id)}
-        {@const columnCards = getCardsForColumn(column.status)}
-        <KanbanColumn
-          title={column.title}
-          status={column.status}
-          color={column.color}
-          phaseNumber={columns.findIndex(c => c.id === column.id) + 1}
-          cards={columnCards}
-          {onCardClick}
-          {onCardMove}
-          {emptyMessage}
-        />
-      {/each}
-    </div>
+      <div class="phase-columns" style="--stage-color: {activeStageData.color}">
+        {#each stageColumns as column (column.id)}
+          {@const columnCards = getCardsForColumn(column.status)}
+          <KanbanColumn
+            title={column.title}
+            status={column.status}
+            color={column.color}
+            phaseNumber={columns.findIndex(c => c.id === column.id) + 1}
+            cards={columnCards}
+            {onCardClick}
+            {onCardMove}
+            {emptyMessage}
+          />
+        {/each}
+      </div>
+    {/if}
   </div>
 </div>
 
