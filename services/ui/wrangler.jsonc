@@ -9,6 +9,7 @@
     "binding": "ASSETS",
     "run_worker_first": true
   },
+  "pages_build_output_dir": ".svelte-kit/cloudflare",
   "observability": { "enabled": true },
   "services": [
     { "binding": "GATEWAY", "service": "foundation-gateway" }
