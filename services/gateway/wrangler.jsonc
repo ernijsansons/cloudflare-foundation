@@ -54,18 +54,20 @@
   "migrations": [
     { "tag": "v1", "new_classes": ["FoundationMcpServer"] }
   ],
-  "[env.staging]": {
-    "name": "foundation-gateway-staging",
-    "vars": {
-      "ENVIRONMENT": "staging",
-      "ALLOWED_ORIGINS": "https://dashboard-staging.erlvinc.com"
-    }
-  },
-  "[env.production]": {
-    "name": "foundation-gateway-production",
-    "vars": {
-      "ENVIRONMENT": "production",
-      "ALLOWED_ORIGINS": "https://dashboard.erlvinc.com,https://naomi.erlvinc.com"
+  "env": {
+    "staging": {
+      "name": "foundation-gateway-staging",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "ALLOWED_ORIGINS": "https://dashboard-staging.erlvinc.com"
+      }
+    },
+    "production": {
+      "name": "foundation-gateway-production",
+      "vars": {
+        "ENVIRONMENT": "production",
+        "ALLOWED_ORIGINS": "https://dashboard.erlvinc.com,https://naomi.erlvinc.com"
+      }
     }
   }
 }
