@@ -14,6 +14,23 @@
   let showCreateModal = $state(false);
   let isSubmitting = $state(false);
 
+  function closeCreateModal() {
+    showCreateModal = false;
+  }
+
+  function handleModalBackdropClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      closeCreateModal();
+    }
+  }
+
+  function handleModalBackdropKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      closeCreateModal();
+    }
+  }
+
   function getStatusColor(status: string): string {
     switch (status) {
       case "draft":
@@ -104,11 +121,18 @@
 {/if}
 
 {#if showCreateModal}
-  <div class="modal-overlay" onclick={() => (showCreateModal = false)} role="button" tabindex="-1">
-    <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog">
+  <div
+    class="modal-overlay"
+    onclick={handleModalBackdropClick}
+    onkeydown={handleModalBackdropKeydown}
+    role="button"
+    tabindex="0"
+    aria-label="Close create idea modal"
+  >
+    <div class="modal" role="dialog" aria-modal="true" tabindex="0">
       <div class="modal-header">
         <h2>Create Idea Card</h2>
-        <button class="close-btn" onclick={() => (showCreateModal = false)}>
+        <button class="close-btn" type="button" onclick={closeCreateModal} aria-label="Close modal">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
@@ -147,7 +171,7 @@
           <p class="field-hint">Paste as much detail as you have - full PRD, business plan, market research, etc.</p>
         </div>
         <div class="modal-footer">
-          <button type="button" class="cancel-btn" onclick={() => (showCreateModal = false)}>
+          <button type="button" class="cancel-btn" onclick={closeCreateModal}>
             Cancel
           </button>
           <button type="submit" class="submit-btn" disabled={isSubmitting}>

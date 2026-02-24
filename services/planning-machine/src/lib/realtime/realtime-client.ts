@@ -44,7 +44,7 @@ export class RealtimeClient {
   private subscriptions: Set<string> = new Set();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
-  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private sessionId: string | null = null;
 
   constructor(options: RealtimeClientOptions) {

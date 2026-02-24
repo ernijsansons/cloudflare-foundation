@@ -35,11 +35,6 @@
 				<p>{data.differentiation}</p>
 			</div>
 		</section>
-	{:else}
-		<div class="placeholder">
-			<p>North Star section data structure not yet implemented.</p>
-			<pre>{JSON.stringify(data, null, 2)}</pre>
-		</div>
 	{/if}
 </div>
 
@@ -115,24 +110,4 @@
 		margin: 0;
 	}
 
-	.placeholder {
-		background: #fef3c7;
-		padding: 1.5rem;
-		border-radius: 8px;
-		border-left: 4px solid #f59e0b;
-	}
-
-	.placeholder p {
-		margin: 0 0 1rem 0;
-		color: #92400e;
-		font-weight: 500;
-	}
-
-	.placeholder pre {
-		background: white;
-		padding: 1rem;
-		border-radius: 4px;
-		overflow-x: auto;
-		font-size: 0.875rem;
-	}
 </style>

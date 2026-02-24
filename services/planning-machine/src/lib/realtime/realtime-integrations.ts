@@ -422,7 +422,7 @@ export function startLiveMetricsBroadcast(
   env: any,
   db: D1Database,
   intervalMs = 10000
-): NodeJS.Timeout {
+): ReturnType<typeof setInterval> {
   return setInterval(() => {
     broadcastLiveMetrics(env, db).catch((error) => {
       console.error('Error broadcasting live metrics:', error);

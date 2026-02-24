@@ -88,6 +88,19 @@
     assignRepoUrl = "";
   }
 
+  function handleAssignBackdropClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      closeAssignModal();
+    }
+  }
+
+  function handleAssignBackdropKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      closeAssignModal();
+    }
+  }
+
   async function fetchProjectDocumentation(projectId: string) {
     documentationLoading = true;
     try {
@@ -120,6 +133,19 @@
     selectedProjectId = null;
     selectedProjectName = "";
     projectDocumentation = null;
+  }
+
+  function handleDocumentationBackdropClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      closeDocumentationModal();
+    }
+  }
+
+  function handleDocumentationBackdropKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      closeDocumentationModal();
+    }
   }
 
   async function handleCardMove(card: KanbanCard, newStatus: string) {
@@ -208,8 +234,15 @@
 
 <!-- Assign to Naomi modal -->
 {#if assignRunId}
-  <div class="modal-backdrop" onclick={closeAssignModal} role="button" tabindex="-1">
-    <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog">
+  <div
+    class="modal-backdrop"
+    onclick={handleAssignBackdropClick}
+    onkeydown={handleAssignBackdropKeydown}
+    role="button"
+    tabindex="0"
+    aria-label="Close assign to Naomi modal"
+  >
+    <div class="modal" role="dialog" aria-modal="true" tabindex="0">
       <h3>Assign to Naomi</h3>
       <form method="POST" action="?/assignToNaomi">
         <input type="hidden" name="run_id" value={assignRunId} />
@@ -238,8 +271,15 @@
 
 <!-- Project Documentation modal -->
 {#if selectedProjectId}
-  <div class="doc-modal-backdrop" onclick={closeDocumentationModal} role="button" tabindex="-1">
-    <div class="doc-modal" onclick={(e) => e.stopPropagation()} role="dialog">
+  <div
+    class="doc-modal-backdrop"
+    onclick={handleDocumentationBackdropClick}
+    onkeydown={handleDocumentationBackdropKeydown}
+    role="button"
+    tabindex="0"
+    aria-label="Close project documentation modal"
+  >
+    <div class="doc-modal" role="dialog" aria-modal="true" tabindex="0">
       <button class="close-button" onclick={closeDocumentationModal} aria-label="Close">×</button>
       <ProjectCard
         projectId={selectedProjectId}

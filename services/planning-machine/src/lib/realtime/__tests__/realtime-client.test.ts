@@ -57,7 +57,7 @@ class MockWebSocket {
 }
 
 // Replace global WebSocket
-(global as any).WebSocket = MockWebSocket;
+(globalThis as any).WebSocket = MockWebSocket;
 
 describe('Realtime Client', () => {
   let client: RealtimeClient;

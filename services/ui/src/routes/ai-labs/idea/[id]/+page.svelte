@@ -18,6 +18,23 @@
   let isSubmitting = $state(false);
   let showDeleteConfirm = $state(false);
 
+  function closeDeleteConfirm() {
+    showDeleteConfirm = false;
+  }
+
+  function handleDeleteBackdropClick(event: MouseEvent) {
+    if (event.target === event.currentTarget) {
+      closeDeleteConfirm();
+    }
+  }
+
+  function handleDeleteBackdropKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      closeDeleteConfirm();
+    }
+  }
+
   function startEditing() {
     editName = data.idea.name;
     editContent = data.idea.content;
@@ -105,7 +122,7 @@
             </button>
           </form>
         {/if}
-        <button class="delete-btn" onclick={() => (showDeleteConfirm = true)}>
+        <button class="delete-btn" type="button" onclick={() => (showDeleteConfirm = true)} aria-label="Delete idea">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
           </svg>
@@ -214,8 +231,15 @@
 </div>
 
 {#if showDeleteConfirm}
-  <div class="modal-overlay" onclick={() => (showDeleteConfirm = false)} role="button" tabindex="-1">
-    <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog">
+  <div
+    class="modal-overlay"
+    onclick={handleDeleteBackdropClick}
+    onkeydown={handleDeleteBackdropKeydown}
+    role="button"
+    tabindex="0"
+    aria-label="Close delete confirmation modal"
+  >
+    <div class="modal" role="dialog" aria-modal="true" tabindex="0">
       <div class="modal-header">
         <h2>Delete Idea</h2>
       </div>
@@ -224,7 +248,7 @@
         <p class="warning">This action cannot be undone.</p>
       </div>
       <div class="modal-footer">
-        <button class="cancel-btn" onclick={() => (showDeleteConfirm = false)}>
+        <button type="button" class="cancel-btn" onclick={closeDeleteConfirm}>
           Cancel
         </button>
         <form method="POST" action="?/delete" use:enhance>

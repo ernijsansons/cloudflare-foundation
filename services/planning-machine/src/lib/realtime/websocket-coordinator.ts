@@ -324,7 +324,7 @@ export class RealtimeCoordinator {
   /**
    * Query active sessions
    */
-  private async handleSessionsQuery(request: Request): Response {
+  private async handleSessionsQuery(request: Request): Promise<Response> {
     const sessionInfo = Array.from(this.sessions.values()).map((session) => ({
       sessionId: session.sessionId,
       userId: session.userId,

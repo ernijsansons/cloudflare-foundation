@@ -107,7 +107,7 @@
           {/if}
         </div>
         {#if isActive}
-          <div class="active-indicator" style="background: {stage.color}" />
+          <div class="active-indicator" style="background: {stage.color}"></div>
         {/if}
       </button>
     {/each}

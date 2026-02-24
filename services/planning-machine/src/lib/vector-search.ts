@@ -22,17 +22,19 @@ export interface EmbeddingInput {
   metadata?: Record<string, unknown>;
 }
 
+type VectorMetadataPrimitive = string | number | boolean | string[];
+type VectorMetadata = VectorMetadataPrimitive | Record<string, VectorMetadataPrimitive>;
+
 export interface VectorDocument {
   id: string;
   embedding: number[];
-  metadata: {
+  metadata: Record<string, VectorMetadata> & {
     type: 'artifact' | 'citation' | 'unknown' | 'decision';
     phase?: PhaseName;
     runId?: string;
     artifactId?: string;
     content: string;
     timestamp: number;
-    [key: string]: unknown;
   };
 }
 
@@ -108,9 +110,9 @@ export async function insertVectorBatch(
  */
 export async function semanticSearch(
   vectorize: VectorizeIndex,
-  queryEmbedding: number[],
+  queryEmbedding: number[] | VectorFloatArray,
   topK = 10,
-  filter?: Record<string, unknown>
+  filter?: VectorizeVectorMetadataFilter
 ): Promise<VectorSearchResult[]> {
   const results = await vectorize.query(queryEmbedding, {
     topK,
@@ -141,7 +143,7 @@ export async function searchByText(
   vectorize: VectorizeIndex,
   query: string,
   topK = 10,
-  filter?: Record<string, unknown>
+  filter?: VectorizeVectorMetadataFilter
 ): Promise<VectorSearchResult[]> {
   const embedding = await generateEmbedding(ai, query);
   return semanticSearch(vectorize, embedding, topK, filter);
@@ -391,8 +393,16 @@ export async function getIndexStats(
   vectorize: VectorizeIndex
 ): Promise<{ count: number; dimensions: number }> {
   const info = await vectorize.describe();
+  const details = info as VectorizeIndexDetails & {
+    vectorCount?: number;
+    dimensions?: number;
+  };
+
   return {
-    count: info.count || 0,
-    dimensions: info.dimensions || 384,
+    count: details.vectorCount ?? details.vectorsCount ?? 0,
+    dimensions:
+      details.dimensions ??
+      (details.config && "dimensions" in details.config ? details.config.dimensions : undefined) ??
+      384,
   };
 }

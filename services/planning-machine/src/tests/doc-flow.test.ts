@@ -100,17 +100,58 @@ let mockDB: D1Database;
 let testProjectId: string;
 let mockEnv: Env;
 
+function createMockDB(): D1Database {
+	const metadataRow = {
+		completeness_percentage: 38,
+		required_unknowns_resolved: 3,
+		status: "incomplete",
+	};
+
+	const populatedSections = [{ section_id: "A" }, { section_id: "B" }, { section_id: "C" }];
+	const unknownsContent = JSON.stringify({
+		core_directive: "RESOLVED",
+		hitl_threshold: "RESOLVED",
+		tooling_data_gravity: "UNKNOWN",
+		memory_horizon: "RESOLVED",
+		verification_standard: "UNKNOWN",
+	});
+
+	return {
+		prepare(query: string) {
+			return {
+				bind: (..._params: unknown[]) => ({
+					first: async <T>() => {
+						if (query.includes("project_documentation_metadata")) {
+							return metadataRow as T;
+						}
+						if (query.includes("subsection_key = 'A1_unknowns'")) {
+							return { content: unknownsContent } as T;
+						}
+						return null as T;
+					},
+					all: async <T>() => {
+						if (query.includes("SELECT DISTINCT section_id")) {
+							return { results: populatedSections as unknown as T[] };
+						}
+						return { results: [] as T[] };
+					},
+					run: async () => ({ success: true }),
+				}),
+			};
+		},
+	} as unknown as D1Database;
+}
+
 beforeAll(async () => {
 	testProjectId = crypto.randomUUID();
-	// Initialize mock DB (in real environment, this would be a test D1 database)
-	mockDB = {} as D1Database; // Replace with actual test DB setup
+	mockDB = createMockDB();
 
 	// Create mock environment
 	mockEnv = {
 		AI: {} as Ai,
 		DB: mockDB,
 		ORCHESTRATION_ENABLED: "false",
-	} as Env;
+	} as unknown as Env;
 });
 
 afterAll(async () => {
@@ -221,13 +262,13 @@ describe("Phase 0: Intake Agent", () => {
 describe("Phase-to-Section Mapping", () => {
 	test("should map Phase 1 (Opportunity) to Section A", () => {
 		const phaseOutput = {
-			refined_opportunities: [
+			refinedOpportunities: [
 				{
 					title: "Test opportunity",
 					description: "Manual reconciliation solution for SMBs",
 				},
 			],
-			recommended_index: 0,
+			recommendedIndex: 0,
 		};
 
 		const updates = mapPhaseToSections({

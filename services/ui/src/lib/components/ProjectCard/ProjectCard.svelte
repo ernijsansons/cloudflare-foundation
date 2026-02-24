@@ -25,7 +25,6 @@
 	export let onClose: (() => void) | undefined = undefined;
 
 	let activeSection: string = 'overview';
-	let cardElement: HTMLDivElement;
 
 	const sections = [
 		{ id: 'overview', label: 'Overview', icon: '📊' },
@@ -108,10 +107,6 @@
 	}
 
 	onMount(() => {
-		// Focus the card element for keyboard navigation
-		if (cardElement) {
-			cardElement.focus();
-		}
 		// Add keyboard event listener
 		window.addEventListener('keydown', handleKeyDown);
 	});
@@ -124,8 +119,6 @@
 
 <div
 	class="project-card"
-	bind:this={cardElement}
-	tabindex="0"
 	role="region"
 	aria-label="Project documentation viewer"
 >
@@ -249,43 +242,9 @@
 		background: #f9fafb;
 	}
 
-	.loading {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		color: #6b7280;
-	}
-
 	.loading-skeleton-container {
 		max-width: 1000px;
 		margin: 0 auto;
-	}
-
-	.spinner {
-		width: 48px;
-		height: 48px;
-		border: 4px solid #e5e7eb;
-		border-top-color: #667eea;
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-		margin-bottom: 1rem;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	.placeholder {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		color: #9ca3af;
-		font-size: 1.125rem;
 	}
 
 	/* Mobile responsive design */

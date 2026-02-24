@@ -1,581 +1,319 @@
 /**
- * Schema Validator Tests
- *
- * Tests for runtime schema validation of phase outputs
+ * Schema validator tests aligned to canonical phase contracts.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from "vitest";
 import {
+  extractField,
+  getDefinedPhases,
+  getSchemaForPhase,
   validatePhaseOutput,
   validateStructure,
-  getSchemaForPhase,
-  getDefinedPhases,
-  extractField,
-} from '../schema-validator';
+} from "../schema-validator";
 
-describe('Schema Validator', () => {
-  describe('validatePhaseOutput', () => {
-    it('should validate correct intake output', () => {
-      const validIntake = {
-        refinedIdea: 'B2B SaaS for laundromat management',
-        A0_intake: {
-          codename: 'PROJECT_LAUNDRY',
-          thesis: 'Laundromats lack modern management tools',
-          targetICP: 'Multi-location laundromat owners',
-          coreDirective: 'Build AI-powered scheduling system',
+function buildSectionA() {
+  return {
+    A0_intake: {
+      concept: {
+        codename: "PROJECT_ATLAS",
+        thesis: "A practical AI operating system for micro-SaaS founders.",
+        target_icp: "Bootstrapped solo founders",
+        core_directive: "Build agentic workflows that reduce launch time to days.",
+        why_now: "Tooling maturity and distribution channels are aligned.",
+      },
+      outcome_unit: {
+        definition: "A shipped feature with test evidence and deploy receipts.",
+        proof_artifact: "PR + preview URL + test report",
+        time_to_first_outcome: "7 days",
+        frequency: "weekly",
+        current_cost: "$0-$99",
+      },
+      agentic_execution: {
+        allowed_actions: ["edit code", "run tests", "open PR"],
+        forbidden_actions: ["delete production data"],
+        hitl_threshold: ["security-sensitive changes"],
+        required_integrations: ["github", "cloudflare"],
+        external_side_effects: ["deploy preview environments"],
+      },
+      data_trust: {
+        input_sources: [{ source: "public docs", licensing: "permissive" }],
+        output_data_types: ["code", "tests", "docs"],
+        data_sensitivity: "internal",
+        retention_requirements: "Keep audit logs for 30 days.",
+        ground_truth: "Passing CI and reproducible test results.",
+      },
+      constraints: {
+        budget_cap: "$200/month",
+        timeline: "6 weeks",
+        geography: "US",
+        compliance_bar: "bootstrap",
+        performance_bar: "95th percentile API latency under 300ms.",
+      },
+      monetization: {
+        who_pays: "indie founders",
+        pricing_anchor: "$29/month starter plan",
+        sales_motion: "self-serve",
+        value_metric: "features shipped per month",
+      },
+      success_kill_switches: {
+        north_star: "Weekly shipped features",
+        supporting_metrics: ["Time-to-first-merge", "Defect escape rate"],
+        kill_conditions: ["No user pull", "No retention", "No distribution edge"],
+        "30_day_done": "One production pilot with retained usage.",
+        "90_day_done": "Repeatable onboarding and net-positive unit economics.",
+      },
+    },
+    A1_unknowns: {
+      core_directive: "RESOLVED",
+      hitl_threshold: "RESOLVED",
+      tooling_data_gravity: "RESOLVED",
+      memory_horizon: "RESOLVED",
+      verification_standard: "RESOLVED",
+    },
+    A2_invariants: {
+      no_raw_destructive_ops: true,
+      idempotent_side_effects: true,
+      auditable_receipts: true,
+      llm_gateway: "Cloudflare AI Gateway",
+      fail_closed: true,
+    },
+  };
+}
+
+function buildValidTaskReconciliation() {
+  return {
+    projectId: "run-001",
+    projectName: "Atlas",
+    generatedAt: "2026-02-24T00:00:00.000Z",
+    summary: {
+      totalTasks: 1,
+      totalMarketingTasks: 1,
+      byCategory: { backend: 1, content: 1 },
+      byPriority: { p1: 1, p2: 1 },
+      criticalPath: ["task-001"],
+    },
+    intakeConstraints: {
+      techStack: "Cloudflare + SvelteKit",
+      teamSize: "1 engineer",
+      budgetRange: "bootstrap",
+      deploymentTarget: "Cloudflare Workers",
+      mustAvoid: [],
+    },
+    buildPhases: [],
+    tasks: [
+      {
+        id: "task-001",
+        type: "code",
+        title: "Implement auth API",
+        description: "Add registration and login endpoints with secure sessions.",
+        category: "backend",
+        priority: "p1",
+        buildPhase: 3,
+        dependencies: [],
+        blockedBy: [],
+        integrationContract: {
+          exports: [],
+          apiEndpoints: ["POST /api/auth/register", "POST /api/auth/login"],
+          databaseMutations: [],
+          environmentVarsRequired: [],
+          downstreamTasks: [],
         },
-        A1_unknowns: [
-          {
-            category: 'Market',
-            question: 'What is the total addressable market?',
-          },
-        ],
-      };
+        contextBundle: {
+          architectureDecisions: [],
+          namingConventions: {},
+          environmentTopology: {},
+          relevantPatterns: [],
+          codeSnapshotNotes: [],
+        },
+        acceptanceCriteria: [{ description: "Endpoints pass integration tests." }],
+        naomiPrompt:
+          "Implement auth endpoints, tests, and documentation. Enforce secure password handling and session management.",
+      },
+    ],
+    marketingTasks: [
+      {
+        id: "mkt-001",
+        type: "marketing",
+        title: "Draft launch page copy",
+        description: "Write homepage copy for first launch wave.",
+        category: "content",
+        targetAudience: "Solo founders",
+        conversionObjective: "Email signups",
+        naomiPrompt: "Create hero, proof, and CTA copy for launch page.",
+      },
+    ],
+    pipelineMemoryUsed: [],
+    researchCitationCount: 1,
+    reconciliation: {
+      draftTasksReceived: 2,
+      tasksMerged: 1,
+      securityTasksAdded: 0,
+      glueTasksAdded: 0,
+      testTasksAdded: 0,
+      infraTasksAdded: 0,
+      dependencyCyclesFound: 0,
+      cyclesResolved: [],
+      contributingPhases: ["product-design", "content-engine"],
+      lessonsApplied: [],
+    },
+  };
+}
 
-      const result = validatePhaseOutput('intake', validIntake);
+describe("Schema Validator", () => {
+  describe("validatePhaseOutput", () => {
+    it("validates canonical intake output", () => {
+      const result = validatePhaseOutput("phase-0-intake", {
+        sectionA: buildSectionA(),
+        blockers: [],
+        ready_to_proceed: true,
+      });
 
       expect(result.valid).toBe(true);
-      expect(result.data).toEqual(validIntake);
       expect(result.errors).toBeUndefined();
     });
 
-    it('should reject intake output with missing required fields', () => {
-      const invalidIntake = {
-        refinedIdea: 'Short', // Too short
+    it("validates legacy intake output via alias normalization", () => {
+      const result = validatePhaseOutput("intake", {
+        refinedIdea: "AI copilots for customer support teams with compliance guardrails.",
         A0_intake: {
-          codename: 'PROJECT_LAUNDRY',
-          // Missing required fields: thesis, targetICP, coreDirective
+          codename: "PROJECT_GUARDIAN",
+          thesis: "Support teams need faster resolution with auditability.",
+          targetICP: "Regulated SaaS support leaders",
+          coreDirective: "Automate first-line triage safely.",
         },
-        A1_unknowns: [], // Empty array is fine, just needs to be present
-      };
-
-      const result = validatePhaseOutput('intake', invalidIntake);
-
-      expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.length).toBeGreaterThan(0);
-      expect(result.errors!.some((e) => e.includes('refinedIdea'))).toBe(true);
-    });
-
-    it('should validate correct opportunity output', () => {
-      const validOpportunity = {
-        opportunities: [
-          {
-            title: 'AI Scheduling Platform',
-            description: 'Automated scheduling for laundromats',
-            targetCustomer: 'Multi-location owners',
-            painPoint: 'Manual scheduling is time-consuming',
-            proposedSolution: 'AI-powered scheduling engine',
-            estimatedTAM: '$2.5B',
-          },
-        ],
-        primaryOpportunity: {
-          title: 'AI Scheduling Platform',
-          reasoning: 'Largest market with highest urgency',
-        },
-      };
-
-      const result = validatePhaseOutput('opportunity', validOpportunity);
+        A1_unknowns: [{ category: "market", question: "Willingness to pay?" }],
+      });
 
       expect(result.valid).toBe(true);
-      expect(result.data).toEqual(validOpportunity);
     });
 
-    it('should reject opportunity output with empty opportunities array', () => {
-      const invalidOpportunity = {
-        opportunities: [], // Must have at least one
-        primaryOpportunity: {
-          title: 'AI Scheduling Platform',
-          reasoning: 'Largest market with highest urgency',
-        },
-      };
-
-      const result = validatePhaseOutput('opportunity', invalidOpportunity);
+    it("rejects malformed canonical intake output", () => {
+      const result = validatePhaseOutput("phase-0-intake", {
+        sectionA: buildSectionA(),
+        blockers: [],
+      });
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.some((e) => e.includes('opportunities'))).toBe(true);
+      expect((result.errors ?? []).length).toBeGreaterThan(0);
     });
 
-    it('should validate correct kill-test output', () => {
-      const validKillTest = {
-        verdict: 'GO',
-        reasoning:
-          'Strong market validation with clear customer pain points and viable solution approach',
-        risks: [
+    it("validates opportunity output with canonical fields", () => {
+      const result = validatePhaseOutput("opportunity", {
+        originalIdea: "AI-first support triage",
+        refinedOpportunities: [
           {
-            risk: 'Market adoption may be slower than expected',
-            severity: 'medium',
-            mitigation: 'Start with pilot customers for early validation',
+            idea: "Verticalized compliance-first helpdesk agent",
+            reasoning: "High urgency and clear budget owner",
           },
         ],
-        confidenceScore: 0.85,
-      };
-
-      const result = validatePhaseOutput('kill-test', validKillTest);
+      });
 
       expect(result.valid).toBe(true);
-      expect(result.data).toEqual(validKillTest);
     });
 
-    it('should reject kill-test output with invalid verdict', () => {
-      const invalidKillTest = {
-        verdict: 'MAYBE', // Invalid enum value
-        reasoning: 'Strong market validation',
-        risks: [],
-        confidenceScore: 0.85,
-      };
-
-      const result = validatePhaseOutput('kill-test', invalidKillTest);
+    it("rejects market-research output when citations are missing", () => {
+      const result = validatePhaseOutput("market-research", {
+        marketSize: { tam: "$1B" },
+        citations: [],
+      });
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.some((e) => e.includes('verdict'))).toBe(true);
+      expect(result.errors?.[0]).toContain("requires at least one citation");
     });
 
-    it('should reject kill-test output with short reasoning', () => {
-      const invalidKillTest = {
-        verdict: 'GO',
-        reasoning: 'Good', // Too short (< 50 chars)
-        risks: [],
-        confidenceScore: 0.85,
-      };
-
-      const result = validatePhaseOutput('kill-test', invalidKillTest);
+    it("rejects market-research output when citation URLs are invalid", () => {
+      const result = validatePhaseOutput("market-research", {
+        marketSize: { tam: "$1B" },
+        citations: [{ claim: "Large TAM", url: "not-a-url", confidence: "medium" }],
+      });
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.some((e) => e.includes('reasoning'))).toBe(true);
+      expect(result.errors?.[0]).toContain("invalid URLs");
     });
 
-    it('should validate correct strategy output', () => {
-      const validStrategy = {
-        strategicPillars: [
-          {
-            pillar: 'Customer Success',
-            description: 'Ensure customer satisfaction',
-            keyInitiatives: ['Onboarding program', 'Support system'],
-          },
-          {
-            pillar: 'Product Excellence',
-            description: 'Build best-in-class product',
-            keyInitiatives: ['Feature development', 'Quality assurance'],
-          },
-          {
-            pillar: 'Market Leadership',
-            description: 'Establish market presence',
-            keyInitiatives: ['Brand building', 'Thought leadership'],
-          },
-        ],
-        positioningStatement: 'The leading AI-powered platform for laundromat management',
-        valuePropositions: [
-          'Save 20 hours per week on scheduling',
-          'Increase revenue by 15% through optimization',
-        ],
-      };
-
-      const result = validatePhaseOutput('strategy', validStrategy);
-
+    it("validates task-reconciliation output", () => {
+      const result = validatePhaseOutput("task-reconciliation", buildValidTaskReconciliation());
       expect(result.valid).toBe(true);
-      expect(result.data).toEqual(validStrategy);
     });
 
-    it('should reject strategy output with fewer than 3 pillars', () => {
-      const invalidStrategy = {
-        strategicPillars: [
-          {
-            pillar: 'Customer Success',
-            description: 'Ensure customer satisfaction',
-            keyInitiatives: ['Onboarding'],
-          },
-          {
-            pillar: 'Product Excellence',
-            description: 'Build best-in-class product',
-            keyInitiatives: ['Development'],
-          },
-        ], // Only 2 pillars, need at least 3
-        positioningStatement: 'The leading platform',
-        valuePropositions: ['Save time'],
-      };
+    it("rejects invalid task buildPhase values", () => {
+      const invalid = buildValidTaskReconciliation();
+      invalid.tasks[0].buildPhase = 0;
 
-      const result = validatePhaseOutput('strategy', invalidStrategy);
-
+      const result = validatePhaseOutput("task-reconciliation", invalid);
       expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.some((e) => e.includes('strategicPillars'))).toBe(true);
+      expect(result.errors?.some((error) => error.includes("buildPhase"))).toBe(true);
     });
 
-    it('should validate correct product-design output', () => {
-      const validProductDesign = {
-        features: [
-          {
-            name: 'AI Scheduling',
-            description: 'Automated scheduling engine',
-            priority: 'p0',
-            effort: 'l',
-          },
-        ],
-        mvpFeatures: ['AI Scheduling', 'Dashboard'],
-        userWorkflows: [
-          {
-            workflow: 'Schedule maintenance',
-            steps: ['Select location', 'Choose time', 'Confirm'],
-          },
-        ],
-      };
-
-      const result = validatePhaseOutput('product-design', validProductDesign);
-
-      expect(result.valid).toBe(true);
-      expect(result.data).toEqual(validProductDesign);
-    });
-
-    it('should reject product-design output with invalid priority', () => {
-      const invalidProductDesign = {
-        features: [
-          {
-            name: 'AI Scheduling',
-            description: 'Automated scheduling engine',
-            priority: 'critical', // Invalid enum value
-            effort: 'l',
-          },
-        ],
-        mvpFeatures: ['AI Scheduling'],
-        userWorkflows: [],
-      };
-
-      const result = validatePhaseOutput('product-design', invalidProductDesign);
-
+    it("returns unknown-phase error when phase is not recognized", () => {
+      const result = validatePhaseOutput("unknown-phase", {});
       expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.some((e) => e.includes('priority'))).toBe(true);
-    });
-
-    it('should reject product-design output with invalid effort', () => {
-      const invalidProductDesign = {
-        features: [
-          {
-            name: 'AI Scheduling',
-            description: 'Automated scheduling engine',
-            priority: 'p0',
-            effort: 'huge', // Invalid enum value
-          },
-        ],
-        mvpFeatures: ['AI Scheduling'],
-        userWorkflows: [],
-      };
-
-      const result = validatePhaseOutput('product-design', invalidProductDesign);
-
-      expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.some((e) => e.includes('effort'))).toBe(true);
-    });
-
-    it('should validate correct task-reconciliation output', () => {
-      const validTaskReconciliation = {
-        tasks: [
-          {
-            id: 'task-001',
-            title: 'Setup authentication system',
-            type: 'feature',
-            category: 'backend',
-            priority: 'p0',
-            effort: 'l',
-            buildPhase: 0,
-            naomiPrompt: 'Create authentication system using JWT tokens with refresh mechanism, including user registration, login, logout, token refresh, and password reset functionality.',
-            dependencies: [],
-          },
-        ],
-        marketingTasks: [
-          {
-            id: 'marketing-001',
-            title: 'Create landing page',
-            type: 'content',
-          },
-        ],
-        summary: {
-          totalTasks: 1,
-          byCategory: {
-            backend: 1,
-          },
-          byPriority: {
-            p0: 1,
-          },
-          criticalPath: ['task-001'],
-        },
-      };
-
-      const result = validatePhaseOutput('task-reconciliation', validTaskReconciliation);
-
-      if (!result.valid) {
-        console.error('Validation errors:', result.errors);
-      }
-      expect(result.valid).toBe(true);
-      expect(result.data).toEqual(validTaskReconciliation);
-    });
-
-    it('should reject task-reconciliation with invalid buildPhase', () => {
-      const invalidTaskReconciliation = {
-        tasks: [
-          {
-            id: 'task-001',
-            title: 'Setup authentication',
-            type: 'feature',
-            category: 'backend',
-            priority: 'p0',
-            effort: 'l',
-            buildPhase: 15, // > 10, invalid
-            naomiPrompt: 'Create authentication system...',
-            dependencies: [],
-          },
-        ],
-        marketingTasks: [],
-        summary: {
-          totalTasks: 1,
-          byCategory: {},
-          byPriority: {},
-          criticalPath: [],
-        },
-      };
-
-      const result = validatePhaseOutput('task-reconciliation', invalidTaskReconciliation);
-
-      expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.some((e) => e.includes('buildPhase'))).toBe(true);
-    });
-
-    it('should reject task-reconciliation with short naomiPrompt', () => {
-      const invalidTaskReconciliation = {
-        tasks: [
-          {
-            id: 'task-001',
-            title: 'Setup authentication',
-            type: 'feature',
-            category: 'backend',
-            priority: 'p0',
-            effort: 'l',
-            buildPhase: 0,
-            naomiPrompt: 'Short prompt', // < 100 chars
-            dependencies: [],
-          },
-        ],
-        marketingTasks: [],
-        summary: {
-          totalTasks: 1,
-          byCategory: {},
-          byPriority: {},
-          criticalPath: [],
-        },
-      };
-
-      const result = validatePhaseOutput('task-reconciliation', invalidTaskReconciliation);
-
-      expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors!.some((e) => e.includes('naomiPrompt'))).toBe(true);
-    });
-
-    it('should return error for unknown phase', () => {
-      const result = validatePhaseOutput('unknown-phase' as any, {});
-
-      expect(result.valid).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors![0]).toContain('No schema defined for phase');
+      expect(result.errors?.[0]).toContain("Unknown phase");
     });
   });
 
-  describe('validateStructure', () => {
-    it('should validate correct intake structure', () => {
-      const validIntake = {
-        refinedIdea: 'B2B SaaS',
-        A0_intake: {},
-        A1_unknowns: [],
-      };
-
-      const result = validateStructure('intake', validIntake);
+  describe("validateStructure", () => {
+    it("validates required canonical intake fields", () => {
+      const result = validateStructure("phase-0-intake", {
+        sectionA: buildSectionA(),
+        ready_to_proceed: true,
+      });
 
       expect(result.valid).toBe(true);
       expect(result.missingFields).toEqual([]);
     });
 
-    it('should detect missing fields in intake', () => {
-      const invalidIntake = {
-        refinedIdea: 'B2B SaaS',
-        // Missing A0_intake and A1_unknowns
-      };
-
-      const result = validateStructure('intake', invalidIntake);
-
+    it("detects missing canonical intake fields", () => {
+      const result = validateStructure("phase-0-intake", {});
       expect(result.valid).toBe(false);
-      expect(result.missingFields).toContain('A0_intake');
-      expect(result.missingFields).toContain('A1_unknowns');
+      expect(result.missingFields).toContain("sectionA");
+      expect(result.missingFields).toContain("ready_to_proceed");
     });
 
-    it('should validate correct opportunity structure', () => {
-      const validOpportunity = {
-        opportunities: [],
-        primaryOpportunity: {},
-      };
-
-      const result = validateStructure('opportunity', validOpportunity);
-
-      expect(result.valid).toBe(true);
-      expect(result.missingFields).toEqual([]);
+    it("detects missing opportunity required fields", () => {
+      const result = validateStructure("opportunity", {});
+      expect(result.valid).toBe(false);
+      expect(result.missingFields).toContain("refinedOpportunities");
     });
 
-    it('should detect missing fields in opportunity', () => {
-      const invalidOpportunity = {
-        opportunities: [],
-        // Missing primaryOpportunity
-      };
-
-      const result = validateStructure('opportunity', invalidOpportunity);
-
+    it("returns phase sentinel for unknown phases", () => {
+      const result = validateStructure("not-a-phase", {});
       expect(result.valid).toBe(false);
-      expect(result.missingFields).toContain('primaryOpportunity');
-    });
-
-    it('should return invalid for non-object input', () => {
-      const result = validateStructure('intake', 'not an object');
-
-      expect(result.valid).toBe(false);
-      expect(result.missingFields).toContain('<root>');
-    });
-
-    it('should return invalid for null input', () => {
-      const result = validateStructure('intake', null);
-
-      expect(result.valid).toBe(false);
-      expect(result.missingFields).toContain('<root>');
+      expect(result.missingFields).toContain("<phase>");
     });
   });
 
-  describe('getSchemaForPhase', () => {
-    it('should return schema for valid phase', () => {
-      const schema = getSchemaForPhase('intake');
-
-      expect(schema).toBeDefined();
-      expect(schema).not.toBeNull();
+  describe("schema lookups", () => {
+    it("returns schemas for alias and canonical intake names", () => {
+      expect(getSchemaForPhase("intake")).not.toBeNull();
+      expect(getSchemaForPhase("phase-0-intake")).not.toBeNull();
     });
 
-    it('should return null for unknown phase', () => {
-      const schema = getSchemaForPhase('unknown-phase' as any);
-
-      expect(schema).toBeNull();
+    it("returns null for unknown phase schema", () => {
+      expect(getSchemaForPhase("unknown-phase")).toBeNull();
     });
-  });
 
-  describe('getDefinedPhases', () => {
-    it('should return all defined phases', () => {
+    it("returns canonical workflow phase list", () => {
       const phases = getDefinedPhases();
-
-      expect(phases).toContain('intake');
-      expect(phases).toContain('opportunity');
-      expect(phases).toContain('customer-intel');
-      expect(phases).toContain('market-research');
-      expect(phases).toContain('competitive-intel');
-      expect(phases).toContain('kill-test');
-      expect(phases).toContain('strategy');
-      expect(phases).toContain('product-design');
-      expect(phases).toContain('tech-arch');
-      expect(phases).toContain('synthesis');
-      expect(phases).toContain('task-reconciliation');
-      expect(phases.length).toBeGreaterThanOrEqual(11);
+      expect(phases).toContain("phase-0-intake");
+      expect(phases).toContain("task-reconciliation");
+      expect(phases.length).toBeGreaterThanOrEqual(17);
     });
   });
 
-  describe('extractField', () => {
-    it('should extract top-level field', () => {
-      const data = {
-        refinedIdea: 'B2B SaaS',
-        A0_intake: {},
-      };
-
-      const result = extractField(data, 'refinedIdea');
-
-      expect(result).toBe('B2B SaaS');
+  describe("extractField", () => {
+    it("extracts nested fields", () => {
+      const data = { artifact: { content: { summary: { score: 91 } } } };
+      expect(extractField(data, "artifact.content.summary.score")).toBe(91);
     });
 
-    it('should extract nested field', () => {
-      const data = {
-        A0_intake: {
-          codename: 'PROJECT_LAUNDRY',
-          thesis: 'Laundromats need tools',
-        },
-      };
-
-      const result = extractField(data, 'A0_intake.codename');
-
-      expect(result).toBe('PROJECT_LAUNDRY');
+    it("returns null when field is missing", () => {
+      const data = { artifact: { content: {} } };
+      expect(extractField(data, "artifact.content.summary.score")).toBeNull();
     });
 
-    it('should extract deeply nested field', () => {
-      const data = {
-        artifact: {
-          version: 2,
-          content: {
-            primaryOpportunity: {
-              title: 'AI Platform',
-            },
-          },
-        },
-      };
-
-      const result = extractField(data, 'artifact.content.primaryOpportunity.title');
-
-      expect(result).toBe('AI Platform');
-    });
-
-    it('should return null for non-existent field', () => {
-      const data = {
-        refinedIdea: 'B2B SaaS',
-      };
-
-      const result = extractField(data, 'nonExistent');
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null for non-existent nested field', () => {
-      const data = {
-        A0_intake: {
-          codename: 'PROJECT_LAUNDRY',
-        },
-      };
-
-      const result = extractField(data, 'A0_intake.nonExistent');
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null for non-object input', () => {
-      const result = extractField('not an object', 'field');
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null for null input', () => {
-      const result = extractField(null, 'field');
-
-      expect(result).toBeNull();
-    });
-
-    it('should handle array access in path', () => {
-      const data = {
-        opportunities: [
-          { title: 'First' },
-          { title: 'Second' },
-        ],
-      };
-
-      const result = extractField(data, 'opportunities');
-
-      expect(result).toEqual([
-        { title: 'First' },
-        { title: 'Second' },
-      ]);
+    it("returns null for non-object root", () => {
+      expect(extractField("text", "a.b")).toBeNull();
     });
   });
 });

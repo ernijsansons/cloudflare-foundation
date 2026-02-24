@@ -292,7 +292,7 @@ export async function trackR2Operations(
     timestamp: Date.now(),
     units: bytes,
     estimatedCost: cost,
-    metadata,
+    metadata: metadata ?? {},
   });
 }
 
@@ -310,7 +310,7 @@ export async function trackVectorizeQuery(
     timestamp: Date.now(),
     units: 1,
     estimatedCost: cost,
-    metadata,
+    metadata: metadata ?? {},
   });
 }
 
@@ -329,7 +329,7 @@ export async function trackWorkersCompute(
     timestamp: Date.now(),
     units: cpuTimeMs,
     estimatedCost: cost,
-    metadata,
+    metadata: metadata ?? {},
   });
 }
 

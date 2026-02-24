@@ -20,8 +20,7 @@
 
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import type { Env } from "../types";
-import { validateDocumentationCompleteness } from "../lib/doc-populator";
-import { generateOverview } from "../../gateway/src/lib/doc-generator";
+import { generateOverviewSection, validateDocumentationCompleteness } from "../lib/doc-populator";
 
 export interface DocSynthesisParams {
 	projectId: string;
@@ -49,7 +48,7 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
 		});
 
 		// Step 2: Fetch all documentation sections
-		const allSections = await step.do("fetch-all-sections", async () => {
+		const allSections = (await step.do("fetch-all-sections", async () => {
 			const docsResult = await this.env.DB.prepare(
 				`SELECT section_id, subsection_key, content, status, populated_by
          FROM project_documentation
@@ -79,8 +78,8 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
 					console.error(`Failed to parse section ${row.section_id}:`, e);
 				}
 			}
-			return sections;
-		});
+			return sections as any;
+		})) as Record<string, any>;
 
 		// Step 3: Validate critical sections for agentic execution
 		const agenticReadiness = await step.do("validate-agentic-readiness", async () => {
@@ -168,7 +167,7 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
 		});
 
 		// Step 4: Calculate quality score (0-100)
-		const qualityScore = await step.do("calculate-quality-score", () => {
+		const qualityScore = await step.do("calculate-quality-score", async () => {
 			let score = 0;
 
 			// Completeness: 30 points
@@ -192,33 +191,11 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
 
 		// Step 5: Generate/update Overview section
 		await step.do("generate-overview", async () => {
-			const overview = generateOverview(allSections);
-
-			const id = crypto.randomUUID();
-			const now = Math.floor(Date.now() / 1000);
-
-			await this.env.DB.prepare(
-				`INSERT INTO project_documentation (id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(project_id, section_id, subsection_key)
-         DO UPDATE SET content = ?, last_updated = ?`
-			)
-				.bind(
-					id,
-					projectId,
-					"overview",
-					null,
-					JSON.stringify(overview),
-					"draft",
-					"doc-synthesis-workflow",
-					now,
-					now,
-					JSON.stringify(overview),
-					now
-				)
-				.run();
-
-			return { updated: true };
+			const result = await generateOverviewSection(this.env.DB, projectId);
+			if (!result.success) {
+				throw new Error(result.error ?? "Failed to generate overview section");
+			}
+			return { updated: result.sectionsUpdated > 0 };
 		});
 
 		// Step 6: Update metadata
