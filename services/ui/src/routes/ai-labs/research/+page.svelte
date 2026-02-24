@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
-  import Kanban from "$lib/components/Kanban.svelte";
+  import AccordionKanban from "$lib/components/AccordionKanban.svelte";
   import CreateModal from "$lib/components/CreateModal.svelte";
   import type { PlanningRun, KanbanCard, KanbanColumn } from "$lib/types";
   import { PHASE_ORDER, phaseDocs } from "$lib/data/phase-docs";
@@ -132,7 +132,7 @@
     <p class="empty-hint">Start by creating a new idea in the Ideas section, then promote it to research.</p>
   </div>
 {:else}
-  <Kanban
+  <AccordionKanban
     {columns}
     {cards}
     onCardClick={handleCardClick}
