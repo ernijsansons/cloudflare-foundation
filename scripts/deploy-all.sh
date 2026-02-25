@@ -90,7 +90,7 @@ deploy_ui() {
     fi
 
     echo "  Deploying UI to $ENV..."
-    if ! npx wrangler deploy --env "$ENV"; then
+    if ! npx wrangler pages deploy .svelte-kit/cloudflare --project-name "foundation-ui-$ENV"; then
         echo -e "${RED}ERROR: Failed to deploy UI${NC}"
         FAILED_SERVICES="$FAILED_SERVICES ui"
         cd - > /dev/null
