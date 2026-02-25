@@ -4,8 +4,8 @@
  * Supports advanced depth and site-restricted searches
  */
 
-import { tavilySearch } from "./tavily-search";
 import { braveSearch } from "./brave-search";
+import { tavilySearch } from "./tavily-search";
 
 export interface SearchResult {
   title: string;

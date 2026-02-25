@@ -159,6 +159,16 @@ export const BuildPhaseSchema = z.object({
   dependsOnPhases: z.array(z.number()).default([]),
 });
 
+// ─── File Tree (Phase 3: Determinism) ──────────────────────────────────────────
+
+export const FileTreeSchema = z.object({
+  root: z.record(z.string(), z.string()).optional(), // root-level files
+  packages: z.record(z.string(), z.array(z.string())).optional(), // e.g., "db": ["schema.ts", "migrations/"]
+  services: z.record(z.string(), z.array(z.string())).optional(), // e.g., "ui": ["src/routes/", "wrangler.jsonc"]
+  docs: z.array(z.string()).default([]),
+  scripts: z.array(z.string()).default([]),
+});
+
 // ─── Full TASKS.json ──────────────────────────────────────────────────────────
 
 export const TasksOutputSchema = z.object({
@@ -193,6 +203,9 @@ export const TasksOutputSchema = z.object({
 
   /** Marketing / content tasks — separate schema, always humanReviewRequired */
   marketingTasks: z.array(MarketingTaskSchema),
+
+  /** NEW: File Tree Mapping (Phase 3) */
+  fileTree: FileTreeSchema.optional(),
 
   /** Pipeline memory lesson IDs used to generate this task list */
   pipelineMemoryUsed: z.array(z.string()).default([]),

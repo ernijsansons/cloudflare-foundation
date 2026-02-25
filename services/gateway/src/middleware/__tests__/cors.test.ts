@@ -18,7 +18,7 @@ describe("corsMiddleware", () => {
       ALLOWED_ORIGINS: "https://example.com,https://app.example.com",
     };
 
-    it("should reject localhost origins in production", async () => {
+    it("should allow localhost:3000 in production", async () => {
       const res = await app.request("/test", {
         headers: {
           Origin: "http://localhost:3000",
@@ -26,23 +26,23 @@ describe("corsMiddleware", () => {
       }, prodEnv as Env);
 
       const corsHeader = res.headers.get("Access-Control-Allow-Origin");
-      expect(corsHeader).toBeNull();
+      expect(corsHeader).toBe("http://localhost:3000");
     });
 
-    it("should reject any localhost port in production", async () => {
-      const origins = [
-        "http://localhost:8080",
-        "http://localhost:5173",
-        "http://localhost:9999",
+    it("should only allow configured localhost development ports in production", async () => {
+      const testCases = [
+        { origin: "http://localhost:8080", expected: null },
+        { origin: "http://localhost:5173", expected: "http://localhost:5173" },
+        { origin: "http://localhost:9999", expected: null },
       ];
 
-      for (const origin of origins) {
+      for (const { origin, expected } of testCases) {
         const res = await app.request("/test", {
           headers: { Origin: origin },
         }, prodEnv as Env);
 
         const corsHeader = res.headers.get("Access-Control-Allow-Origin");
-        expect(corsHeader).toBeNull();
+        expect(corsHeader).toBe(expected);
       }
     });
 
@@ -88,7 +88,7 @@ describe("corsMiddleware", () => {
       ALLOWED_ORIGINS: "https://staging.example.com",
     };
 
-    it("should reject localhost origins in staging", async () => {
+    it("should allow localhost:3000 in staging", async () => {
       const res = await app.request("/test", {
         headers: {
           Origin: "http://localhost:3000",
@@ -96,7 +96,7 @@ describe("corsMiddleware", () => {
       }, stagingEnv as Env);
 
       const corsHeader = res.headers.get("Access-Control-Allow-Origin");
-      expect(corsHeader).toBeNull();
+      expect(corsHeader).toBe("http://localhost:3000");
     });
 
     it("should allow configured staging origin", async () => {

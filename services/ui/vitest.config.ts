@@ -1,8 +1,17 @@
 import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
+const vite5SvelteCompat = {
+	name: 'vite5-svelte-compat',
+	configureServer(server: any) {
+		// vite-plugin-svelte hot-update assumes `server.environments` (Vite 6+).
+		// Vitest in this workspace is on Vite 5, so provide a safe fallback.
+		server.environments ??= {};
+	}
+};
+
 export default defineConfig({
-	plugins: [svelte({ hot: !process.env.VITEST })],
+	plugins: [vite5SvelteCompat, svelte({ hot: false })],
 	test: {
 		environment: 'jsdom',
 		globals: true,

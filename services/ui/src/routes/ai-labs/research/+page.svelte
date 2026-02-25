@@ -113,31 +113,11 @@
 {#if data.error}
 	<div class="error-container">
 		<p class="error">{data.error}</p>
-		<p class="error-hint">Make sure the planning service is running and accessible.</p>
+		<p class="error-hint">Showing pipeline layout with current available data.</p>
 	</div>
-{:else if data.runs.length === 0}
-	<div class="empty-state">
-		<div class="empty-icon">
-			<svg
-				width="48"
-				height="48"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="1.5"
-			>
-				<path d="M9 3h6v7l4 9H5l4-9V3z" />
-				<path d="M9 3h6" />
-			</svg>
-		</div>
-		<p class="empty-title">No research runs yet</p>
-		<p class="empty-hint">
-			Start by creating a new idea in the Ideas section, then promote it to research.
-		</p>
-	</div>
-{:else}
-	<StagedKanban {cards} onCardClick={handleCardClick} />
 {/if}
+
+<StagedKanban {cards} onCardClick={handleCardClick} />
 
 <CreateModal
 	open={showCreateModal}
@@ -195,45 +175,22 @@
 	}
 
 	.error-container {
-		padding: 2rem;
-		text-align: center;
+		padding: 1rem 1.5rem;
+		margin: 1rem 1.5rem 0;
+		border: 1px solid color-mix(in srgb, var(--color-error) 20%, transparent);
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--color-error) 8%, transparent);
 	}
 
 	.error {
 		color: var(--color-error);
 		font-size: 0.875rem;
+		margin: 0;
 	}
 
 	.error-hint {
 		color: var(--color-text-muted);
 		font-size: 0.8125rem;
-	}
-
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 4rem 2rem;
-		text-align: center;
-		color: var(--color-text-muted);
-	}
-
-	.empty-icon {
-		margin-bottom: 1rem;
-		opacity: 0.4;
-	}
-
-	.empty-title {
-		margin: 0;
-		font-size: 1.125rem;
-		font-weight: 500;
-		color: var(--color-text);
-	}
-
-	.empty-hint {
 		margin: 0.5rem 0 0;
-		font-size: 0.875rem;
-		max-width: 400px;
 	}
 </style>

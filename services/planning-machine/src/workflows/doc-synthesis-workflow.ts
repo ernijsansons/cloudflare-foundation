@@ -19,8 +19,9 @@
  */
 
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
-import type { Env } from "../types";
+
 import { generateOverviewSection, validateDocumentationCompleteness } from "../lib/doc-populator";
+import type { Env } from "../types";
 
 export interface DocSynthesisParams {
 	projectId: string;

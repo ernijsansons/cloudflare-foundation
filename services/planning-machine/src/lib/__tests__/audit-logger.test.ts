@@ -2,8 +2,8 @@
  * Audit Logger Tests
  */
 
-import { describe, it, expect } from 'vitest';
 import type { AuditLogEntry, AuditAction, ResourceType } from '@foundation/shared';
+import { describe, it, expect } from 'vitest';
 
 describe('Audit Logger', () => {
   describe('Audit Log Structure', () => {

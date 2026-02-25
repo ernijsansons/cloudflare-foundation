@@ -5,8 +5,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { OpportunityAgent } from "../opportunity-agent";
+
 import type { Env } from "../../types";
+import { OpportunityAgent } from "../opportunity-agent";
 
 const { mockOpportunityOutput, mockOrchestrationResult } = vi.hoisted(() => {
   const output = {

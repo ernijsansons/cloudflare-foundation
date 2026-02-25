@@ -3,10 +3,12 @@
 
 	export let sections: Array<{ id: string; label: string; icon: string }>;
 	export let activeSection: string;
+	export let onSectionChange: ((sectionId: string) => void) | undefined = undefined;
 
 	const dispatch = createEventDispatcher();
 
 	function selectSection(sectionId: string) {
+		onSectionChange?.(sectionId);
 		dispatch('sectionChange', sectionId);
 	}
 </script>

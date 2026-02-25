@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent } from '@testing-library/svelte/svelte5';
 import Sidebar from './Sidebar.svelte';
 
 describe('Sidebar', () => {
@@ -38,21 +38,19 @@ describe('Sidebar', () => {
 	});
 
 	it('emits sectionChange event when section is clicked', async () => {
-		const { component, getByLabelText } = render(Sidebar, {
+		const sectionChangeFn = vi.fn();
+		const { getByLabelText } = render(Sidebar, {
 			props: {
 				sections: mockSections,
-				activeSection: 'overview'
+				activeSection: 'overview',
+				onSectionChange: sectionChangeFn
 			}
 		});
-
-		const sectionChangeFn = vi.fn();
-		component.$on('sectionChange', sectionChangeFn);
 
 		const assumptionsButton = getByLabelText('Assumptions section');
 		await fireEvent.click(assumptionsButton);
 
-		expect(sectionChangeFn).toHaveBeenCalled();
-		expect(sectionChangeFn.mock.calls[0][0].detail).toBe('A');
+		expect(sectionChangeFn).toHaveBeenCalledWith('A');
 	});
 
 	it('displays icons for each section', () => {

@@ -1,51 +1,72 @@
 import { describe, it, expect } from 'vitest';
-import { render } from '@testing-library/svelte';
+import { render } from '@testing-library/svelte/svelte5';
 import SectionA from './SectionA.svelte';
 import type { SectionA as SectionAType } from '@foundation/shared';
 
 describe('SectionA', () => {
 	const mockData: SectionAType = {
-		A0: {
-			concept: 'AI-powered documentation system',
-			outcome_unit: 'Documentation completeness percentage',
-			agentic_execution: {
+		A0_intake: {
+			concept: {
+				codename: 'DOCGEN',
+				thesis: 'AI-powered documentation system',
+				target_icp: 'Developer platform teams',
 				core_directive: 'Generate comprehensive project documentation',
-				hitl_thresholds: ['When validation score < 80%', 'When unknown fields detected'],
-				tooling_data_gravity: 'Project planning data from D1',
-				memory_horizon: '30 days',
-				verification_standard: 'WCAG AA compliance + 80% test coverage'
+				why_now: 'Teams need faster onboarding and delivery'
 			},
-			data_and_trust: {
-				pii_handling: 'No PII collected',
-				auth_method: 'Cloudflare Access',
-				data_residency: 'US-West'
+			outcome_unit: {
+				definition: 'Documentation completeness percentage',
+				proof_artifact: 'Published documentation bundle',
+				time_to_first_outcome: '2 days',
+				frequency: 'Weekly',
+				current_cost: '$50,000 per quarter'
+			},
+			agentic_execution: {
+				allowed_actions: ['Generate markdown docs', 'Create architecture diagrams'],
+				forbidden_actions: ['Delete production data'],
+				hitl_threshold: ['When validation score < 80%', 'When unknown fields detected'],
+				required_integrations: ['D1', 'GitHub'],
+				external_side_effects: ['Create pull request']
+			},
+			data_trust: {
+				input_sources: [{ source: 'Project planning data', licensing: 'Internal' }],
+				output_data_types: ['Markdown', 'JSON'],
+				data_sensitivity: 'internal',
+				retention_requirements: '90 days',
+				ground_truth: 'Validated project documentation'
 			},
 			constraints: {
-				budget: '$50,000',
+				budget_cap: '$50,000',
 				timeline: '8 weeks',
-				regulatory: []
+				geography: 'US-West',
+				compliance_bar: 'SOC2-ready',
+				performance_bar: '< 2s response time'
 			},
 			monetization: {
-				model: 'Internal tool - no monetization',
-				pricing_tiers: []
+				who_pays: 'Internal platform team',
+				pricing_anchor: 'Cost avoided per onboarded service',
+				sales_motion: 'hybrid',
+				value_metric: 'Documentation sets delivered'
 			},
-			success_and_kill_switches: {
-				north_star_metric: 'Documentation completion rate > 95%',
-				kill_switch: 'If quality score < 60% for 7 consecutive days'
+			success_kill_switches: {
+				north_star: 'Documentation completion rate > 95%',
+				supporting_metrics: ['Cycle time < 2 days'],
+				kill_conditions: ['Quality score < 60% for 7 consecutive days'],
+				'30_day_done': 'MVP live',
+				'90_day_done': 'Org-wide rollout'
 			}
 		},
-		A1: {
-			core_directive: 'resolved',
-			hitl_threshold: 'pending',
-			tooling_data_gravity: 'resolved',
-			memory_horizon: 'resolved',
-			verification_standard: 'pending'
+		A1_unknowns: {
+			core_directive: 'RESOLVED',
+			hitl_threshold: 'UNKNOWN',
+			tooling_data_gravity: 'RESOLVED',
+			memory_horizon: 'UNKNOWN',
+			verification_standard: 'RESOLVED'
 		},
-		A2: {
+		A2_invariants: {
 			no_raw_destructive_ops: true,
 			idempotent_side_effects: true,
 			auditable_receipts: true,
-			llm_gateway: true,
+			llm_gateway: 'Cloudflare AI Gateway',
 			fail_closed: false
 		}
 	};
@@ -57,20 +78,23 @@ describe('SectionA', () => {
 		expect(getByText(/Section A will be populated/)).toBeInTheDocument();
 	});
 
-	it('renders all A0 subsections when data is provided', () => {
+	it('renders all subsection headers and key cards when data is provided', () => {
 		const { getByText } = render(SectionA, { props: { data: mockData } });
 
-		expect(getByText('Concept & Outcome')).toBeInTheDocument();
+		expect(getByText('A0: Idea Intake Form')).toBeInTheDocument();
+		expect(getByText('Concept')).toBeInTheDocument();
+		expect(getByText('Outcome Unit')).toBeInTheDocument();
 		expect(getByText('Agentic Execution')).toBeInTheDocument();
-		expect(getByText('Data & Trust')).toBeInTheDocument();
 		expect(getByText('Constraints')).toBeInTheDocument();
 		expect(getByText('Monetization')).toBeInTheDocument();
-		expect(getByText('Success & Kill Switches')).toBeInTheDocument();
+		expect(getByText('A1: Required Unknowns')).toBeInTheDocument();
+		expect(getByText('A2: Global Invariants')).toBeInTheDocument();
 	});
 
 	it('displays concept and outcome unit correctly', () => {
 		const { getByText } = render(SectionA, { props: { data: mockData } });
 
+		expect(getByText('DOCGEN')).toBeInTheDocument();
 		expect(getByText('AI-powered documentation system')).toBeInTheDocument();
 		expect(getByText('Documentation completeness percentage')).toBeInTheDocument();
 	});
@@ -78,9 +102,9 @@ describe('SectionA', () => {
 	it('displays agentic execution details', () => {
 		const { getByText } = render(SectionA, { props: { data: mockData } });
 
-		expect(getByText('Generate comprehensive project documentation')).toBeInTheDocument();
-		expect(getByText('30 days')).toBeInTheDocument();
-		expect(getByText(/WCAG AA compliance/)).toBeInTheDocument();
+		expect(getByText('Generate markdown docs')).toBeInTheDocument();
+		expect(getByText('Create architecture diagrams')).toBeInTheDocument();
+		expect(getByText('Delete production data')).toBeInTheDocument();
 	});
 
 	it('displays HITL thresholds as list', () => {
@@ -93,9 +117,9 @@ describe('SectionA', () => {
 	it('renders A1 unknowns with resolved/pending status', () => {
 		const { getByText, container } = render(SectionA, { props: { data: mockData } });
 
-		expect(getByText('A1: Unknowns Resolution')).toBeInTheDocument();
+		expect(getByText('A1: Required Unknowns')).toBeInTheDocument();
 
-		const resolvedItems = container.querySelectorAll('.unknown-item.resolved');
+		const resolvedItems = container.querySelectorAll('.unknown-value.resolved');
 		const unresolvedItems = container.querySelectorAll('.unknown-item.unresolved');
 
 		expect(resolvedItems.length).toBeGreaterThan(0);
@@ -105,7 +129,7 @@ describe('SectionA', () => {
 	it('displays A1 unknowns with proper styling', () => {
 		const { container } = render(SectionA, { props: { data: mockData } });
 
-		const resolvedItem = container.querySelector('.unknown-item.resolved');
+		const resolvedItem = container.querySelector('.unknown-value.resolved');
 		expect(resolvedItem).toHaveClass('resolved');
 
 		const unresolvedItem = container.querySelector('.unknown-item.unresolved');
@@ -115,17 +139,20 @@ describe('SectionA', () => {
 	it('renders A2 invariants section', () => {
 		const { getByText, container } = render(SectionA, { props: { data: mockData } });
 
-		expect(getByText('A2: Invariants')).toBeInTheDocument();
+		expect(getByText('A2: Global Invariants')).toBeInTheDocument();
 
 		const invariantItems = container.querySelectorAll('.invariant-item');
 		expect(invariantItems.length).toBe(5); // 5 invariants in mockData
 	});
 
 	it('displays invariants with correct icons', () => {
-		const { getByText } = render(SectionA, { props: { data: mockData } });
+		const { container } = render(SectionA, { props: { data: mockData } });
 
-		// Check for checkmark icons (true values)
-		expect(getByText('✅', { selector: '.invariant-icon' })).toBeDefined();
+		const icons = Array.from(container.querySelectorAll('.invariant-icon')).map((node) =>
+			node.textContent?.trim()
+		);
+		expect(icons).toContain('✅');
+		expect(icons).toContain('❌');
 	});
 
 	it('displays budget and timeline constraints', () => {
@@ -135,15 +162,16 @@ describe('SectionA', () => {
 		expect(getByText('8 weeks')).toBeInTheDocument();
 	});
 
-	it('displays north star metric', () => {
+	it('displays monetization details', () => {
 		const { getByText } = render(SectionA, { props: { data: mockData } });
 
-		expect(getByText(/Documentation completion rate > 95%/)).toBeInTheDocument();
+		expect(getByText('Internal platform team')).toBeInTheDocument();
+		expect(getByText('hybrid')).toBeInTheDocument();
 	});
 
-	it('displays kill switch condition', () => {
+	it('displays llm gateway invariant value', () => {
 		const { getByText } = render(SectionA, { props: { data: mockData } });
 
-		expect(getByText(/If quality score < 60%/)).toBeInTheDocument();
+		expect(getByText('Cloudflare AI Gateway')).toBeInTheDocument();
 	});
 });

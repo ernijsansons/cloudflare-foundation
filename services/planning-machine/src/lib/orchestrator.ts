@@ -8,9 +8,9 @@
  * can persist them alongside the synthesized artifact.
  */
 
+import type { BaseAgent , AgentContext, AgentResult } from "../agents/base-agent";
 import type { Env } from "../types";
-import type { BaseAgent } from "../agents/base-agent";
-import type { AgentContext, AgentResult } from "../agents/base-agent";
+
 import { extractJSON } from "./json-extractor";
 
 // ---------------------------------------------------------------------------

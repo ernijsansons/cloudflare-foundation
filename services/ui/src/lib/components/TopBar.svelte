@@ -58,12 +58,14 @@
 <style>
   .topbar {
     height: var(--topbar-height);
-    background: var(--color-bg);
+    background: color-mix(in srgb, var(--color-bg) 80%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--color-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 1rem;
+    padding: 0 1.25rem;
     position: sticky;
     top: 0;
     z-index: 30;
@@ -76,59 +78,80 @@
   .logo {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.625rem;
     color: var(--color-text);
     text-decoration: none;
+    transition: opacity var(--transition-fast);
   }
 
   .logo:hover {
-    text-decoration: none;
+    opacity: 0.8;
   }
 
   .logo-text {
     font-weight: 600;
-    font-size: 1.125rem;
+    font-size: 0.95rem;
+    letter-spacing: -0.01em;
   }
 
   .topbar-center {
     flex: 1;
     display: flex;
     justify-content: center;
-    max-width: 480px;
+    max-width: 540px;
     margin: 0 1rem;
   }
 
   .search {
     position: relative;
     width: 100%;
+    transition: transform var(--transition-bounce);
+  }
+
+  .search:focus-within {
+    transform: translateY(-1px);
   }
 
   .search-icon {
     position: absolute;
-    left: 0.75rem;
+    left: 0.875rem;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--color-text-muted);
+    color: var(--color-text-subtle);
     pointer-events: none;
+    transition: color var(--transition-fast);
+  }
+
+  .search:focus-within .search-icon {
+    color: var(--color-primary);
   }
 
   .search-input {
     width: 100%;
-    padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+    padding: 0.5rem 0.875rem 0.5rem 2.5rem;
     border: 1px solid var(--color-border);
-    border-radius: 6px;
+    border-radius: var(--radius-lg);
     background: var(--color-bg-secondary);
     font-size: 0.875rem;
     color: var(--color-text);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-normal);
   }
 
   .search-input::placeholder {
     color: var(--color-text-muted);
   }
 
+  .search-input:hover {
+    background: var(--color-bg);
+    border-color: color-mix(in srgb, var(--color-border) 80%, var(--color-text-muted));
+  }
+
   .search-input:focus {
     outline: none;
+    background: var(--color-bg);
     border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
   }
 
   .search-kbd {
@@ -136,59 +159,72 @@
     right: 0.5rem;
     top: 50%;
     transform: translateY(-50%);
-    padding: 0.125rem 0.375rem;
-    font-size: 0.6875rem;
-    font-family: var(--font-sans);
-    background: var(--color-bg-tertiary);
+    padding: 0.25rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    font-family: var(--font-mono);
+    background: var(--color-bg);
     border: 1px solid var(--color-border);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     color: var(--color-text-muted);
+    box-shadow: var(--shadow-sm);
+    pointer-events: none;
   }
 
   .topbar-right {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
   }
 
   .create-btn {
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.45rem 0.875rem;
     background: var(--color-primary);
-    color: white;
-    border: none;
-    border-radius: 6px;
+    color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
     font-size: 0.875rem;
     font-weight: 500;
-    transition: background var(--transition-fast);
+    box-shadow: var(--shadow-sm), inset 0 1px 0 hsla(0, 0%, 100%, 0.2);
+    transition: all var(--transition-fast);
   }
 
   .create-btn:hover {
     background: var(--color-primary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md), inset 0 1px 0 hsla(0, 0%, 100%, 0.2);
+  }
+
+  .create-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
   }
 
   .user-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     background: var(--color-bg-secondary);
     border: 1px solid var(--color-border);
-    border-radius: 50%;
-    transition: border-color var(--transition-fast);
+    border-radius: var(--radius-full);
+    color: var(--color-text-muted);
+    transition: all var(--transition-fast);
   }
 
   .user-btn:hover {
-    border-color: var(--color-border-focus);
+    border-color: var(--color-text-muted);
+    color: var(--color-text);
+    background: var(--color-bg);
   }
 
   .avatar {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-text-muted);
   }
 </style>

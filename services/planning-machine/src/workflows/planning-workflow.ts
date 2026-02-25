@@ -3,14 +3,15 @@
  */
 
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
-import type { Env } from "../types";
+
 import { PHASE_ORDER, getAgentForPhase, type PhaseName } from "../agents/registry";
+import { populateDocumentation, generateOverviewSection } from "../lib/doc-populator";
+import type { OrchestrationResult } from "../lib/orchestrator";
+import { scoreArtifact, type QualityScore } from "../lib/quality-scorer";
 import { embedAndStore, getContextForPhase } from "../lib/rag";
 import { reviewArtifact, tiebreakerReview } from "../lib/reviewer";
-import type { OrchestrationResult } from "../lib/orchestrator";
-import { populateDocumentation, generateOverviewSection } from "../lib/doc-populator";
 import { validatePhaseOutput } from "../lib/schema-validator";
-import { scoreArtifact, type QualityScore } from "../lib/quality-scorer";
+import type { Env } from "../types";
 
 /** Emit webhook event for external reporting (e.g., to erlvinc.com) */
 async function emitWebhookEvent(

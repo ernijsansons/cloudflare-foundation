@@ -4,12 +4,13 @@
  * Studies Palantir and AI companies for agentic monetization patterns.
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
-import { runModel } from "../lib/model-router";
-import { webSearch } from "../tools/web-search";
-import { RevenueExpansionOutputSchema, type RevenueExpansionOutput } from "../schemas/revenue-expansion";
 import { extractJSON } from "../lib/json-extractor";
+import { runModel } from "../lib/model-router";
+import { RevenueExpansionOutputSchema, type RevenueExpansionOutput } from "../schemas/revenue-expansion";
+import { webSearch } from "../tools/web-search";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface RevenueExpansionInput {
   idea: string;

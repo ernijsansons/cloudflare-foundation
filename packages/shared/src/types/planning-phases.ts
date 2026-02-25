@@ -24,6 +24,8 @@ export const PLANNING_AGENT_PHASE_ORDER = [
   "launch-execution",
   "synthesis",
   "task-reconciliation",
+  "diagram-generation",
+  "validation",
 ] as const;
 
 export type PlanningAgentPhaseName = (typeof PLANNING_AGENT_PHASE_ORDER)[number];
@@ -56,8 +58,12 @@ const LEGACY_PHASE_ALIASES: Record<string, PlanningWorkflowPhaseName> = {
   "phase-13-analytics": "analytics",
   "phase-14-launch": "launch-execution",
   "phase-15-synthesis": "synthesis",
+  "phase-16-task-reconciliation": "task-reconciliation",
+  "phase-17-diagram-generation": "diagram-generation",
+  "phase-18-validation": "validation",
   gtm: "gtm-marketing",
   launch: "launch-execution",
+  diagrams: "diagram-generation",
 };
 
 export function isPlanningAgentPhase(phase: string): phase is PlanningAgentPhaseName {

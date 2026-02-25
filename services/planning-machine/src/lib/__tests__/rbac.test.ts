@@ -2,7 +2,9 @@
  * RBAC Tests
  */
 
+import type { UserWithRole, ActionContext } from '@foundation/shared';
 import { describe, it, expect } from 'vitest';
+
 import {
   hasPermission,
   canPerformAction,
@@ -13,7 +15,6 @@ import {
   requirePermission,
   requireRoleLevel,
 } from '../rbac';
-import type { UserWithRole, ActionContext } from '@foundation/shared';
 
 describe('RBAC Permission System', () => {
   // Test users

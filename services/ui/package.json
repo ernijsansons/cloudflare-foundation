@@ -23,13 +23,13 @@
     "@cloudflare/workers-types": "latest",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/svelte": "^4.0.5",
-    "@vitest/coverage-v8": "^1.0.4",
-    "@vitest/ui": "^1.0.4",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
     "jsdom": "^23.0.1",
     "typescript": "^5.7.0",
     "vite": "latest",
     "@sveltejs/vite-plugin-svelte": "latest",
-    "vitest": "^1.0.4",
+    "vitest": "^4.0.18",
     "wrangler": "^4.66.0"
   }
 }

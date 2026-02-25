@@ -5,6 +5,7 @@
  * phase names. Legacy phase ids are normalized before mapping.
  */
 
+import type { D1Database } from "@cloudflare/workers-types";
 import {
   normalizePlanningPhase,
   type SectionA,
@@ -45,6 +46,8 @@ const PHASE_MAPPERS: Record<PlanningWorkflowPhaseName, PhaseMapper> = {
   "launch-execution": mapLaunchToSections,
   synthesis: mapSynthesisToSections,
   "task-reconciliation": mapTaskReconciliationToSections,
+  "diagram-generation": mapDiagramGenerationToSectionN,
+  validation: mapValidationToSectionM,
 };
 
 function createUpdate(
@@ -523,6 +526,62 @@ function mapTaskReconciliationToSections(output: PhaseOutput, phase: PlanningWor
       {
         build_phases: data.buildPhases ?? [],
         critical_path: (data.summary as { criticalPath?: unknown[] } | undefined)?.criticalPath ?? [],
+      },
+      phase
+    ),
+  ];
+}
+
+function mapDiagramGenerationToSectionN(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
+  const data = output.data as {
+    diagrams?: Record<string, unknown>;
+    structuredDiagrams?: Record<string, unknown>;
+    visualSummary?: string;
+    diagramsGenerated?: number;
+    renderInstructions?: Record<string, unknown>;
+    sourceDataSummary?: Record<string, unknown>;
+  };
+
+  return [
+    createUpdate(
+      "M",
+      "visual_diagrams",
+      {
+        diagrams: data.diagrams ?? {},
+        structured_diagrams: data.structuredDiagrams ?? {},
+        visual_summary: data.visualSummary ?? "",
+        diagrams_generated: data.diagramsGenerated ?? 0,
+        render_instructions: data.renderInstructions ?? {},
+        source_data_summary: data.sourceDataSummary ?? {},
+      },
+      phase
+    ),
+  ];
+}
+
+function mapValidationToSectionM(output: PhaseOutput, phase: PlanningWorkflowPhaseName): SectionUpdate[] {
+  const data = output.data as {
+    overallStatus?: string;
+    validationResults?: Array<Record<string, unknown>>;
+    summary?: Record<string, unknown>;
+    foundationInvariants?: Record<string, unknown>;
+    correctionsNeeded?: Array<Record<string, unknown>>;
+    triggerCorrection?: boolean;
+    correctionPhases?: string[];
+  };
+
+  return [
+    createUpdate(
+      "M",
+      "syntactic_validation",
+      {
+        overall_status: data.overallStatus ?? "unknown",
+        validation_results: data.validationResults ?? [],
+        summary: data.summary ?? {},
+        foundation_invariants: data.foundationInvariants ?? {},
+        corrections_needed: data.correctionsNeeded ?? [],
+        trigger_correction: data.triggerCorrection ?? false,
+        correction_phases: data.correctionPhases ?? [],
       },
       phase
     ),

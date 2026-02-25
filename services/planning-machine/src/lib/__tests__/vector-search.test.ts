@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+
 import { cosineSimilarity } from '../vector-search';
 
 describe('Vector Search', () => {

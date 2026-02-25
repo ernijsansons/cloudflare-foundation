@@ -2,11 +2,12 @@
  * Phase 12: Launch Execution Plan Agent
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
+import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
 import { LaunchExecutionOutputSchema, type LaunchExecutionOutput } from "../schemas/launch-execution";
-import { extractJSON } from "../lib/json-extractor";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface LaunchExecutionInput {
   idea: string;

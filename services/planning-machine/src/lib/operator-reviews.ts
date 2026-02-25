@@ -5,6 +5,7 @@
  */
 
 import type { OperatorReview, UserWithRole } from '@foundation/shared';
+
 import type { AuditContext } from './audit-logger';
 import {
   logDecisionApproval,

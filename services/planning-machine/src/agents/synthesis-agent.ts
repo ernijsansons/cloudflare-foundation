@@ -2,11 +2,12 @@
  * Phase 13: Synthesis and Build Manifest Agent
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
+import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
 import { SynthesisOutputSchema, type SynthesisOutput } from "../schemas/synthesis";
-import { extractJSON } from "../lib/json-extractor";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface SynthesisInput {
   idea: string;

@@ -2,28 +2,32 @@
  * Agent registry — maps phase names to agent classes
  */
 
-import type { Env } from "../types";
 import {
   PLANNING_AGENT_PHASE_ORDER,
   type PlanningAgentPhaseName,
 } from "@foundation/shared";
+
+import type { Env } from "../types";
+
+import { AnalyticsAgent } from "./analytics-agent";
 import type { BaseAgent } from "./base-agent";
-import { OpportunityAgent } from "./opportunity-agent";
-import { CustomerIntelAgent } from "./customer-intel-agent";
-import { MarketResearchAgent } from "./market-research-agent";
+import { BusinessModelAgent } from "./business-model-agent";
 import { CompetitiveIntelAgent } from "./competitive-intel-agent";
+import { ContentEngineAgent } from "./content-engine-agent";
+import { CustomerIntelAgent } from "./customer-intel-agent";
+import { DiagramGeneratorAgent } from "./diagram-generator-agent";
+import { GTMAgent } from "./gtm-agent";
 import { KillTestAgent } from "./kill-test-agent";
+import { LaunchExecutionAgent } from "./launch-execution-agent";
+import { MarketResearchAgent } from "./market-research-agent";
+import { OpportunityAgent } from "./opportunity-agent";
+import { ProductDesignAgent } from "./product-design-agent";
 import { RevenueExpansionAgent } from "./revenue-expansion-agent";
 import { StrategyAgent } from "./strategy-agent";
-import { BusinessModelAgent } from "./business-model-agent";
-import { ProductDesignAgent } from "./product-design-agent";
-import { GTMAgent } from "./gtm-agent";
-import { ContentEngineAgent } from "./content-engine-agent";
-import { TechArchAgent } from "./tech-arch-agent";
-import { AnalyticsAgent } from "./analytics-agent";
-import { LaunchExecutionAgent } from "./launch-execution-agent";
 import { SynthesisAgent } from "./synthesis-agent";
 import { TaskReconciliationAgent } from "./task-reconciliation-agent";
+import { TechArchAgent } from "./tech-arch-agent";
+import { ValidatorAgent } from "./validator-agent";
 
 export const PHASE_ORDER = PLANNING_AGENT_PHASE_ORDER;
 
@@ -46,6 +50,8 @@ const AGENT_FACTORIES: Record<PhaseName, new (env: Env) => BaseAgent> = {
   "launch-execution": LaunchExecutionAgent as new (env: Env) => BaseAgent,
   synthesis: SynthesisAgent as new (env: Env) => BaseAgent,
   "task-reconciliation": TaskReconciliationAgent as new (env: Env) => BaseAgent,
+  "diagram-generation": DiagramGeneratorAgent as new (env: Env) => BaseAgent,
+  validation: ValidatorAgent as new (env: Env) => BaseAgent,
 };
 
 export function getAgentForPhase(phase: PhaseName, env: Env): BaseAgent {
@@ -59,5 +65,5 @@ export function getPhasesBeforeKillTest(): PhaseName[] {
 }
 
 export function getPhasesAfterKillTest(): PhaseName[] {
-  return ["revenue-expansion", "strategy", "business-model", "product-design", "gtm-marketing", "content-engine", "tech-arch", "analytics", "launch-execution", "synthesis", "task-reconciliation"];
+  return ["revenue-expansion", "strategy", "business-model", "product-design", "gtm-marketing", "content-engine", "tech-arch", "analytics", "launch-execution", "synthesis", "task-reconciliation", "diagram-generation", "validation"];
 }

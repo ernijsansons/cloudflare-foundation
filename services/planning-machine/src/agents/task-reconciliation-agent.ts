@@ -20,20 +20,20 @@
  * NOT full 15-phase outputs. This keeps the context window manageable.
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
-import { runModel } from "../lib/model-router";
-import { extractJSON } from "../lib/json-extractor";
 import {
   topologicalSort,
   detectCycles,
   findCriticalPath,
-  CATEGORY_BUILD_PHASE,
   type GraphNode,
 } from "../lib/dependency-graph";
+import { extractJSON } from "../lib/json-extractor";
+import { runModel } from "../lib/model-router";
 import type { TaskReconciliationOutput } from "../schemas/task-reconciliation";
 import { TaskReconciliationOutputSchema } from "../schemas/task-reconciliation";
-import type { CodeTask, MarketingTask } from "../schemas/tasks-output";
+import type { CodeTask } from "../schemas/tasks-output";
+import type { Env as _Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface DraftTask {
   title: string;
@@ -65,6 +65,10 @@ export class TaskReconciliationAgent extends BaseAgent<TaskReconciliationInput, 
       "Are there integration glue tasks between features that depend on each other?",
       "Is the test pyramid balanced (not more unit tests than integration + e2e combined)?",
       "Does every task have a complete, self-contained naomiPrompt?",
+      "Do scaffold commands create ALL directories in the file tree? (Phase 4)",
+      "Does deployment sequence run D1 migrations BEFORE deploying services that use DB? (Phase 4)",
+      "Are ALL executable artifacts mapped to file paths in artifactMap? (Phase 4)",
+      "Does bootstrapPrompt include first command to run and task execution order? (Phase 4)",
     ],
     maxTokens: 8192,
     includeFoundationContext: true,
@@ -136,6 +140,51 @@ SPLIT a task if:
 Marketing tasks (type: "marketing") always have humanReviewRequired: true.
 Their naomiPrompt should include: target audience profile, brand voice, conversion objective, competitor examples, and specific content template to fill.
 
+### 6. File Tree Mapping (Phase 3)
+Generate a complete fileTree mapping every artifact to its correct location in the 10-Plane monorepo.
+- root: .gitignore, README.md, pnpm-workspace.yaml, package.json
+- packages: db (schema, migrations, audit-chain), shared (types, constants)
+- services: ui (src/routes, wrangler.jsonc), gateway (src/index, src/middleware), agents (src/agents, src/mcp), workflows, queues, cron
+- docs: ARCHITECTURE.md, API.md, DATABASE.md
+- scripts: setup-d1.sh, deploy-all.sh
+
+### 7. Scaffold Commands (Phase 4)
+Generate scaffoldCommands array with shell commands to build the 10-Plane folder structure from scratch:
+- mkdir -p commands for all directories
+- touch commands for placeholder files
+- Commands should be idempotent (use mkdir -p, touch)
+- Group related commands with runInParallel: true where possible
+EXAMPLE:
+{ command: "mkdir -p packages/db/src packages/shared/src services/gateway/src services/ui/src", description: "Create base directory structure", workingDirectory: ".", runInParallel: false }
+
+### 8. Deployment Sequence (Phase 4)
+Generate deploymentSequence array with ordered wrangler/infrastructure commands to prevent dependency failures:
+STEP 1: Create D1 database (wrangler d1 create <name>)
+STEP 2: Execute SQL migrations (wrangler d1 execute <db> --file=packages/db/schema.sql)
+STEP 3: Create KV namespaces (wrangler kv:namespace create SESSION_KV, etc.)
+STEP 4: Create R2 buckets (wrangler r2 bucket create <name>)
+STEP 5: Deploy services in dependency order (gateway first, then UI, then agents)
+STEP 6: Set secrets (wrangler secret put JWT_SECRET, etc.)
+Each step must specify dependsOn (step numbers it requires to complete first).
+
+### 9. Artifact Map (Phase 4)
+Generate artifactMap array mapping Tech Arch Phase 12 executable artifacts to actual file paths:
+- sqlDDL → packages/db/schema.sql
+- openAPISpec → docs/openapi.yaml
+- wranglerConfigJSONC → services/gateway/wrangler.jsonc (and any other services)
+- envExample → .env.example
+- auditChainVerificationLogic → packages/db/src/verify-audit-chain.ts
+
+### 10. Bootstrap Prompt (Phase 4)
+Generate bootstrapPrompt string: A self-contained prompt for Claude Code (Naomi) with ZERO prior knowledge to execute the entire build.
+MUST INCLUDE:
+- "Run these commands first: [scaffold commands]"
+- "Then run deployment sequence: [deployment steps]"
+- "Artifacts are mapped: [artifact map]"
+- "Start with Task ID: [first task in critical path]"
+- "Task execution order: [ordered task IDs from buildPhases]"
+- "Acceptance criteria: Run 'pnpm test' after each task, must pass before moving to next"
+
 Output complete valid JSON matching the TaskReconciliationOutput schema.`;
   }
 
@@ -145,7 +194,11 @@ Output complete valid JSON matching the TaskReconciliationOutput schema.`;
       "security_coverage — every user-data feature has a security review companion task",
       "infrastructure_complete — all required Cloudflare resources have provisioning tasks",
       "dependency_graph_valid — no cycles, topological order is consistent",
-      "test_pyramid_balanced — integration and e2e tasks present alongside unit tests",
+      "file_tree_specified — every artifact has a deterministic destination in the monorepo",
+      "scaffold_commands_complete — all directories and placeholder files have creation commands (Phase 4)",
+      "deployment_sequence_ordered — wrangler commands in correct dependency order (Phase 4)",
+      "artifact_map_complete — all executable artifacts mapped to file paths (Phase 4)",
+      "bootstrap_prompt_self_contained — Naomi can execute entire build with zero questions (Phase 4)",
     ];
   }
 
@@ -281,7 +334,8 @@ Include the reconciliation metadata object with counts of added tasks.`;
       }
     }
 
-    const sortResult = topologicalSort(nodes);
+    // Sort result computed for dependency validation
+    topologicalSort(nodes);
     const criticalPath = findCriticalPath(nodes);
 
     return {

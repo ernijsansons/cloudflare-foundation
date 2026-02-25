@@ -72,6 +72,60 @@ export const StrategyOutputSchema = z.object({
     })),
     z.object({}).passthrough(),
   ]).nullish().default([]),
+
+  // Phase 2: Brand Architecture (comprehensive brand system)
+  brandArchitecture: z.object({
+    antiCategoryFraming: z.object({
+      categoryWeReject: z.string(),
+      whyWeDontFit: z.string(),
+      newCategoryWereCreating: z.string(),
+    }).optional(),
+
+    visualIdentity: z.object({
+      primaryBrandColor: z.object({
+        hex: z.string(),
+        psychology: z.string(),
+        competitive: z.string(),
+      }),
+      secondaryColors: z.array(z.object({
+        hex: z.string(),
+        purpose: z.string(),
+      })).default([]),
+      logoDirection: z.string(),
+      visualMetaphors: z.array(z.string()).default([]),
+    }),
+
+    domainStrategy: z.object({
+      primaryDomain: z.object({
+        suggestion: z.string(),
+        availability: z.enum(["available", "check-required", "taken"]),
+        cost: z.string(),
+      }),
+      alternativeDomains: z.array(z.object({
+        domain: z.string(),
+        reasoning: z.string(),
+      })).default([]),
+      subdomainStrategy: z.object({
+        app: z.string().optional(),
+        api: z.string().optional(),
+        marketing: z.string().optional(),
+      }),
+      futureProductNaming: z.string(),
+    }),
+
+    psychologicalFramework: z.object({
+      statusSignaling: z.string(),
+      trustSignals: z.array(z.string()).default([]),
+      anchoringMechanisms: z.array(z.string()).default([]),
+      brandAssociations: z.array(z.string()).default([]),
+    }),
+
+    brandMoat: z.object({
+      howBrandCompounds: z.string(),
+      networkEffectsOnBrand: z.string(),
+      defensivePositioning: z.string(),
+    }),
+  }).optional(),
 });
 
 export type StrategyOutput = z.infer<typeof StrategyOutputSchema>;

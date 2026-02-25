@@ -29,8 +29,10 @@ export function createGatewayClient(
   const tenantId = locals.tenantId || config.defaultTenantId;
 
   function buildUrl(path: string): string {
-    // Ensure path starts with /api
-    const normalizedPath = path.startsWith("/api") ? path : `/api/${path}`;
+    // Ensure path starts with /api and avoid accidental double slashes
+    const normalizedPath = path.startsWith("/api") || path.startsWith("api/")
+      ? (path.startsWith("/") ? path : `/${path}`)
+      : `/api/${path.replace(/^\/+/, "")}`;
 
     // Add tenant_id if not already present
     const url = new URL(normalizedPath, "http://placeholder");

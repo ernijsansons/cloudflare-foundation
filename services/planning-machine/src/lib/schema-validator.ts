@@ -5,29 +5,32 @@
  * docs population, and scoring all operate on the same contract.
  */
 
-import { z } from "zod";
 import {
   normalizePlanningPhase,
   type PlanningAgentPhaseName,
   type PlanningWorkflowPhaseName,
 } from "@foundation/shared";
-import { SectionASchema } from "../schemas/intake";
-import { OpportunityOutputSchema } from "../schemas/opportunity";
-import { CustomerIntelOutputSchema } from "../schemas/customer-intel";
-import { MarketResearchOutputSchema } from "../schemas/market-research";
+import { z } from "zod";
+
+import { AnalyticsOutputSchema } from "../schemas/analytics";
+import { BusinessModelOutputSchema } from "../schemas/business-model";
 import { CompetitiveIntelOutputSchema } from "../schemas/competitive-intel";
+import { ContentEngineOutputSchema } from "../schemas/content-engine";
+import { CustomerIntelOutputSchema } from "../schemas/customer-intel";
+import { DiagramGenerationOutputSchema } from "../schemas/diagram-generation";
+import { GTMOutputSchema } from "../schemas/gtm";
+import { SectionASchema } from "../schemas/intake";
 import { KillTestOutputSchema } from "../schemas/kill-test";
+import { LaunchExecutionOutputSchema } from "../schemas/launch-execution";
+import { MarketResearchOutputSchema } from "../schemas/market-research";
+import { OpportunityOutputSchema } from "../schemas/opportunity";
+import { ProductDesignOutputSchema } from "../schemas/product-design";
 import { RevenueExpansionOutputSchema } from "../schemas/revenue-expansion";
 import { StrategyOutputSchema } from "../schemas/strategy";
-import { BusinessModelOutputSchema } from "../schemas/business-model";
-import { ProductDesignOutputSchema } from "../schemas/product-design";
-import { GTMOutputSchema } from "../schemas/gtm";
-import { ContentEngineOutputSchema } from "../schemas/content-engine";
-import { TechArchOutputSchema } from "../schemas/tech-arch";
-import { AnalyticsOutputSchema } from "../schemas/analytics";
-import { LaunchExecutionOutputSchema } from "../schemas/launch-execution";
 import { SynthesisOutputSchema } from "../schemas/synthesis";
 import { TaskReconciliationOutputSchema } from "../schemas/task-reconciliation";
+import { TechArchOutputSchema } from "../schemas/tech-arch";
+import { ValidationOutputSchema } from "../schemas/validation";
 
 export interface ValidationResult {
   valid: boolean;
@@ -77,6 +80,8 @@ export const PHASE_SCHEMAS: Record<PlanningWorkflowPhaseName, z.ZodTypeAny> = {
   "launch-execution": LaunchExecutionOutputSchema,
   synthesis: SynthesisOutputSchema,
   "task-reconciliation": TaskReconciliationOutputSchema,
+  "diagram-generation": DiagramGenerationOutputSchema,
+  validation: ValidationOutputSchema,
 };
 
 const REQUIRED_FIELDS: Record<PlanningWorkflowPhaseName, string[]> = {
@@ -97,6 +102,8 @@ const REQUIRED_FIELDS: Record<PlanningWorkflowPhaseName, string[]> = {
   "launch-execution": ["draftTasks"],
   synthesis: ["executiveSummary"],
   "task-reconciliation": ["tasks", "summary"],
+  "diagram-generation": ["diagrams", "visualSummary"],
+  validation: ["overallStatus", "validationResults", "foundationInvariants"],
 };
 
 const EVIDENCE_REQUIRED_PHASES = new Set<PlanningAgentPhaseName>([

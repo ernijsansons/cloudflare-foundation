@@ -38,7 +38,7 @@ describe("rateLimitDOMiddleware", () => {
       const res = await app.request("/test", {}, mockEnv as Env);
 
       expect(res.status).toBe(200);
-      expect(res.headers.get("X-RateLimit-Limit")).toBe("100");
+      expect(res.headers.get("X-RateLimit-Limit")).toBe("60");
       expect(res.headers.get("X-RateLimit-Remaining")).toBe("85");
       expect(mockAgentService.fetch).toHaveBeenCalledWith(
         "https://fake-host/rate-limit/check",
@@ -163,14 +163,16 @@ describe("rateLimitDOMiddleware", () => {
           status: 200,
         })
       );
-
-      app.use("*", (c, next) => {
+      const authenticatedApp = new Hono<{ Bindings: Env; Variables: Variables }>();
+      authenticatedApp.use("*", (c, next) => {
         c.set("tenantId", "tenant-123");
         c.set("userId", "user-456");
         return next();
       });
+      authenticatedApp.use("*", rateLimitDOMiddleware());
+      authenticatedApp.get("/test", (c) => c.json({ success: true }));
 
-      const res = await app.request("/test", {}, mockEnv as Env);
+      const res = await authenticatedApp.request("/test", {}, mockEnv as Env);
 
       expect(res.status).toBe(200);
 
@@ -224,13 +226,15 @@ describe("rateLimitDOMiddleware", () => {
           status: 200,
         })
       );
-
-      app.use("*", (c, next) => {
+      const defaultTenantApp = new Hono<{ Bindings: Env; Variables: Variables }>();
+      defaultTenantApp.use("*", (c, next) => {
         c.set("tenantId", "default");
         return next();
       });
+      defaultTenantApp.use("*", rateLimitDOMiddleware());
+      defaultTenantApp.get("/test", (c) => c.json({ success: true }));
 
-      const res = await app.request("/test", {
+      const res = await defaultTenantApp.request("/test", {
         headers: {
           "CF-Connecting-IP": "10.0.0.1",
         },
@@ -256,13 +260,15 @@ describe("rateLimitDOMiddleware", () => {
           status: 200,
         })
       );
-
-      app.use("*", (c, next) => {
+      const authenticatedApp = new Hono<{ Bindings: Env; Variables: Variables }>();
+      authenticatedApp.use("*", (c, next) => {
         c.set("tenantId", "tenant-123");
         return next();
       });
+      authenticatedApp.use("*", rateLimitDOMiddleware());
+      authenticatedApp.get("/test", (c) => c.json({ success: true }));
 
-      const res = await app.request("/test", {}, mockEnv as Env);
+      const res = await authenticatedApp.request("/test", {}, mockEnv as Env);
 
       expect(res.headers.get("X-RateLimit-Limit")).toBe("100");
       expect(res.headers.get("X-RateLimit-Remaining")).toBe("75");

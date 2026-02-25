@@ -8,10 +8,12 @@
  * Implements the A0-A7 intake form from the BULLETPROOF AGENTIC template.
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
-import { runModel } from "../lib/model-router";
 import type { Unknowns, GlobalInvariants, SectionA } from "@foundation/shared";
+
+import { runModel } from "../lib/model-router";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 export interface IntakeAgentInput {
   idea: string;

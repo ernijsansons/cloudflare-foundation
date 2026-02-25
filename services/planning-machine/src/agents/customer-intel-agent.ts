@@ -3,12 +3,13 @@
  * Produces a dossier on the exact human the product is built for
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
-import { runModel } from "../lib/model-router";
-import { webSearch } from "../tools/web-search";
-import { CustomerIntelOutputSchema, type CustomerIntelOutput } from "../schemas/customer-intel";
 import { extractJSON } from "../lib/json-extractor";
+import { runModel } from "../lib/model-router";
+import { CustomerIntelOutputSchema, type CustomerIntelOutput } from "../schemas/customer-intel";
+import { webSearch } from "../tools/web-search";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface CustomerIntelInput {
   idea: string;

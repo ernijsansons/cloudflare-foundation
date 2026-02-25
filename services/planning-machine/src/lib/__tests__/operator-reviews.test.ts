@@ -2,8 +2,8 @@
  * Operator Reviews Tests
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
 import type { UserWithRole } from '@foundation/shared';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('Operator Reviews', () => {
   // Mock database

@@ -2,12 +2,13 @@
  * Phase 3: Competitive Intelligence Agent
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
-import { runModel } from "../lib/model-router";
-import { webSearch } from "../tools/web-search";
-import { CompetitiveIntelOutputSchema, type CompetitiveIntelOutput } from "../schemas/competitive-intel";
 import { extractJSON } from "../lib/json-extractor";
+import { runModel } from "../lib/model-router";
+import { CompetitiveIntelOutputSchema, type CompetitiveIntelOutput } from "../schemas/competitive-intel";
+import { webSearch } from "../tools/web-search";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface CompetitiveIntelInput {
   idea: string;

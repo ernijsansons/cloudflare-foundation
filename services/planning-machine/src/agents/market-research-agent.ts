@@ -2,12 +2,13 @@
  * Phase 2: Market and Pricing Intelligence Agent
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
-import { runModel } from "../lib/model-router";
-import { webSearch } from "../tools/web-search";
-import { MarketResearchOutputSchema, type MarketResearchOutput } from "../schemas/market-research";
 import { extractJSON } from "../lib/json-extractor";
+import { runModel } from "../lib/model-router";
+import { MarketResearchOutputSchema, type MarketResearchOutput } from "../schemas/market-research";
+import { webSearch } from "../tools/web-search";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface MarketResearchInput {
   idea: string;

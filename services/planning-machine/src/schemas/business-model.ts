@@ -92,6 +92,97 @@ export const StripeConfigSchema = z.union([
   z.object({}).passthrough(),
 ]).nullish();
 
+// ============================================================================
+// AI COST MODELING SCHEMA (Phase 1.3)
+// Critical for agentic products - AI costs can be 40-70% of COGS
+// ============================================================================
+
+export const AIModelCostSchema = z.object({
+  provider: z.enum(["workers-ai", "anthropic", "openai", "custom"]),
+  model: z.string(),
+  costPerToken: z.object({
+    input: z.number(),
+    output: z.number(),
+  }),
+  projectedMonthlyTokens: z.object({
+    free: z.number(),
+    pro: z.number(),
+    enterprise: z.number(),
+  }),
+  monthlySpend: z.object({
+    free: z.string(),
+    pro: z.string(),
+    enterprise: z.string(),
+  }),
+});
+
+export const AICostModelingSchema = z.object({
+  applies: z.boolean(),
+  models: z.array(AIModelCostSchema).default([]),
+  aiGatewayConfig: z.object({
+    enabled: z.boolean(),
+    gatewayId: z.string().optional(),
+    cacheTTL: z.number().optional(),  // seconds
+    keyManagement: z.enum(["cloudflare-secrets", "env-vars"]).default("cloudflare-secrets"),
+    costAttribution: z.object({
+      enabled: z.boolean(),
+      granularity: z.enum(["per-tenant", "per-user", "per-request"]),
+    }).optional(),
+  }).optional(),
+  vectorizeCosts: z.object({
+    dimensions: z.number(),
+    indexedVectors: z.number(),
+    queriesPerMonth: z.number(),
+    estimatedCost: z.string(),
+  }).optional(),
+  edgeComputeCosts: z.object({
+    workersRequests: z.number(),
+    durableObjectsRequests: z.number(),
+    d1Reads: z.number(),
+    d1Writes: z.number(),
+    r2Storage: z.string(),
+    totalEstimate: z.string(),
+    freeAllowanceRemaining: z.string(),
+  }).optional(),
+  totalAICostPerCustomer: z.object({
+    free: z.string(),
+    pro: z.string(),
+    enterprise: z.string(),
+  }),
+});
+
+// Gross Margin Analysis
+export const GrossMarginAnalysisSchema = z.object({
+  byTier: z.array(z.object({
+    tier: z.string(),
+    revenue: z.string(),
+    cogs: z.object({
+      infrastructure: z.string(),
+      aiCosts: z.string(),
+      thirdParty: z.string(),
+      total: z.string(),
+    }),
+    grossMargin: z.string(),
+    grossMarginPercent: z.number(),
+  })),
+  targetGrossMargin: z.string(),
+  scalingDynamics: z.string(),
+});
+
+// Credit System Design (common for agentic SaaS)
+export const CreditSystemDesignSchema = z.object({
+  applies: z.boolean(),
+  creditDefinition: z.string(),  // What is "1 credit"
+  creditToPriceRatio: z.string(),
+  overage: z.object({
+    enabled: z.boolean(),
+    overageRate: z.string(),
+    hardCap: z.boolean(),
+  }),
+  rollover: z.boolean(),
+  expirationPolicy: z.string(),
+});
+
 export const BusinessModelOutputSchema = z.object({
   revenueModel: z.union([
     z.object({
@@ -139,6 +230,15 @@ export const BusinessModelOutputSchema = z.object({
   costStructure: CostStructureSchema,
   breakEvenTimeline: stringOrObject,
   stripeConfiguration: StripeConfigSchema,
+
+  // NEW: AI Cost Modeling (Phase 1.3)
+  aiCostModeling: AICostModelingSchema.optional(),
+
+  // NEW: Gross Margin Analysis (Phase 1.3)
+  grossMarginAnalysis: GrossMarginAnalysisSchema.optional(),
+
+  // NEW: Credit System Design (Phase 1.3)
+  creditSystemDesign: CreditSystemDesignSchema.optional(),
 });
 
 export type BusinessModelOutput = z.infer<typeof BusinessModelOutputSchema>;

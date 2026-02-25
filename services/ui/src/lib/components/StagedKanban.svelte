@@ -50,6 +50,37 @@
 		}
 	];
 
+	const stageEmptyGuidance: Record<
+		string,
+		{ headline: string; description: string; tip: string }
+	> = {
+		discovery: {
+			headline: 'No discovery runs yet',
+			description: 'Validate demand first. Start with problem framing and market signal checks.',
+			tip: 'Tip: seed this stage with raw ideas from intake to build momentum.'
+		},
+		validation: {
+			headline: 'No validation runs yet',
+			description: 'Kill Test is your gate. Use it to prevent weak ideas from moving forward.',
+			tip: 'Tip: move only top-scoring discovery runs into validation.'
+		},
+		strategy: {
+			headline: 'No strategy runs yet',
+			description: 'Define business model and expansion path before design execution.',
+			tip: 'Tip: enter strategy only after a clear go decision from validation.'
+		},
+		design: {
+			headline: 'No design runs yet',
+			description: 'Translate strategy into product, GTM, and content plans.',
+			tip: 'Tip: lock core positioning in strategy before moving here.'
+		},
+		execution: {
+			headline: 'No execution runs yet',
+			description: 'Architecture, launch and synthesis happen once design is stable.',
+			tip: 'Tip: promote only decision-ready runs to avoid delivery thrash.'
+		}
+	};
+
 	// eslint-disable-next-line no-undef
 	let activeStageIndex = $state(0);
 
@@ -66,6 +97,11 @@
 		return stage.phases.reduce((total, phase) => {
 			return total + getCardsForPhase(phase).length;
 		}, 0);
+	}
+
+	// eslint-disable-next-line no-inner-declarations
+	function isStageEmpty(stageIndex: number): boolean {
+		return getTotalCardsForStage(stageIndex) === 0;
 	}
 
 	// Format phase title for display
@@ -103,66 +139,85 @@
 	<!-- Active Stage Kanban -->
 	{#each stages as stage, index}
 		{#if activeStageIndex === index}
-			<div class="kanban-board">
-				{#each stage.phases as phase}
-					{@const phaseCards = getCardsForPhase(phase)}
-					<div class="kanban-column">
-						<div class="column-header" style="border-color: {stage.color}">
-							<h3 class="column-title">{formatPhaseTitle(phase)}</h3>
-							<span class="column-count">{phaseCards.length}</span>
+			{#if isStageEmpty(index)}
+				<div class="stage-empty">
+					<div class="stage-empty-card" style="--stage-color: {stage.color}">
+						<div class="stage-empty-badge">{stage.name} is Empty</div>
+						<h3>{stageEmptyGuidance[stage.id]?.headline}</h3>
+						<p class="stage-empty-description">
+							{stageEmptyGuidance[stage.id]?.description}
+						</p>
+						<div class="stage-empty-phases">
+							{#each stage.phases as phase}
+								<span class="phase-chip">{formatPhaseTitle(phase)}</span>
+							{/each}
 						</div>
-						<div class="column-cards">
-							{#if phaseCards.length === 0}
-								<div class="empty-column">
-									<svg
-										width="32"
-										height="32"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="1.5"
-									>
-										<rect x="3" y="3" width="18" height="18" rx="2" />
-										<line x1="9" y1="9" x2="15" y2="15" />
-										<line x1="15" y1="9" x2="9" y2="15" />
-									</svg>
-									<p>No runs</p>
-								</div>
-							{:else}
-								{#each phaseCards as card}
-									<button class="kanban-card" onclick={() => onCardClick?.(card)}>
-										<div class="card-header">
-											<h4 class="card-title">{card.title}</h4>
-											{#if card.mode}
-												<span class="card-mode" class:local={card.mode === 'local'}>
-													{card.mode === 'local' ? '🏠' : '☁️'}
-												</span>
-											{/if}
-										</div>
-										{#if card.subtitle}
-											<p class="card-subtitle">{card.subtitle}</p>
-										{/if}
-										{#if card.metadata}
-											<div class="card-metadata">
-												{#if card.metadata.quality_score}
-													<span class="metadata-item">
-														Score: {card.metadata.quality_score}
-													</span>
-												{/if}
-												{#if card.metadata.revenue_potential}
-													<span class="metadata-item">
-														{card.metadata.revenue_potential}
+						<p class="stage-empty-tip">{stageEmptyGuidance[stage.id]?.tip}</p>
+					</div>
+				</div>
+			{:else}
+				<div class="kanban-board">
+					{#each stage.phases as phase}
+						{@const phaseCards = getCardsForPhase(phase)}
+						<div class="kanban-column">
+							<div class="column-header" style="border-color: {stage.color}">
+								<h3 class="column-title">{formatPhaseTitle(phase)}</h3>
+								<span class="column-count">{phaseCards.length}</span>
+							</div>
+							<div class="column-cards">
+								{#if phaseCards.length === 0}
+									<div class="empty-column">
+										<svg
+											width="28"
+											height="28"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="1.5"
+										>
+											<rect x="3" y="3" width="18" height="18" rx="2" />
+											<line x1="9" y1="9" x2="15" y2="15" />
+											<line x1="15" y1="9" x2="9" y2="15" />
+										</svg>
+										<p class="empty-title">No runs in this phase</p>
+										<p class="empty-subtitle">Cards will appear here automatically.</p>
+									</div>
+								{:else}
+									{#each phaseCards as card}
+										<button class="kanban-card" onclick={() => onCardClick?.(card)}>
+											<div class="card-header">
+												<h4 class="card-title">{card.title}</h4>
+												{#if card.mode}
+													<span class="card-mode" class:local={card.mode === 'local'}>
+														{card.mode === 'local' ? '🏠' : '☁️'}
 													</span>
 												{/if}
 											</div>
-										{/if}
-									</button>
-								{/each}
-							{/if}
+											{#if card.subtitle}
+												<p class="card-subtitle">{card.subtitle}</p>
+											{/if}
+											{#if card.metadata}
+												<div class="card-metadata">
+													{#if card.metadata.quality_score}
+														<span class="metadata-item">
+															Score: {card.metadata.quality_score}
+														</span>
+													{/if}
+													{#if card.metadata.revenue_potential}
+														<span class="metadata-item">
+															{card.metadata.revenue_potential}
+														</span>
+													{/if}
+												</div>
+											{/if}
+										</button>
+									{/each}
+								{/if}
+							</div>
 						</div>
-					</div>
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	{/each}
 </div>
@@ -251,6 +306,79 @@
 		align-items: flex-start;
 	}
 
+	.stage-empty {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex: 1;
+		padding: 2rem 1.5rem;
+	}
+
+	.stage-empty-card {
+		width: min(860px, 100%);
+		border: 1px solid color-mix(in srgb, var(--stage-color) 30%, transparent);
+		border-radius: 16px;
+		padding: 2rem;
+		background:
+			linear-gradient(
+				135deg,
+				color-mix(in srgb, var(--stage-color) 12%, #fff) 0%,
+				color-mix(in srgb, var(--stage-color) 4%, #fff) 100%
+			);
+		box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+	}
+
+	.stage-empty-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.35rem 0.65rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--stage-color);
+		background: color-mix(in srgb, var(--stage-color) 12%, #fff);
+		border: 1px solid color-mix(in srgb, var(--stage-color) 24%, transparent);
+		margin-bottom: 0.85rem;
+	}
+
+	.stage-empty-card h3 {
+		margin: 0;
+		font-size: 1.35rem;
+		color: var(--color-text);
+	}
+
+	.stage-empty-description {
+		margin: 0.6rem 0 1rem;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+		max-width: 65ch;
+	}
+
+	.stage-empty-phases {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.phase-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.35rem 0.6rem;
+		border-radius: 8px;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--color-text);
+		background: white;
+		border: 1px solid color-mix(in srgb, var(--stage-color) 20%, var(--color-border));
+	}
+
+	.stage-empty-tip {
+		margin: 0;
+		font-size: 0.82rem;
+		color: var(--color-text-muted);
+	}
+
 	.kanban-column {
 		flex: 1;
 		min-width: 280px;
@@ -308,16 +436,27 @@
 		justify-content: center;
 		padding: 2rem 1rem;
 		color: var(--color-text-muted);
-		opacity: 0.5;
+		opacity: 0.8;
+		border: 1px dashed var(--color-border);
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--color-bg-subtle) 92%, white);
 	}
 
 	.empty-column svg {
 		margin-bottom: 0.5rem;
 	}
 
-	.empty-column p {
+	.empty-title {
 		margin: 0;
 		font-size: 0.8125rem;
+		font-weight: 600;
+	}
+
+	.empty-subtitle {
+		margin: 0.35rem 0 0;
+		font-size: 0.75rem;
+		text-align: center;
+		line-height: 1.4;
 	}
 
 	.kanban-card {
@@ -410,5 +549,20 @@
 	.kanban-board::-webkit-scrollbar-thumb:hover,
 	.column-cards::-webkit-scrollbar-thumb:hover {
 		background: var(--color-text-muted);
+	}
+
+	@media (max-width: 900px) {
+		.stage-empty {
+			padding: 1.25rem 1rem;
+		}
+
+		.stage-empty-card {
+			padding: 1.25rem;
+			border-radius: 12px;
+		}
+
+		.stage-empty-card h3 {
+			font-size: 1.1rem;
+		}
 	}
 </style>

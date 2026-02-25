@@ -8,13 +8,14 @@
  * before synthesis and stored alongside the artifact for human review.
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
-import { runModel } from "../lib/model-router";
-import { webSearch } from "../tools/web-search";
-import { OpportunityOutputSchema, type OpportunityOutput } from "../schemas/opportunity";
-import type { OrchestrationResult } from "../lib/orchestrator";
 import { extractJSON } from "../lib/json-extractor";
+import { runModel } from "../lib/model-router";
+import type { OrchestrationResult } from "../lib/orchestrator";
+import { OpportunityOutputSchema, type OpportunityOutput } from "../schemas/opportunity";
+import { webSearch } from "../tools/web-search";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface OpportunityInput {
   idea: string;

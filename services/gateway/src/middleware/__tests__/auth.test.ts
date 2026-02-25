@@ -139,7 +139,7 @@ describe("authMiddleware", () => {
         plan: "premium",
       };
 
-      mockEnv.SESSION_KV!.get = vi.fn().mockResolvedValue(JSON.stringify(mockSession));
+      mockEnv.SESSION_KV!.get = vi.fn().mockResolvedValue(mockSession);
 
       const res = await app.request("/api/webhooks", {
         headers: {
@@ -186,7 +186,7 @@ describe("authMiddleware", () => {
         plan: "premium",
       };
 
-      mockEnv.SESSION_KV!.get = vi.fn().mockResolvedValue(JSON.stringify(mockSession));
+      mockEnv.SESSION_KV!.get = vi.fn().mockResolvedValue(mockSession);
 
       app.get("/api/test-context", (c) => {
         return c.json({
@@ -228,7 +228,7 @@ describe("authMiddleware", () => {
         plan: "free",
       };
 
-      mockEnv.SESSION_KV!.get = vi.fn().mockResolvedValue(JSON.stringify(mockSession));
+      mockEnv.SESSION_KV!.get = vi.fn().mockResolvedValue(mockSession);
 
       app.get("/api/test", (c) => c.json({ success: true }));
 
@@ -257,7 +257,7 @@ describe("authMiddleware", () => {
         // Missing userId and plan
       };
 
-      mockEnv.SESSION_KV!.get = vi.fn().mockResolvedValue(JSON.stringify(incompleteSession));
+      mockEnv.SESSION_KV!.get = vi.fn().mockResolvedValue(incompleteSession);
 
       app.get("/api/test", (c) => {
         return c.json({

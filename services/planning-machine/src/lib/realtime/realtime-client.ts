@@ -323,7 +323,7 @@ export function useArtifactSubscription(
  */
 export function createRealtimeStore(options: RealtimeClientOptions) {
   let client: RealtimeClient | null = null;
-  let subscribers = new Set<(connected: boolean) => void>();
+  const subscribers = new Set<(connected: boolean) => void>();
 
   const notify = (connected: boolean) => {
     subscribers.forEach((fn) => fn(connected));

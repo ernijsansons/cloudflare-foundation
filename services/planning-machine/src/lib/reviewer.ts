@@ -2,9 +2,9 @@
  * Multi-model reviewer — Mistral reviews, tiebreaker on conflict
  */
 
+import { extractJSON } from "./json-extractor";
 import { runModel } from "./model-router";
 import { UNIVERSAL_RUBRIC_DIMENSIONS } from "./reasoning-engine";
-import { extractJSON } from "./json-extractor";
 
 export type ReviewVerdict = "ACCEPT" | "REVISE" | "REJECT";
 
