@@ -1,5 +1,8 @@
 import type { PlanningAgentPhaseName } from "@foundation/shared";
 
+// Re-export project types
+export * from './project';
+
 // Run status from planning_runs table
 export type RunStatus = "active" | "running" | "pending" | "paused" | "completed" | "killed" | "cancelled";
 
