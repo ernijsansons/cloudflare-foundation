@@ -53,6 +53,27 @@ export default [
         __filename: "readonly",
         // ES2022 globals
         globalThis: "readonly",
+        // Web API globals (used in Workers)
+        Response: "readonly",
+        Request: "readonly",
+        Headers: "readonly",
+        URL: "readonly",
+        URLSearchParams: "readonly",
+        AbortController: "readonly",
+        AbortSignal: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        // Cloudflare Workers types (runtime globals)
+        D1Database: "readonly",
+        D1Result: "readonly",
+        R2Bucket: "readonly",
+        KVNamespace: "readonly",
+        DurableObjectNamespace: "readonly",
+        DurableObjectState: "readonly",
+        ExecutionContext: "readonly",
+        ScheduledController: "readonly",
       },
     },
     plugins: {
