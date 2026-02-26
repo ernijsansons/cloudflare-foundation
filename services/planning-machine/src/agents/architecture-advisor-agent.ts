@@ -14,56 +14,49 @@
  * 4. Produce ranked BuildSpec recommendations
  */
 
-import { extractJSON } from "../lib/json-extractor";
-import { runModel } from "../lib/model-router";
+import type { BuildSpec } from '@foundation/shared';
+
+import { mapToBuildSpec } from '../lib/build-spec-mapper';
+import { extractJSON } from '../lib/json-extractor';
+import { runModel } from '../lib/model-router';
 import {
-  queryTemplates,
-  getAllCapabilities,
-  getFreeCapabilities,
-  formatTemplatesForContext,
-  formatCapabilitiesForContext,
-  formatFreeWinsForContext,
-} from "../lib/template-registry";
-import {
-  ArchitectureAdvisorOutputSchema,
-  type ArchitectureAdvisorOutput,
-} from "../schemas/architecture-advisor";
-import {
-  BaseAgent,
-  type AgentContext,
-  type AgentResult,
-  type BaseAgentConfig,
-} from "./base-agent";
+	queryTemplates,
+	getAllCapabilities,
+	getFreeCapabilities,
+	formatTemplatesForContext,
+	formatCapabilitiesForContext,
+	formatFreeWinsForContext
+} from '../lib/template-registry';
+import { ArchitectureAdvisorOutputSchema } from '../schemas/architecture-advisor';
+
+import { BaseAgent, type AgentContext, type AgentResult, type BaseAgentConfig } from './base-agent';
 
 interface ArchitectureAdvisorInput {
-  idea: string;
-  refinedIdea?: string;
+	idea: string;
+	refinedIdea?: string;
 }
 
-export class ArchitectureAdvisorAgent extends BaseAgent<
-  ArchitectureAdvisorInput,
-  ArchitectureAdvisorOutput
-> {
-  config: BaseAgentConfig = {
-    phase: "architecture-advisor",
-    maxSelfIterations: 2,
-    qualityThreshold: 8,
-    hardQuestions: [
-      "Does the recommended template actually match the idea's needs?",
-      "Are the cost estimates realistic based on CF pricing?",
-      "Have you considered ALL free Cloudflare products that could add value?",
-      "Is the complexity level appropriate for the team size and timeline?",
-      "Could a simpler template work for the MVP?",
-      "Are the Motion design tier and UI choices justified by the revenue model?",
-      "Have you avoided over-engineering for a landing page / simple app?",
-      "Is this truly the OPTIMAL stack, not just a familiar one?",
-    ],
-    maxTokens: 8192,
-    includeFoundationContext: false, // We inject our own context with registry data
-  };
+export class ArchitectureAdvisorAgent extends BaseAgent<ArchitectureAdvisorInput, BuildSpec> {
+	config: BaseAgentConfig = {
+		phase: 'architecture-advisor',
+		maxSelfIterations: 2,
+		qualityThreshold: 8,
+		hardQuestions: [
+			"Does the recommended template actually match the idea's needs?",
+			'Are the cost estimates realistic based on CF pricing?',
+			'Have you considered ALL free Cloudflare products that could add value?',
+			'Is the complexity level appropriate for the team size and timeline?',
+			'Could a simpler template work for the MVP?',
+			'Are the Motion design tier and UI choices justified by the revenue model?',
+			'Have you avoided over-engineering for a landing page / simple app?',
+			'Is this truly the OPTIMAL stack, not just a familiar one?'
+		],
+		maxTokens: 8192,
+		includeFoundationContext: false // We inject our own context with registry data
+	};
 
-  getSystemPrompt(): string {
-    return `You are the Architecture Advisor for a Cloudflare project factory. Your job is to analyze research output from an 18-phase planning pipeline and recommend the OPTIMAL Cloudflare architecture.
+	getSystemPrompt(): string {
+		return `You are the Architecture Advisor for a Cloudflare project factory. Your job is to analyze research output from an 18-phase planning pipeline and recommend the OPTIMAL Cloudflare architecture.
 
 You have access to:
 1. A Template Registry of 22+ official Cloudflare templates and 5 BIBLE agent patterns
@@ -113,115 +106,109 @@ OUTPUT REQUIREMENTS:
 Think carefully about what this idea ACTUALLY needs. Don't over-engineer a landing page. Don't under-engineer an enterprise SaaS.
 
 Produce valid JSON matching the ArchitectureAdvisorOutput schema.`;
-  }
+	}
 
-  getOutputSchema(): Record<string, unknown> {
-    return {
-      recommended: {
-        label: "string",
-        template: {
-          slug: "string",
-          source: "cloudflare|bible|community|custom",
-          name: "string",
-          framework: "string",
-          rationale: "string",
-          c3Command: "string (optional)",
-        },
-        bindings: {
-          required: [{ type: "string", name: "string", purpose: "string" }],
-          recommended: [],
-          optional: [],
-        },
-        estimatedMonthlyCost: { low: "number", mid: "number", high: "number" },
-        complexity: "1-5",
-        timeToShip: "string",
-        tradeoffs: ["string"],
-        freeWins: ["string"],
-      },
-      alternatives: [],
-      dataModel: {
-        tables: [],
-        orm: "drizzle|prisma|raw-sql",
-        migrationStrategy: "d1-migrations|drizzle-kit|manual",
-      },
-      apiRoutes: [
-        {
-          method: "GET|POST|PUT|PATCH|DELETE",
-          path: "string",
-          auth: "required|optional|public",
-          description: "string",
-        },
-      ],
-      frontend: {
-        framework: "string",
-        router: "string",
-        ssr: "boolean",
-        motionDesignTier: "none|basic|premium|linear-grade",
-        uiLibrary: "shadcn|radix|custom|tailwind-only",
-        animationLibrary: "motion|css-only|none",
-      },
-      agents: {
-        pattern: "super-agent|lightweight|full-power|swarm|orchestration|none",
-        durableObjects: [],
-        mcpServer: "boolean",
-        mcpTools: [],
-        hasChat: "boolean",
-        hasTaskQueue: "boolean",
-      },
-      growthPath: {
-        phase2Additions: ["string"],
-        migrationNotes: ["string"],
-      },
-      scaffoldCommand: "string",
-      totalEstimatedMonthlyCost: {
-        bootstrap: "number",
-        growth: "number",
-        scale: "number",
-      },
-      draftTasks: [],
-    };
-  }
+	getOutputSchema(): Record<string, unknown> {
+		return {
+			recommended: {
+				label: 'string',
+				template: {
+					slug: 'string',
+					source: 'cloudflare|bible|community|custom',
+					name: 'string',
+					framework: 'string',
+					rationale: 'string',
+					c3Command: 'string (optional)'
+				},
+				bindings: {
+					required: [{ type: 'string', name: 'string', purpose: 'string' }],
+					recommended: [],
+					optional: []
+				},
+				estimatedMonthlyCost: { low: 'number', mid: 'number', high: 'number' },
+				complexity: '1-5',
+				timeToShip: 'string',
+				tradeoffs: ['string'],
+				freeWins: ['string']
+			},
+			alternatives: [],
+			dataModel: {
+				tables: [],
+				orm: 'drizzle|prisma|raw-sql',
+				migrationStrategy: 'd1-migrations|drizzle-kit|manual'
+			},
+			apiRoutes: [
+				{
+					method: 'GET|POST|PUT|PATCH|DELETE',
+					path: 'string',
+					auth: 'required|optional|public',
+					description: 'string'
+				}
+			],
+			frontend: {
+				framework: 'string',
+				router: 'string',
+				ssr: 'boolean',
+				motionDesignTier: 'none|basic|premium|linear-grade',
+				uiLibrary: 'shadcn|radix|custom|tailwind-only',
+				animationLibrary: 'motion|css-only|none'
+			},
+			agents: {
+				pattern: 'super-agent|lightweight|full-power|swarm|orchestration|none',
+				durableObjects: [],
+				mcpServer: 'boolean',
+				mcpTools: [],
+				hasChat: 'boolean',
+				hasTaskQueue: 'boolean'
+			},
+			growthPath: {
+				phase2Additions: ['string'],
+				migrationNotes: ['string']
+			},
+			scaffoldCommand: 'string',
+			totalEstimatedMonthlyCost: {
+				bootstrap: 'number',
+				growth: 'number',
+				scale: 'number'
+			},
+			draftTasks: []
+		};
+	}
 
-  getPhaseRubric(): string[] {
-    return [
-      "template_match — does the chosen template genuinely fit the idea?",
-      "cost_accuracy — are monthly estimates based on real CF pricing?",
-      "free_wins_coverage — have all applicable free products been suggested?",
-      "complexity_calibration — is complexity right for team size + timeline?",
-      "tradeoff_honesty — are tradeoffs between options clearly stated?",
-      "motion_tier_justification — is the UI investment justified by revenue potential?",
-    ];
-  }
+	getPhaseRubric(): string[] {
+		return [
+			'template_match — does the chosen template genuinely fit the idea?',
+			'cost_accuracy — are monthly estimates based on real CF pricing?',
+			'free_wins_coverage — have all applicable free products been suggested?',
+			'complexity_calibration — is complexity right for team size + timeline?',
+			'tradeoff_honesty — are tradeoffs between options clearly stated?',
+			'motion_tier_justification — is the UI investment justified by revenue potential?'
+		];
+	}
 
-  async run(
-    ctx: AgentContext,
-    _input: ArchitectureAdvisorInput
-  ): Promise<AgentResult<ArchitectureAdvisorOutput>> {
-    // 1. Load template registry and capabilities from D1
-    let templates, capabilities, freeCapabilities;
-    try {
-      [templates, capabilities, freeCapabilities] = await Promise.all([
-        queryTemplates(this.env, {}), // All active templates
-        getAllCapabilities(this.env), // All CF products
-        getFreeCapabilities(this.env), // Free products for suggestions
-      ]);
-    } catch (dbError) {
-      console.error(
-        "[ArchitectureAdvisorAgent] Failed to query registry:",
-        dbError
-      );
-      // Return a fallback result with sensible defaults
-      return {
-        success: false,
-        errors: [
-          `Database query failed: ${dbError instanceof Error ? dbError.message : String(dbError)}`,
-          "Ensure template_registry and cf_capabilities tables exist and are seeded.",
-        ],
-      };
-    }
+	async run(ctx: AgentContext, _input: ArchitectureAdvisorInput): Promise<AgentResult<BuildSpec>> {
+		// 1. Load template registry and capabilities from D1
+		let templates, capabilities, freeCapabilities;
+		try {
+			[templates, capabilities, freeCapabilities] = await Promise.all([
+				queryTemplates(this.env, {}), // All active templates
+				getAllCapabilities(this.env), // All CF products
+				getFreeCapabilities(this.env) // Free products for suggestions
+			]);
+		} catch (dbError) {
+			console.error('[ArchitectureAdvisorAgent] Failed to query registry:', dbError);
+			// Return a fallback result with sensible defaults
+			return {
+				success: false,
+				errors: [
+					`Database query failed: ${dbError instanceof Error ? dbError.message : String(dbError)}`,
+					'Ensure template_registry and cf_capabilities tables exist and are seeded.'
+				]
+			};
+		}
 
-    // 2. Build context with registry data + prior research
-    const registryContext = `
+		// 2. Build context with registry data + prior research
+		const registryContext = `
 ## Available Templates (${templates.length} total)
 ${formatTemplatesForContext(templates)}
 
@@ -232,15 +219,15 @@ ${formatCapabilitiesForContext(capabilities)}
 ${formatFreeWinsForContext(freeCapabilities)}
 `;
 
-    // 3. Extract key insights from prior phases
-    const priorInsights = this.extractPriorInsights(ctx.priorOutputs);
+		// 3. Extract key insights from prior phases
+		const priorInsights = this.extractPriorInsights(ctx.priorOutputs);
 
-    // 4. Build the user prompt
-    const userPrompt = `Analyze the following idea and research output. Recommend the optimal Cloudflare architecture.
+		// 4. Build the user prompt
+		const userPrompt = `Analyze the following idea and research output. Recommend the optimal Cloudflare architecture.
 
 ## Idea
 ${ctx.idea}
-${ctx.refinedIdea ? `\nRefined opportunity: ${ctx.refinedIdea}` : ""}
+${ctx.refinedIdea ? `\nRefined opportunity: ${ctx.refinedIdea}` : ''}
 
 ## Research Insights from Prior Phases
 ${priorInsights}
@@ -263,115 +250,118 @@ Think carefully:
 
 Output valid JSON matching the schema. Include honest tradeoffs.`;
 
-    // 5. Run the model
-    const systemPrompt = this.getSystemPrompt() + "\n\n" + registryContext;
+		// 5. Run the model
+		const systemPrompt = this.getSystemPrompt() + '\n\n' + registryContext;
 
-    const messages = [
-      { role: "system" as const, content: systemPrompt },
-      { role: "user" as const, content: userPrompt },
-    ];
+		const messages = [
+			{ role: 'system' as const, content: systemPrompt },
+			{ role: 'user' as const, content: userPrompt }
+		];
 
-    try {
-      const response = await runModel(this.env.AI, "generator", messages, {
-        temperature: 0.3, // Lower temperature for more deterministic recommendations
-        maxTokens: this.config.maxTokens ?? 8192,
-      });
+		try {
+			const response = await runModel(this.env.AI, 'generator', messages, {
+				temperature: 0.3, // Lower temperature for more deterministic recommendations
+				maxTokens: this.config.maxTokens ?? 8192
+			});
 
-      const parsed = extractJSON(response);
-      const output = ArchitectureAdvisorOutputSchema.parse(parsed);
+			const parsed = extractJSON(response);
+			const agentOutput = ArchitectureAdvisorOutputSchema.parse(parsed);
 
-      // Add scaffold command if not present
-      if (!output.scaffoldCommand && output.recommended?.slug) {
-        output.scaffoldCommand = `npm create cloudflare@latest -- --template=${output.recommended.slug}`;
-      }
+			// Add scaffold command if not present
+			if (!agentOutput.scaffoldCommand && agentOutput.recommended?.slug) {
+				agentOutput.scaffoldCommand = `npm create cloudflare@latest -- --template=${agentOutput.recommended.slug}`;
+			}
 
-      return { success: true, output };
-    } catch (e) {
-      console.error("[ArchitectureAdvisorAgent] Error:", e);
-      return {
-        success: false,
-        errors: [e instanceof Error ? e.message : String(e)],
-      };
-    }
-  }
+			// Transform to BuildSpec with metadata (id, runId, status, timestamps)
+			const buildSpec = mapToBuildSpec(agentOutput, ctx.runId);
 
-  /**
-   * Extract key insights from prior phase outputs for context
-   */
-  private extractPriorInsights(
-    priorOutputs: Record<string, unknown>
-  ): string {
-    const insights: string[] = [];
+			return { success: true, output: buildSpec };
+		} catch (e) {
+			console.error('[ArchitectureAdvisorAgent] Error:', e);
+			return {
+				success: false,
+				errors: [e instanceof Error ? e.message : String(e)]
+			};
+		}
+	}
 
-    // Kill-test decision
-    const killTest = priorOutputs["kill-test"] as Record<string, unknown> | undefined;
-    if (killTest) {
-      insights.push(`**Kill-test decision**: ${killTest.decision || "CONTINUE"}`);
-      if (killTest.risks) {
-        insights.push(`**Top risks**: ${JSON.stringify(killTest.risks)}`);
-      }
-    }
+	/**
+	 * Extract key insights from prior phase outputs for context
+	 */
+	private extractPriorInsights(priorOutputs: Record<string, unknown>): string {
+		const insights: string[] = [];
 
-    // Business model
-    const businessModel = priorOutputs["business-model"] as Record<string, unknown> | undefined;
-    if (businessModel) {
-      const revenue = businessModel.revenueModel || businessModel.revenue_model;
-      if (revenue) {
-        insights.push(`**Revenue model**: ${JSON.stringify(revenue)}`);
-      }
-      const unitEconomics = businessModel.unitEconomics || businessModel.unit_economics;
-      if (unitEconomics) {
-        insights.push(`**Unit economics**: ${JSON.stringify(unitEconomics)}`);
-      }
-    }
+		// Kill-test decision
+		const killTest = priorOutputs['kill-test'] as Record<string, unknown> | undefined;
+		if (killTest) {
+			insights.push(`**Kill-test decision**: ${killTest.decision || 'CONTINUE'}`);
+			if (killTest.risks) {
+				insights.push(`**Top risks**: ${JSON.stringify(killTest.risks)}`);
+			}
+		}
 
-    // Product design
-    const productDesign = priorOutputs["product-design"] as Record<string, unknown> | undefined;
-    if (productDesign) {
-      const features = productDesign.features || productDesign.coreFeatures;
-      if (features) {
-        insights.push(
-          `**Core features**: ${Array.isArray(features) ? features.slice(0, 5).join(", ") : JSON.stringify(features)}`
-        );
-      }
-      const userJourney = productDesign.userJourney || productDesign.user_journey;
-      if (userJourney) {
-        insights.push(`**User journey**: ${JSON.stringify(userJourney)}`);
-      }
-    }
+		// Business model
+		const businessModel = priorOutputs['business-model'] as Record<string, unknown> | undefined;
+		if (businessModel) {
+			const revenue = businessModel.revenueModel || businessModel.revenue_model;
+			if (revenue) {
+				insights.push(`**Revenue model**: ${JSON.stringify(revenue)}`);
+			}
+			const unitEconomics = businessModel.unitEconomics || businessModel.unit_economics;
+			if (unitEconomics) {
+				insights.push(`**Unit economics**: ${JSON.stringify(unitEconomics)}`);
+			}
+		}
 
-    // Tech arch (existing technical decisions)
-    const techArch = priorOutputs["tech-arch"] as Record<string, unknown> | undefined;
-    if (techArch) {
-      const bindings = techArch.cloudflareBindings;
-      if (bindings) {
-        insights.push(`**Tech-arch suggested bindings**: ${JSON.stringify(bindings)}`);
-      }
-      const database = techArch.databaseSchema;
-      if (database) {
-        insights.push(`**Tech-arch database schema**: ${JSON.stringify(database)}`);
-      }
-    }
+		// Product design
+		const productDesign = priorOutputs['product-design'] as Record<string, unknown> | undefined;
+		if (productDesign) {
+			const features = productDesign.features || productDesign.coreFeatures;
+			if (features) {
+				insights.push(
+					`**Core features**: ${Array.isArray(features) ? features.slice(0, 5).join(', ') : JSON.stringify(features)}`
+				);
+			}
+			const userJourney = productDesign.userJourney || productDesign.user_journey;
+			if (userJourney) {
+				insights.push(`**User journey**: ${JSON.stringify(userJourney)}`);
+			}
+		}
 
-    // Opportunity analysis
-    const opportunity = priorOutputs["opportunity"] as Record<string, unknown> | undefined;
-    if (opportunity) {
-      const recommended = opportunity.recommendedIndex;
-      const opportunities = opportunity.refinedOpportunities as Array<Record<string, unknown>> | undefined;
-      if (opportunities && typeof recommended === "number" && opportunities[recommended]) {
-        const best = opportunities[recommended];
-        insights.push(
-          `**Selected opportunity**: ${best.idea || best.name} - ${best.description || ""}`
-        );
-        insights.push(`**Revenue potential**: ${best.revenuePotential || "UNKNOWN"}`);
-        insights.push(`**Agentic score**: ${best.agenticScore || "UNKNOWN"}`);
-      }
-    }
+		// Tech arch (existing technical decisions)
+		const techArch = priorOutputs['tech-arch'] as Record<string, unknown> | undefined;
+		if (techArch) {
+			const bindings = techArch.cloudflareBindings;
+			if (bindings) {
+				insights.push(`**Tech-arch suggested bindings**: ${JSON.stringify(bindings)}`);
+			}
+			const database = techArch.databaseSchema;
+			if (database) {
+				insights.push(`**Tech-arch database schema**: ${JSON.stringify(database)}`);
+			}
+		}
 
-    if (insights.length === 0) {
-      return "No prior phase outputs available. Analyze based on the idea alone.";
-    }
+		// Opportunity analysis
+		const opportunity = priorOutputs['opportunity'] as Record<string, unknown> | undefined;
+		if (opportunity) {
+			const recommended = opportunity.recommendedIndex;
+			const opportunities = opportunity.refinedOpportunities as
+				| Array<Record<string, unknown>>
+				| undefined;
+			if (opportunities && typeof recommended === 'number' && opportunities[recommended]) {
+				const best = opportunities[recommended];
+				insights.push(
+					`**Selected opportunity**: ${best.idea || best.name} - ${best.description || ''}`
+				);
+				insights.push(`**Revenue potential**: ${best.revenuePotential || 'UNKNOWN'}`);
+				insights.push(`**Agentic score**: ${best.agenticScore || 'UNKNOWN'}`);
+			}
+		}
 
-    return insights.join("\n");
-  }
+		if (insights.length === 0) {
+			return 'No prior phase outputs available. Analyze based on the idea alone.';
+		}
+
+		return insights.join('\n');
+	}
 }

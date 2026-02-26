@@ -79,7 +79,8 @@ const RSS_FEEDS = [
 
 const GITHUB_REPOS = [
 	{ owner: 'cloudflare', repo: 'agents' },
-	{ owner: 'cloudflare', repo: 'workers-sdk' }
+	{ owner: 'cloudflare', repo: 'workers-sdk' },
+	{ owner: 'cloudflare', repo: 'templates' } // Project Factory v3.0 - Track template updates
 ];
 
 // Nitter instances in priority order — tries each until one works
@@ -586,6 +587,7 @@ export async function runDocScanner(db: D1Database, env: ScannerEnv): Promise<Do
 		cfBlogResult,
 		agentsGithubResult,
 		sdkGithubResult,
+		_templatesGithubResult,
 		xCfDevResult,
 		xCfResult,
 		x3pointResult
@@ -595,6 +597,7 @@ export async function runDocScanner(db: D1Database, env: ScannerEnv): Promise<Do
 		scanRss(RSS_FEEDS[1], db),
 		scanGitHub(GITHUB_REPOS[0], db),
 		scanGitHub(GITHUB_REPOS[1], db),
+		scanGitHub(GITHUB_REPOS[2], db), // Track cloudflare/templates
 		scanNitter(X_ACCOUNTS[0], db),
 		scanNitter(X_ACCOUNTS[1], db),
 		scanNitter(X_ACCOUNTS[2], db)
