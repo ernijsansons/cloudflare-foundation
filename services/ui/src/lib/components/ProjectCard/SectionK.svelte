@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionK } from '@foundation/shared';
+	import type { SectionK } from '$lib/shared';
 	export let data: SectionK | undefined;
 </script>
 
@@ -47,10 +47,12 @@
 							<span class="frequency-badge">{evaluation.frequency}</span>
 						</div>
 						<div class="field">
-							<strong>Metric:</strong> {evaluation.metric}
+							<strong>Metric:</strong>
+							{evaluation.metric}
 						</div>
 						<div class="field">
-							<strong>Threshold:</strong> {evaluation.threshold}
+							<strong>Threshold:</strong>
+							{evaluation.threshold}
 						</div>
 					</div>
 				{/each}
@@ -105,7 +107,9 @@
 </div>
 
 <style>
-	.section-k { max-width: 1000px; }
+	.section-k {
+		max-width: 1000px;
+	}
 
 	.empty-state {
 		display: flex;
@@ -116,10 +120,19 @@
 		text-align: center;
 		color: #6b7280;
 	}
-	.empty-icon { font-size: 4rem; margin-bottom: 1rem; }
-	.empty-state h3 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #111827; }
+	.empty-icon {
+		font-size: 4rem;
+		margin-bottom: 1rem;
+	}
+	.empty-state h3 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.5rem;
+		color: #111827;
+	}
 
-	.subsection { margin-bottom: 2rem; }
+	.subsection {
+		margin-bottom: 2rem;
+	}
 	.subsection h2 {
 		font-size: 1.5rem;
 		font-weight: 600;
@@ -137,10 +150,17 @@
 		margin-bottom: 1rem;
 	}
 
-	.field { margin-bottom: 1rem; }
-	.field strong { color: #374151; font-weight: 600; }
+	.field {
+		margin-bottom: 1rem;
+	}
+	.field strong {
+		color: #374151;
+		font-weight: 600;
+	}
 
-	.evaluation-card { margin-bottom: 1rem; }
+	.evaluation-card {
+		margin-bottom: 1rem;
+	}
 	.evaluation-header {
 		display: flex;
 		justify-content: space-between;
@@ -162,7 +182,9 @@
 		font-weight: 500;
 	}
 
-	.dashboard-card { margin-bottom: 1rem; }
+	.dashboard-card {
+		margin-bottom: 1rem;
+	}
 	.dashboard-card h3 {
 		margin: 0 0 1rem 0;
 		font-size: 1.125rem;
@@ -186,7 +208,9 @@
 		overflow: hidden;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
-	thead { background: #f9fafb; }
+	thead {
+		background: #f9fafb;
+	}
 	th {
 		padding: 0.75rem 1rem;
 		text-align: left;
@@ -200,7 +224,9 @@
 		padding: 0.75rem 1rem;
 		border-top: 1px solid #e5e7eb;
 	}
-	tr:hover { background: #f9fafb; }
+	tr:hover {
+		background: #f9fafb;
+	}
 
 	.test-type {
 		background: #dbeafe;

@@ -142,6 +142,35 @@ export default [
         ecmaVersion: 2022,
         sourceType: "module",
       },
+      globals: {
+        // Browser globals
+        console: "readonly",
+        window: "readonly",
+        document: "readonly",
+        navigator: "readonly",
+        fetch: "readonly",
+        FormData: "readonly",
+        localStorage: "readonly",
+        sessionStorage: "readonly",
+        // DOM types
+        HTMLElement: "readonly",
+        HTMLInputElement: "readonly",
+        HTMLButtonElement: "readonly",
+        HTMLDivElement: "readonly",
+        Element: "readonly",
+        Event: "readonly",
+        MouseEvent: "readonly",
+        KeyboardEvent: "readonly",
+        CustomEvent: "readonly",
+        // Svelte 5 runes
+        $state: "readonly",
+        $derived: "readonly",
+        $effect: "readonly",
+        $props: "readonly",
+        $bindable: "readonly",
+        $inspect: "readonly",
+        $host: "readonly",
+      },
     },
     plugins: {
       svelte: sveltePlugin,
@@ -151,6 +180,10 @@ export default [
       ...sveltePlugin.configs.recommended.rules,
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",
+      // Allow function declarations inside Svelte script blocks
+      "no-inner-declarations": "off",
+      // Allow unused vars with underscore prefix
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionJ } from '@foundation/shared';
+	import type { SectionJ } from '$lib/shared';
 	export let data: SectionJ | undefined;
 </script>
 
@@ -63,16 +63,20 @@
 				{#each data.data_handling as policy}
 					<div class="card">
 						<div class="field">
-							<strong>Data Type:</strong> {policy.data_type}
+							<strong>Data Type:</strong>
+							{policy.data_type}
 						</div>
 						<div class="field">
-							<strong>Retention:</strong> {policy.retention_period}
+							<strong>Retention:</strong>
+							{policy.retention_period}
 						</div>
 						<div class="field">
-							<strong>Encryption:</strong> {policy.encryption ? '✅ Yes' : '❌ No'}
+							<strong>Encryption:</strong>
+							{policy.encryption ? '✅ Yes' : '❌ No'}
 						</div>
 						<div class="field">
-							<strong>Access Controls:</strong> {policy.access_controls}
+							<strong>Access Controls:</strong>
+							{policy.access_controls}
 						</div>
 					</div>
 				{/each}
@@ -92,7 +96,9 @@
 </div>
 
 <style>
-	.section-j { max-width: 1000px; }
+	.section-j {
+		max-width: 1000px;
+	}
 
 	.empty-state {
 		display: flex;
@@ -103,10 +109,19 @@
 		text-align: center;
 		color: #6b7280;
 	}
-	.empty-icon { font-size: 4rem; margin-bottom: 1rem; }
-	.empty-state h3 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #111827; }
+	.empty-icon {
+		font-size: 4rem;
+		margin-bottom: 1rem;
+	}
+	.empty-state h3 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.5rem;
+		color: #111827;
+	}
 
-	.subsection { margin-bottom: 2rem; }
+	.subsection {
+		margin-bottom: 2rem;
+	}
 	.subsection h2 {
 		font-size: 1.5rem;
 		font-weight: 600;
@@ -124,10 +139,16 @@
 		margin-bottom: 1rem;
 	}
 
-	.field { margin-bottom: 1rem; }
-	.field strong { color: #374151; font-weight: 600; }
+	.field {
+		margin-bottom: 1rem;
+	}
+	.field strong {
+		color: #374151;
+		font-weight: 600;
+	}
 
-	.control-card { }
+	.control-card {
+	}
 	.control-header {
 		display: flex;
 		justify-content: space-between;
@@ -146,9 +167,18 @@
 		font-size: 0.875rem;
 		font-weight: 500;
 	}
-	.status-planned { background: #dbeafe; color: #1e40af; }
-	.status-in-progress { background: #fef3c7; color: #92400e; }
-	.status-implemented { background: #d1fae5; color: #065f46; }
+	.status-planned {
+		background: #dbeafe;
+		color: #1e40af;
+	}
+	.status-in-progress {
+		background: #fef3c7;
+		color: #92400e;
+	}
+	.status-implemented {
+		background: #d1fae5;
+		color: #065f46;
+	}
 
 	table {
 		width: 100%;
@@ -158,7 +188,9 @@
 		overflow: hidden;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
-	thead { background: #f9fafb; }
+	thead {
+		background: #f9fafb;
+	}
 	th {
 		padding: 0.75rem 1rem;
 		text-align: left;
@@ -172,7 +204,9 @@
 		padding: 0.75rem 1rem;
 		border-top: 1px solid #e5e7eb;
 	}
-	tr:hover { background: #f9fafb; }
+	tr:hover {
+		background: #f9fafb;
+	}
 
 	.badge {
 		padding: 0.25rem 0.5rem;
@@ -181,8 +215,20 @@
 		font-weight: 600;
 		text-transform: uppercase;
 	}
-	.badge-low { background: #d1fae5; color: #065f46; }
-	.badge-medium { background: #fef3c7; color: #92400e; }
-	.badge-high { background: #fee2e2; color: #991b1b; }
-	.badge-fatal { background: #7f1d1d; color: white; }
+	.badge-low {
+		background: #d1fae5;
+		color: #065f46;
+	}
+	.badge-medium {
+		background: #fef3c7;
+		color: #92400e;
+	}
+	.badge-high {
+		background: #fee2e2;
+		color: #991b1b;
+	}
+	.badge-fatal {
+		background: #7f1d1d;
+		color: white;
+	}
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionL } from '@foundation/shared';
+	import type { SectionL } from '$lib/shared';
 	export let data: SectionL | undefined;
 </script>
 
@@ -99,7 +99,9 @@
 							<tr>
 								<td><strong>{operation.operation_name}</strong></td>
 								<td>
-									<span class="automation-badge automation-{operation.automation_level.toLowerCase()}">
+									<span
+										class="automation-badge automation-{operation.automation_level.toLowerCase()}"
+									>
 										{operation.automation_level}
 									</span>
 								</td>
@@ -114,7 +116,9 @@
 </div>
 
 <style>
-	.section-l { max-width: 1000px; }
+	.section-l {
+		max-width: 1000px;
+	}
 
 	.empty-state {
 		display: flex;
@@ -125,10 +129,19 @@
 		text-align: center;
 		color: #6b7280;
 	}
-	.empty-icon { font-size: 4rem; margin-bottom: 1rem; }
-	.empty-state h3 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #111827; }
+	.empty-icon {
+		font-size: 4rem;
+		margin-bottom: 1rem;
+	}
+	.empty-state h3 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.5rem;
+		color: #111827;
+	}
 
-	.subsection { margin-bottom: 2rem; }
+	.subsection {
+		margin-bottom: 2rem;
+	}
 	.subsection h2 {
 		font-size: 1.5rem;
 		font-weight: 600;
@@ -146,10 +159,17 @@
 		margin-bottom: 1rem;
 	}
 
-	.field { margin-bottom: 1rem; }
-	.field strong { color: #374151; font-weight: 600; }
+	.field {
+		margin-bottom: 1rem;
+	}
+	.field strong {
+		color: #374151;
+		font-weight: 600;
+	}
 
-	.cadence-card { margin-bottom: 1rem; }
+	.cadence-card {
+		margin-bottom: 1rem;
+	}
 	.cadence-header {
 		display: flex;
 		justify-content: space-between;
@@ -180,7 +200,9 @@
 		color: #374151;
 	}
 
-	.playbook-card { margin-bottom: 1rem; }
+	.playbook-card {
+		margin-bottom: 1rem;
+	}
 	.playbook-card h3 {
 		margin: 0 0 1rem 0;
 		font-size: 1.125rem;
@@ -213,7 +235,9 @@
 		overflow: hidden;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
-	thead { background: #f9fafb; }
+	thead {
+		background: #f9fafb;
+	}
 	th {
 		padding: 0.75rem 1rem;
 		text-align: left;
@@ -227,7 +251,9 @@
 		padding: 0.75rem 1rem;
 		border-top: 1px solid #e5e7eb;
 	}
-	tr:hover { background: #f9fafb; }
+	tr:hover {
+		background: #f9fafb;
+	}
 
 	.tier-badge {
 		padding: 0.25rem 0.75rem;
@@ -235,9 +261,18 @@
 		font-size: 0.875rem;
 		font-weight: 600;
 	}
-	.tier-badge.tier-1 { background: #fee2e2; color: #991b1b; }
-	.tier-badge.tier-2 { background: #fef3c7; color: #92400e; }
-	.tier-badge.tier-3 { background: #dbeafe; color: #1e40af; }
+	.tier-badge.tier-1 {
+		background: #fee2e2;
+		color: #991b1b;
+	}
+	.tier-badge.tier-2 {
+		background: #fef3c7;
+		color: #92400e;
+	}
+	.tier-badge.tier-3 {
+		background: #dbeafe;
+		color: #1e40af;
+	}
 
 	.escalation-cell {
 		color: #6b7280;
@@ -251,7 +286,16 @@
 		font-weight: 600;
 		text-transform: capitalize;
 	}
-	.automation-badge.automation-full { background: #d1fae5; color: #065f46; }
-	.automation-badge.automation-partial { background: #fef3c7; color: #92400e; }
-	.automation-badge.automation-manual { background: #fee2e2; color: #991b1b; }
+	.automation-badge.automation-full {
+		background: #d1fae5;
+		color: #065f46;
+	}
+	.automation-badge.automation-partial {
+		background: #fef3c7;
+		color: #92400e;
+	}
+	.automation-badge.automation-manual {
+		background: #fee2e2;
+		color: #991b1b;
+	}
 </style>

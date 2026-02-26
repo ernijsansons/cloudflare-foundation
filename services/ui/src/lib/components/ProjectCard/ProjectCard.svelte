@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import type { ProjectDocumentation } from '@foundation/shared';
+	import type { ProjectDocumentation } from '$lib/shared';
 	import Sidebar from './Sidebar.svelte';
 	import OverviewTab from './OverviewTab.svelte';
 	import SectionA from './SectionA.svelte';
@@ -117,11 +117,7 @@
 	});
 </script>
 
-<div
-	class="project-card"
-	role="region"
-	aria-label="Project documentation viewer"
->
+<div class="project-card" role="region" aria-label="Project documentation viewer">
 	<div class="card-header">
 		<h2>{projectName}</h2>
 		<div class="project-id">{projectId}</div>
@@ -190,7 +186,9 @@
 	}
 
 	.project-card:focus {
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(102, 126, 234, 0.4);
+		box-shadow:
+			0 4px 6px rgba(0, 0, 0, 0.1),
+			0 0 0 3px rgba(102, 126, 234, 0.4);
 	}
 
 	.card-header {

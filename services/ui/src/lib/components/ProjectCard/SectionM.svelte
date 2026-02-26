@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionM } from '@foundation/shared';
+	import type { SectionM } from '$lib/shared';
 	export let data: SectionM | undefined;
 </script>
 
@@ -52,7 +52,9 @@
 								<td><strong>Week {milestone.week}</strong></td>
 								<td>{milestone.milestone}</td>
 								<td>
-									<span class="status-badge status-{milestone.status.toLowerCase().replace(' ', '-')}">
+									<span
+										class="status-badge status-{milestone.status.toLowerCase().replace(' ', '-')}"
+									>
 										{milestone.status}
 									</span>
 								</td>
@@ -74,7 +76,8 @@
 							<span class="duration-badge">{task.duration}</span>
 						</div>
 						<div class="field">
-							<strong>Dependencies:</strong> {task.dependencies}
+							<strong>Dependencies:</strong>
+							{task.dependencies}
 						</div>
 					</div>
 				{/each}
@@ -99,10 +102,7 @@
 								<td><strong>{resource.role}</strong></td>
 								<td>
 									<div class="allocation-bar">
-										<div
-											class="allocation-fill"
-											style="width: {resource.allocation_percentage}%"
-										>
+										<div class="allocation-fill" style="width: {resource.allocation_percentage}%">
 											{resource.allocation_percentage}%
 										</div>
 									</div>
@@ -118,7 +118,9 @@
 </div>
 
 <style>
-	.section-m { max-width: 1000px; }
+	.section-m {
+		max-width: 1000px;
+	}
 
 	.empty-state {
 		display: flex;
@@ -129,10 +131,19 @@
 		text-align: center;
 		color: #6b7280;
 	}
-	.empty-icon { font-size: 4rem; margin-bottom: 1rem; }
-	.empty-state h3 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #111827; }
+	.empty-icon {
+		font-size: 4rem;
+		margin-bottom: 1rem;
+	}
+	.empty-state h3 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.5rem;
+		color: #111827;
+	}
 
-	.subsection { margin-bottom: 2rem; }
+	.subsection {
+		margin-bottom: 2rem;
+	}
 	.subsection h2 {
 		font-size: 1.5rem;
 		font-weight: 600;
@@ -150,10 +161,17 @@
 		margin-bottom: 1rem;
 	}
 
-	.field { margin-bottom: 1rem; }
-	.field strong { color: #374151; font-weight: 600; }
+	.field {
+		margin-bottom: 1rem;
+	}
+	.field strong {
+		color: #374151;
+		font-weight: 600;
+	}
 
-	.phase-card { margin-bottom: 1rem; }
+	.phase-card {
+		margin-bottom: 1rem;
+	}
 	.phase-header {
 		display: flex;
 		justify-content: space-between;
@@ -184,7 +202,9 @@
 		color: #374151;
 	}
 
-	.critical-task-card { margin-bottom: 1rem; }
+	.critical-task-card {
+		margin-bottom: 1rem;
+	}
 	.task-header {
 		display: flex;
 		justify-content: space-between;
@@ -205,7 +225,9 @@
 		overflow: hidden;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
-	thead { background: #f9fafb; }
+	thead {
+		background: #f9fafb;
+	}
 	th {
 		padding: 0.75rem 1rem;
 		text-align: left;
@@ -219,7 +241,9 @@
 		padding: 0.75rem 1rem;
 		border-top: 1px solid #e5e7eb;
 	}
-	tr:hover { background: #f9fafb; }
+	tr:hover {
+		background: #f9fafb;
+	}
 
 	.status-badge {
 		padding: 0.25rem 0.75rem;
@@ -228,10 +252,22 @@
 		font-weight: 600;
 		text-transform: capitalize;
 	}
-	.status-badge.status-completed { background: #d1fae5; color: #065f46; }
-	.status-badge.status-in-progress { background: #fef3c7; color: #92400e; }
-	.status-badge.status-pending { background: #e5e7eb; color: #374151; }
-	.status-badge.status-blocked { background: #fee2e2; color: #991b1b; }
+	.status-badge.status-completed {
+		background: #d1fae5;
+		color: #065f46;
+	}
+	.status-badge.status-in-progress {
+		background: #fef3c7;
+		color: #92400e;
+	}
+	.status-badge.status-pending {
+		background: #e5e7eb;
+		color: #374151;
+	}
+	.status-badge.status-blocked {
+		background: #fee2e2;
+		color: #991b1b;
+	}
 
 	.timeline-cell {
 		color: #6b7280;

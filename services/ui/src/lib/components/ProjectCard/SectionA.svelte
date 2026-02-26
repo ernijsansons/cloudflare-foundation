@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionA } from '@foundation/shared';
+	import type { SectionA } from '$lib/shared';
 
 	export let data: SectionA | undefined;
 </script>
@@ -157,7 +157,9 @@
 			<h2>A2: Global Invariants</h2>
 			<div class="card invariants-card">
 				<div class="invariant-item">
-					<span class="invariant-icon">{data.A2_invariants.no_raw_destructive_ops ? '✅' : '❌'}</span>
+					<span class="invariant-icon"
+						>{data.A2_invariants.no_raw_destructive_ops ? '✅' : '❌'}</span
+					>
 					<span>No Raw Destructive Ops</span>
 				</div>
 				<div class="invariant-item">

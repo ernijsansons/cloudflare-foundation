@@ -1,35 +1,34 @@
 {
-  "name": "foundation-ui",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "deploy": "pnpm run build && wrangler deploy",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
-  },
-  "dependencies": {
-    "@foundation/shared": "workspace:*",
-    "@sveltejs/kit": "latest",
-    "@sveltejs/adapter-cloudflare": "latest",
-    "drizzle-orm": "latest",
-    "svelte": "^5.0.0"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "latest",
-    "@testing-library/jest-dom": "^6.1.5",
-    "@testing-library/svelte": "^4.0.5",
-    "@vitest/coverage-v8": "^4.0.18",
-    "@vitest/ui": "^4.0.18",
-    "jsdom": "^23.0.1",
-    "typescript": "^5.7.0",
-    "vite": "latest",
-    "@sveltejs/vite-plugin-svelte": "latest",
-    "vitest": "^4.0.18",
-    "wrangler": "^4.66.0"
-  }
+	"name": "foundation-ui",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"deploy": "pnpm run build && wrangler deploy",
+		"test": "vitest",
+		"test:ui": "vitest --ui",
+		"test:coverage": "vitest --coverage"
+	},
+	"dependencies": {
+		"@sveltejs/kit": "latest",
+		"@sveltejs/adapter-cloudflare": "latest",
+		"drizzle-orm": "latest",
+		"svelte": "^5.0.0"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "latest",
+		"@testing-library/jest-dom": "^6.1.5",
+		"@testing-library/svelte": "^4.0.5",
+		"@vitest/coverage-v8": "^4.0.18",
+		"@vitest/ui": "^4.0.18",
+		"jsdom": "^23.0.1",
+		"typescript": "^5.7.0",
+		"vite": "latest",
+		"@sveltejs/vite-plugin-svelte": "latest",
+		"vitest": "^4.0.18",
+		"wrangler": "^4.66.0"
+	}
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionB } from '@foundation/shared';
+	import type { SectionB } from '$lib/shared';
 
 	export let data: SectionB | undefined;
 </script>
@@ -109,5 +109,4 @@
 		color: #374151;
 		margin: 0;
 	}
-
 </style>

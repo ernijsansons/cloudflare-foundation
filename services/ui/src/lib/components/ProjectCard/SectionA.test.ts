@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/svelte/svelte5';
+import { describe, it, expect } from 'vitest';
+
 import SectionA from './SectionA.svelte';
-import type { SectionA as SectionAType } from '@foundation/shared';
+
+import type { SectionA as SectionAType } from '$lib/shared';
 
 describe('SectionA', () => {
 	const mockData: SectionAType = {

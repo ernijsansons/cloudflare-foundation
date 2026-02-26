@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionI } from '@foundation/shared';
+	import type { SectionI } from '$lib/shared';
 	export let data: SectionI | undefined;
 </script>
 
@@ -17,7 +17,8 @@
 				<h2>Naming Framework</h2>
 				<div class="card">
 					<div class="field">
-						<strong>Naming Approach:</strong> {data.naming_framework.naming_approach}
+						<strong>Naming Approach:</strong>
+						{data.naming_framework.naming_approach}
 					</div>
 					{#if data.naming_framework.finalist_names && data.naming_framework.finalist_names.length > 0}
 						<div class="field">
@@ -30,10 +31,12 @@
 						</div>
 					{/if}
 					<div class="field">
-						<strong>Selected Name:</strong> <span class="selected-name">{data.naming_framework.selected_name}</span>
+						<strong>Selected Name:</strong>
+						<span class="selected-name">{data.naming_framework.selected_name}</span>
 					</div>
 					<div class="field">
-						<strong>Rationale:</strong> {data.naming_framework.rationale}
+						<strong>Rationale:</strong>
+						{data.naming_framework.rationale}
 					</div>
 				</div>
 			</section>
@@ -45,7 +48,13 @@
 				<h2>Domain & Social Handles</h2>
 				<div class="card">
 					<div class="field">
-						<strong>Domain:</strong> <a href="https://{data.domain_handles.domain}" target="_blank" rel="noopener noreferrer" class="domain-link">{data.domain_handles.domain}</a>
+						<strong>Domain:</strong>
+						<a
+							href="https://{data.domain_handles.domain}"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="domain-link">{data.domain_handles.domain}</a
+						>
 					</div>
 					{#if data.domain_handles.social_handles && data.domain_handles.social_handles.length > 0}
 						<div class="field">
@@ -79,16 +88,19 @@
 						</div>
 					{/if}
 					<div class="field">
-						<strong>Typography:</strong> {data.visual_identity.typography}
+						<strong>Typography:</strong>
+						{data.visual_identity.typography}
 					</div>
 					{#if data.visual_identity.logo_concept}
 						<div class="field">
-							<strong>Logo Concept:</strong> {data.visual_identity.logo_concept}
+							<strong>Logo Concept:</strong>
+							{data.visual_identity.logo_concept}
 						</div>
 					{/if}
 					{#if data.visual_identity.brand_voice}
 						<div class="field">
-							<strong>Brand Voice:</strong> {data.visual_identity.brand_voice}
+							<strong>Brand Voice:</strong>
+							{data.visual_identity.brand_voice}
 						</div>
 					{/if}
 				</div>
@@ -103,10 +115,12 @@
 					<div class="card template-card">
 						<h3>{template.template_name}</h3>
 						<div class="field">
-							<strong>Purpose:</strong> {template.purpose}
+							<strong>Purpose:</strong>
+							{template.purpose}
 						</div>
 						<div class="field">
-							<strong>Structure:</strong> {template.structure}
+							<strong>Structure:</strong>
+							{template.structure}
 						</div>
 					</div>
 				{/each}
@@ -116,7 +130,9 @@
 </div>
 
 <style>
-	.section-i { max-width: 1000px; }
+	.section-i {
+		max-width: 1000px;
+	}
 
 	.empty-state {
 		display: flex;
@@ -127,10 +143,19 @@
 		text-align: center;
 		color: #6b7280;
 	}
-	.empty-icon { font-size: 4rem; margin-bottom: 1rem; }
-	.empty-state h3 { margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #111827; }
+	.empty-icon {
+		font-size: 4rem;
+		margin-bottom: 1rem;
+	}
+	.empty-state h3 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.5rem;
+		color: #111827;
+	}
 
-	.subsection { margin-bottom: 2rem; }
+	.subsection {
+		margin-bottom: 2rem;
+	}
 	.subsection h2 {
 		font-size: 1.5rem;
 		font-weight: 600;
@@ -148,8 +173,13 @@
 		margin-bottom: 1rem;
 	}
 
-	.field { margin-bottom: 1rem; }
-	.field strong { color: #374151; font-weight: 600; }
+	.field {
+		margin-bottom: 1rem;
+	}
+	.field strong {
+		color: #374151;
+		font-weight: 600;
+	}
 
 	.selected-name {
 		color: #667eea;
@@ -166,7 +196,9 @@
 		padding: 0.5rem 0;
 		border-bottom: 1px solid #e5e7eb;
 	}
-	.name-list li:last-child { border-bottom: none; }
+	.name-list li:last-child {
+		border-bottom: none;
+	}
 
 	.domain-link {
 		color: #667eea;
@@ -218,7 +250,9 @@
 		border-radius: 4px;
 	}
 
-	.template-card { margin-bottom: 1rem; }
+	.template-card {
+		margin-bottom: 1rem;
+	}
 	.template-card h3 {
 		margin: 0 0 1rem 0;
 		font-size: 1.125rem;

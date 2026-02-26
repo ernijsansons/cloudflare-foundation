@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SectionC } from '@foundation/shared';
+	import type { SectionC } from '$lib/shared';
 
 	export let data: SectionC | undefined;
 
