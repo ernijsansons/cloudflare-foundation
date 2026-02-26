@@ -74,6 +74,7 @@ export default [
         DurableObjectState: "readonly",
         ExecutionContext: "readonly",
         ScheduledController: "readonly",
+        ScheduledEvent: "readonly",
       },
     },
     plugins: {
