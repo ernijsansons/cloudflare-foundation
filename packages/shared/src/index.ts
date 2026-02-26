@@ -4,6 +4,8 @@ export * from "./types/api";
 export * from "./types/tasks";
 export * from "./types/project-documentation";
 export * from "./types/planning-phases";
+export * from "./types/build-spec";
+export * from "./types/template-registry";
 export * from "./types/rbac";
 export * from "./types/unknowns";
 export * from "./types/ontology";

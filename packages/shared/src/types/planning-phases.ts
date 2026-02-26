@@ -40,6 +40,17 @@ export type PlanningWorkflowPhaseName = (typeof PLANNING_WORKFLOW_PHASE_ORDER)[n
 // Backwards-compatible alias used throughout existing code.
 export type PhaseName = PlanningAgentPhaseName;
 
+// ============================================================================
+// POST-PIPELINE PHASES (Project Factory v3.0)
+// These phases run AFTER the main 18-phase pipeline completes.
+// ============================================================================
+
+export const POST_PIPELINE_PHASES = [
+  "architecture-advisor",
+] as const;
+
+export type PostPipelinePhaseName = (typeof POST_PIPELINE_PHASES)[number];
+
 const LEGACY_PHASE_ALIASES: Record<string, PlanningWorkflowPhaseName> = {
   intake: "phase-0-intake",
   "phase-0-intake": "phase-0-intake",
