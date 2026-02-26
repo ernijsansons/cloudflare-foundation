@@ -2,6 +2,7 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import Badge from "$lib/components/Badge.svelte";
+  import PortfolioAnalytics from "$lib/components/PortfolioAnalytics.svelte";
   import type { PlanningRun } from "$lib/types";
   import { formatDate } from "$lib/utils/format-date";
 
@@ -87,6 +88,10 @@
         <span class="stat-label">Killed</span>
       </div>
     </div>
+
+    {#if data.runs && data.runs.length > 0}
+      <PortfolioAnalytics runs={data.runs} />
+    {/if}
 
     <div class="grid">
       {#each data.runs as run (run.id)}

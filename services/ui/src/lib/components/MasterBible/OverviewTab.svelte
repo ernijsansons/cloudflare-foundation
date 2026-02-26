@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PlanningRun, PlanningArtifact } from '$lib/types';
+  import Scorecard from './Scorecard.svelte';
 
   interface Props {
     projectName: string;
@@ -179,6 +180,9 @@
       <span class="metric-unit">phases</span>
     </div>
   </div>
+
+  <!-- Quality Scorecard -->
+  <Scorecard {qualityScore} {artifacts} {revenuePotential} />
 
   <!-- Two Column Layout -->
   <div class="two-column">

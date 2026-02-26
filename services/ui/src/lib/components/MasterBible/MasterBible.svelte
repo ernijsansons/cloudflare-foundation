@@ -6,6 +6,9 @@
   import AgentJSONView from '$lib/components/bible/AgentJSONView.svelte';
   import OverviewTab from './OverviewTab.svelte';
   import RunTimeline from './RunTimeline.svelte';
+  import ArtifactExplorer from './ArtifactExplorer.svelte';
+  import ExportPanel from './ExportPanel.svelte';
+  import Scorecard from './Scorecard.svelte';
 
   interface Props {
     projectId: string;
@@ -267,58 +270,18 @@
         </main>
       </div>
     {:else if activePrimaryTab === 'artifacts'}
-      <div class="artifacts-content">
-        <h2>Artifacts Explorer</h2>
-        <div class="artifacts-grid">
-          {#each Object.entries(artifacts) as [phase, artifact]}
-            <div class="artifact-card">
-              <div class="artifact-header">
-                <span class="artifact-phase">{formatPhase(phase)}</span>
-                {#if artifact.overall_score}
-                  <span class="artifact-score">{artifact.overall_score}</span>
-                {/if}
-              </div>
-              <div class="artifact-meta">
-                {#if artifact.review_verdict}
-                  <span class="verdict">{artifact.review_verdict}</span>
-                {/if}
-              </div>
-              <details class="artifact-content">
-                <summary>View Content</summary>
-                <pre>{JSON.stringify(artifact.content, null, 2)}</pre>
-              </details>
-            </div>
-          {:else}
-            <div class="empty-artifacts">
-              <p>No artifacts available yet.</p>
-              <p class="hint">Run research to generate artifacts for each phase.</p>
-            </div>
-          {/each}
-        </div>
-      </div>
+      <ArtifactExplorer {artifacts} {runs} {projectId} />
     {:else if activePrimaryTab === 'timeline'}
       <RunTimeline {runs} projectId={projectId} />
     {:else if activePrimaryTab === 'export'}
-      <div class="export-content">
-        <h2>Export Options</h2>
-        <div class="export-grid">
-          <button class="export-option">
-            <span class="export-icon">📄</span>
-            <span class="export-label">Export as JSON</span>
-            <span class="export-desc">Full project data with all artifacts</span>
-          </button>
-          <button class="export-option">
-            <span class="export-icon">📝</span>
-            <span class="export-label">Export as Markdown</span>
-            <span class="export-desc">Human-readable research summary</span>
-          </button>
-          <button class="export-option">
-            <span class="export-icon">📊</span>
-            <span class="export-label">Export as PDF</span>
-            <span class="export-desc">Printable executive report</span>
-          </button>
-        </div>
-      </div>
+      <ExportPanel
+        {projectName}
+        {ideaContent}
+        {runs}
+        {artifacts}
+        {qualityScore}
+        {revenuePotential}
+      />
     {/if}
   </div>
 </div>
