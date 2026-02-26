@@ -51,46 +51,63 @@
     return 'low';
   }
 
+  // Helper to safely get record from unknown value
+  function safeRecord(value: unknown): Record<string, unknown> | null {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    return null;
+  }
+
   // Extract key decisions from synthesis artifact if available
   const keyDecisions = $derived(() => {
-    const synthesis = artifacts['synthesis'];
-    if (synthesis?.content) {
-      const content = synthesis.content as Record<string, unknown>;
-      if (Array.isArray(content.key_decisions)) {
-        return content.key_decisions.slice(0, 5);
+    try {
+      const synthesis = artifacts['synthesis'];
+      if (synthesis?.content) {
+        const content = safeRecord(synthesis.content);
+        if (content && Array.isArray(content.key_decisions)) {
+          return content.key_decisions.slice(0, 5);
+        }
+        if (content && Array.isArray(content.decisions)) {
+          return content.decisions.slice(0, 5);
+        }
       }
-      if (Array.isArray(content.decisions)) {
-        return content.decisions.slice(0, 5);
-      }
+    } catch (error) {
+      console.warn('Failed to extract key decisions:', error);
     }
     return [];
   });
 
   // Extract key risks from kill-test or synthesis
   const keyRisks = $derived(() => {
-    const killTest = artifacts['kill-test'];
-    const synthesis = artifacts['synthesis'];
+    try {
+      const killTest = artifacts['kill-test'];
+      const synthesis = artifacts['synthesis'];
 
-    const risks: string[] = [];
+      const risks: string[] = [];
 
-    if (killTest?.content) {
-      const content = killTest.content as Record<string, unknown>;
-      if (Array.isArray(content.risks)) {
-        risks.push(...content.risks.slice(0, 3));
+      if (killTest?.content) {
+        const content = safeRecord(killTest.content);
+        if (content && Array.isArray(content.risks)) {
+          risks.push(...content.risks.slice(0, 3));
+        }
+        if (content && Array.isArray(content.critical_risks)) {
+          risks.push(...content.critical_risks.slice(0, 3));
+        }
       }
-      if (Array.isArray(content.critical_risks)) {
-        risks.push(...content.critical_risks.slice(0, 3));
+
+      if (synthesis?.content && risks.length < 5) {
+        const content = safeRecord(synthesis.content);
+        if (content && Array.isArray(content.risks)) {
+          risks.push(...content.risks.slice(0, 5 - risks.length));
+        }
       }
+
+      return risks.slice(0, 5);
+    } catch (error) {
+      console.warn('Failed to extract key risks:', error);
+      return [];
     }
-
-    if (synthesis?.content && risks.length < 5) {
-      const content = synthesis.content as Record<string, unknown>;
-      if (Array.isArray(content.risks)) {
-        risks.push(...content.risks.slice(0, 5 - risks.length));
-      }
-    }
-
-    return risks.slice(0, 5);
   });
 
   // Get recent activity from runs
@@ -178,7 +195,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="empty-message">No decisions documented yet. Complete more research phases to populate this section.</p>
+        <p class="empty-message">No decisions documented yet. Complete the <strong>synthesis</strong> phase to populate this section.</p>
       {/if}
     </div>
 

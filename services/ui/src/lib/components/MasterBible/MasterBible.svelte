@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
   import type { PlanningRun, PlanningArtifact } from '$lib/types';
   import type { DepartmentView, DepartmentId } from '$lib/types/bible';
   import DepartmentTabs from '$lib/components/bible/DepartmentTabs.svelte';
@@ -123,12 +122,9 @@
     }
   }
 
-  onMount(() => {
+  $effect(() => {
     window.addEventListener('keydown', handleKeyDown);
-  });
-
-  onDestroy(() => {
-    window.removeEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   });
 </script>
 
@@ -259,7 +255,7 @@
         </aside>
 
         <main class="bible-main">
-          {#if selectedDept === 'agent-json'}
+          {#if selectedDept === 'agent-json' && agentJSON}
             <AgentJSONView payload={agentJSON} runId={runs[0]?.id || projectId} />
           {:else if currentDepartment}
             <DepartmentContent department={currentDepartment} />

@@ -9,13 +9,18 @@
   let { runs, projectId }: Props = $props();
 
   function formatDate(timestamp: number): string {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      if (!timestamp || isNaN(timestamp)) return 'Unknown date';
+      return new Date(timestamp).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Invalid date';
+    }
   }
 
   function formatPhase(phase: string | null | undefined): string {
@@ -77,7 +82,7 @@
 
   {#if sortedRuns.length > 0}
     <!-- Timeline Visual -->
-    <div class="timeline-visual">
+    <div class="timeline-visual" role="list" aria-label="Research run timeline">
       {#each sortedRuns as run, index}
         <div class="timeline-point" style="--status-color: {getStatusColor(run.status)}">
           <span class="point-marker">{getStatusIcon(run.status)}</span>
@@ -91,7 +96,7 @@
     <!-- Run Cards -->
     <div class="runs-list">
       {#each sortedRuns as run, index}
-        <div class="run-card" class:current={index === 0}>
+        <div class="run-card" class:current={index === 0} role="listitem" aria-label="Run {sortedRuns.length - index}: {run.status}">
           <div class="run-header">
             <div class="run-title">
               <span class="run-number">Run #{sortedRuns.length - index}</span>
