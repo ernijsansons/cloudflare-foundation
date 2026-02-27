@@ -16,9 +16,5 @@
   //    Environment Variables → Preview (or Production)
   "services": [
     { "binding": "GATEWAY", "service": "foundation-gateway" }
-  ],
-  "routes": [
-    { "pattern": "dashboard.erlvinc.com/*", "zone_name": "erlvinc.com" },
-    { "pattern": "naomi.erlvinc.com/*", "zone_name": "erlvinc.com" }
   ]
 }
