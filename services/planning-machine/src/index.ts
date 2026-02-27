@@ -767,7 +767,7 @@ async function getRunContext(
 async function runAgentWithBody(
   request: Request,
   env: Env,
-  run: (ctx: { runId: string; idea: string; refinedIdea?: string; priorOutputs: Record<string, unknown> }, input: unknown) => Promise<{ success: boolean; output?: unknown; errors?: string[] }>
+  run: (ctx: { runId: string; idea: string; refinedIdea?: string; priorOutputs: Record<string, unknown> }, input: unknown) => Promise<{ success: boolean; output?: unknown; errors?: string[]; orchestration?: unknown }>
 ): Promise<Response> {
   try {
     const body = (await request.json()) as {
@@ -796,10 +796,14 @@ async function runAgentWithBody(
       );
     }
 
-    return Response.json({
+    const response: { success: boolean; output?: unknown; orchestration?: unknown } = {
       success: true,
       output: result.output,
-    });
+    };
+    if (result.orchestration) {
+      response.orchestration = result.orchestration;
+    }
+    return Response.json(response);
   } catch (e) {
     console.error("Agent error:", e);
     return Response.json({ error: "Internal error" }, { status: 500 });

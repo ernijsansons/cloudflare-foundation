@@ -78,6 +78,7 @@ bash scripts/deploy-all.sh  # Deploy to Cloudflare
 | [PHASES.md](docs/PHASES.md) | 15-phase planning pipeline documentation |
 | [EXTENDING.md](docs/EXTENDING.md) | Step-by-step extension guides |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deployment guide |
+| [NAOMI_DEPLOYMENT.md](docs/NAOMI_DEPLOYMENT.md) | Naomi OpenClaw deployment (naomi.erlvinc.com) |
 | [USAGE.md](USAGE.md) | Setup and usage instructions |
 
 ### Service Documentation

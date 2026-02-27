@@ -7,6 +7,7 @@ import type { Env } from "../types";
 import { PHASE_ORDER, getAgentForPhase, type PhaseName } from "../agents/registry";
 import { embedAndStore, getContextForPhase } from "../lib/rag";
 import { reviewArtifact, tiebreakerReview } from "../lib/reviewer";
+import type { OrchestrationResult } from "../lib/orchestrator";
 
 /** Emit webhook event for external reporting (e.g., to erlvinc.com) */
 async function emitWebhookEvent(
@@ -45,6 +46,8 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
     let refinedIdea = event.payload.refinedIdea ?? idea;
     const priorOutputs: Record<string, unknown> = {};
     let killVerdict: string | null = null;
+    // Stores orchestration results keyed by phase — populated by runPhase when a model council ran
+    const orchestrationDataByPhase = new Map<string, OrchestrationResult>();
 
     // Load pivotCount from DB for workflow resumption support
     let pivotCount = await step.do("load-pivot-count", async () => {
@@ -91,6 +94,11 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 
       if (!result.success) {
         throw new Error(`Phase ${phaseName} failed: ${result.errors?.join(", ")}`);
+      }
+
+      // Capture orchestration data (per-model outputs + wild ideas) for DB persistence
+      if (result.orchestration) {
+        orchestrationDataByPhase.set(phaseName, result.orchestration);
       }
 
       priorOutputs[phaseName] = result.output;
@@ -281,6 +289,20 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
             .bind(artifactId, runId, phase, pivotCount + 1, contentStr, "GO", 1, null, Math.floor(Date.now() / 1000))
             .run();
 
+          const orchData = orchestrationDataByPhase.get(phase);
+          if (orchData) {
+            await this.env.DB.prepare(
+              "UPDATE planning_artifacts SET model_outputs = ?, wild_ideas = ? WHERE id = ?"
+            )
+              .bind(
+                JSON.stringify(orchData.modelOutputs),
+                JSON.stringify(orchData.wildIdeas),
+                artifactId
+              )
+              .run();
+            orchestrationDataByPhase.delete(phase);
+          }
+
           if (this.env.VECTOR_INDEX && this.env.AI) {
             await embedAndStore(
               this.env.AI,
@@ -394,6 +416,28 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
         )
           .bind(artifactId, runId, phase, currentIteration, contentStr, reviewVerdict, currentIteration, overallScore, Math.floor(Date.now() / 1000))
           .run();
+
+        // Persist per-model outputs and wild ideas when orchestration was used
+        const orchData = orchestrationDataByPhase.get(phase);
+        if (orchData) {
+          await this.env.DB.prepare(
+            "UPDATE planning_artifacts SET model_outputs = ?, wild_ideas = ? WHERE id = ?"
+          )
+            .bind(
+              JSON.stringify(orchData.modelOutputs),
+              JSON.stringify(orchData.wildIdeas),
+              artifactId
+            )
+            .run();
+
+          if (orchData.wildIdeas.length > 0) {
+            console.log(
+              `[workflow] Wild ideas stored for phase ${phase}:`,
+              JSON.stringify(orchData.wildIdeas, null, 2)
+            );
+          }
+          orchestrationDataByPhase.delete(phase);
+        }
 
         if (this.env.VECTOR_INDEX && this.env.AI) {
           await embedAndStore(

@@ -72,6 +72,16 @@ Request
 - `POST /api/analytics/event` - Record analytics event
 - `GET /api/admin/audit-verify/:tenantId` - Verify audit chain
 
+### Naomi API (Execution Task Tracking)
+- `POST /api/naomi/tasks` - Create task (run_id, repo_url)
+- `GET /api/naomi/tasks` - List tasks (?status, ?run_id)
+- `GET /api/naomi/tasks/:id` - Task detail + logs
+- `POST /api/naomi/tasks/:id/claim` - Orchestrator claims task
+- `POST /api/naomi/tasks/:id/progress` - Report progress
+- `POST /api/naomi/tasks/:id/logs` - Append log line
+
+See [NAOMI_DEPLOYMENT.md](../../docs/NAOMI_DEPLOYMENT.md) for full details.
+
 ### Proxy Routes
 - `/api/agents/*` → Agent service
 - `/api/planning/*` → Planning Machine service

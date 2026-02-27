@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { authMiddleware } from "./middleware/auth";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { corsMiddleware } from "./middleware/cors";
-import { correlationMiddleware } from "./middleware/correlation";
+import { correlationMiddleware, createTracedHeaders } from "./middleware/correlation";
 import { tenantMiddleware } from "./middleware/tenant";
 import { contextTokenMiddleware } from "./middleware/context-token";
 import { turnstileMiddleware } from "./middleware/turnstile";
@@ -48,10 +48,13 @@ app.all("/api/agents/:agentType/:agentId/*", async (c) => {
     const url = new URL(c.req.url);
     url.pathname = url.pathname.replace(/^\/api\/agents/, "/agents");
 
+    // Create traced headers for distributed tracing
+    const tracedHeaders = createTracedHeaders(c, c.req.raw.headers);
+
     // Properly forward the request with body
     const init: RequestInit = {
       method: c.req.method,
-      headers: c.req.raw.headers,
+      headers: tracedHeaders,
     };
     if (c.req.method !== "GET" && c.req.method !== "HEAD") {
       init.body = await c.req.raw.clone().arrayBuffer();
@@ -72,10 +75,13 @@ app.all("/api/planning/*", async (c) => {
   try {
     const url = new URL(c.req.url);
 
+    // Create traced headers for distributed tracing
+    const tracedHeaders = createTracedHeaders(c, c.req.raw.headers);
+
     // Properly forward the request with body
     const init: RequestInit = {
       method: c.req.method,
-      headers: c.req.raw.headers,
+      headers: tracedHeaders,
     };
     if (c.req.method !== "GET" && c.req.method !== "HEAD") {
       init.body = await c.req.raw.clone().arrayBuffer();

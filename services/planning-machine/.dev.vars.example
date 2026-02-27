@@ -1,5 +1,7 @@
 # Copy to .dev.vars and add your keys (gitignored)
 # Get Tavily: https://tavily.com (free 1000 searches/mo)
 # Get Brave: https://brave.com/search/api (free 2000 queries/mo)
+# Get MiniMax: https://api.minimax.chat (for orchestration synthesis)
 TAVILY_API_KEY=your_tavily_key
 BRAVE_API_KEY=your_brave_key
+MINIMAX_API_KEY=your_minimax_key

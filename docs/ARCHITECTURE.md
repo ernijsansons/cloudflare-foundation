@@ -59,7 +59,9 @@ Cloudflare Foundation v2.5 is a 10-plane serverless architecture for building AI
 │  │  - planning_   │  │  - Sessions    │  │  - File uploads│  │  - RAG context │  │
 │  │    runs        │  │  - Cache       │  │  - Artifacts   │  │  - Artifact    │  │
 │  │  - artifacts   │  │  - Feature     │  │  - Packages    │  │    similarity  │  │
-│  │  - audit_chain │  │    flags       │  │                │  │                │  │
+│  │  - naomi_tasks │  │    flags       │  │                │  │                │  │
+│  │  - naomi_logs  │  │                │  │                │  │                │  │
+│  │  - audit_chain │  │                │  │                │  │                │  │
 │  │  - parked_ideas│  │                │  │                │  │                │  │
 │  └────────────────┘  └────────────────┘  └────────────────┘  └────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────────┘
@@ -237,6 +239,41 @@ CREATE TABLE webhook_destinations (
   events TEXT DEFAULT '*',
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
+);
+
+-- Naomi execution tasks (Open Claw)
+CREATE TABLE naomi_tasks (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  repo_url TEXT NOT NULL,
+  agent TEXT DEFAULT 'claude',
+  status TEXT DEFAULT 'pending',
+  phase TEXT,
+  vm_id TEXT,
+  claimed_at INTEGER,
+  started_at INTEGER,
+  completed_at INTEGER,
+  retry_count INTEGER DEFAULT 0,
+  error TEXT,
+  tenant_id TEXT DEFAULT 'default',
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER
+);
+
+CREATE TABLE naomi_execution_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id TEXT NOT NULL,
+  phase TEXT,
+  level TEXT DEFAULT 'info',
+  message TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE naomi_locks (
+  repo_url TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  acquired_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
 );
 ```
 

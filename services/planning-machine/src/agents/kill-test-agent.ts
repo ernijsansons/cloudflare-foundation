@@ -1,5 +1,9 @@
 /**
  * Phase 4: Kill Test Agent
+ *
+ * Supports multi-model orchestration: when ORCHESTRATION_ENABLED=true, parallel
+ * models assess viability independently, then a synthesizer reconciles. Uses
+ * lower temperatureSynthesizer for conservative GO/KILL decisions.
  */
 
 import type { Env } from "../types";
@@ -7,6 +11,8 @@ import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 import { runModel } from "../lib/model-router";
 import { webSearch } from "../tools/web-search";
 import { KillTestOutputSchema, type KillTestOutput } from "../schemas/kill-test";
+import type { OrchestrationResult } from "../lib/orchestrator";
+import { extractJSON } from "../lib/orchestrator";
 
 interface KillTestInput {
   idea: string;
@@ -82,6 +88,16 @@ Produce valid JSON matching the schema. verdict must be one of: GO, PIVOT, KILL.
     ];
   }
 
+  override useOrchestration(): boolean {
+    return true;
+  }
+
+  override getOrchestratorConfig() {
+    return {
+      temperatureSynthesizer: 0.1,
+    };
+  }
+
   async run(
     ctx: AgentContext,
     input: KillTestInput
@@ -112,12 +128,45 @@ Produce valid JSON matching the schema. verdict must be one of: GO, PIVOT, KILL.
       ),
     ].join("\n\n");
 
+    const systemPrompt = this.buildSystemPrompt();
+    const userPrompt = `Assess this idea with the kill test. Use prior phase outputs and search results.\n\n${context}\n\nOutput valid JSON matching the schema. verdict must be GO, PIVOT, or KILL.`;
+
+    if (this.env.ORCHESTRATION_ENABLED === "true") {
+      return this.runWithOrchestration(systemPrompt, userPrompt);
+    }
+
+    return this.runSingleModel(systemPrompt, userPrompt);
+  }
+
+  private async runWithOrchestration(
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<AgentResult<KillTestOutput>> {
+    let orchResult: OrchestrationResult;
+    try {
+      orchResult = await this.orchestrateModels(systemPrompt, userPrompt);
+    } catch (e) {
+      console.error("[KillTestAgent] Orchestration failed, falling back to single model:", e);
+      return this.runSingleModel(systemPrompt, userPrompt);
+    }
+
+    try {
+      const parsed = extractJSON(orchResult.finalText);
+      const output = KillTestOutputSchema.parse(parsed);
+      return { success: true, output, orchestration: orchResult };
+    } catch (e) {
+      console.error("[KillTestAgent] Failed to parse orchestration output:", e);
+      return this.runSingleModel(systemPrompt, userPrompt);
+    }
+  }
+
+  private async runSingleModel(
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<AgentResult<KillTestOutput>> {
     const messages = [
-      { role: "system" as const, content: this.buildSystemPrompt() },
-      {
-        role: "user" as const,
-        content: `Assess this idea with the kill test. Use prior phase outputs and search results.\n\n${context}\n\nOutput valid JSON matching the schema. verdict must be GO, PIVOT, or KILL.`,
-      },
+      { role: "system" as const, content: systemPrompt },
+      { role: "user" as const, content: userPrompt },
     ];
 
     try {
@@ -131,10 +180,7 @@ Produce valid JSON matching the schema. verdict must be one of: GO, PIVOT, KILL.
       const parsed = JSON.parse(jsonStr);
       const output = KillTestOutputSchema.parse(parsed);
 
-      return {
-        success: true,
-        output,
-      };
+      return { success: true, output };
     } catch (e) {
       console.error("KillTestAgent error:", e);
       return {
