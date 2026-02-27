@@ -37,6 +37,7 @@
 		"docs:state": "cd services/gateway && npx wrangler d1 execute foundation-primary --remote --command='SELECT * FROM doc_scan_state'"
 	},
 	"devDependencies": {
+		"@eslint/js": "^10.0.1",
 		"@typescript-eslint/eslint-plugin": "^6.0.0",
 		"@typescript-eslint/parser": "^6.0.0",
 		"cross-env": "^10.1.0",
