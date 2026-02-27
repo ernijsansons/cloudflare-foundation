@@ -2,45 +2,11 @@
  * Multi-model reviewer — Mistral reviews, tiebreaker on conflict
  */
 
+import { extractJSON } from "./json-extractor";
 import { runModel } from "./model-router";
 import { UNIVERSAL_RUBRIC_DIMENSIONS } from "./reasoning-engine";
 
 export type ReviewVerdict = "ACCEPT" | "REVISE" | "REJECT";
-
-/**
- * Extract JSON from text more robustly
- * Handles markdown code blocks and finds balanced braces
- */
-function extractJSON(text: string): string | null {
-  // First, try to find JSON in markdown code block
-  const mdMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (mdMatch) {
-    const content = mdMatch[1].trim();
-    if (content.startsWith("{") && content.endsWith("}")) {
-      return content;
-    }
-  }
-
-  // Find the first complete JSON object with balanced braces
-  let depth = 0;
-  let start = -1;
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-
-    if (char === "{") {
-      if (depth === 0) start = i;
-      depth++;
-    } else if (char === "}") {
-      depth--;
-      if (depth === 0 && start >= 0) {
-        return text.slice(start, i + 1);
-      }
-    }
-  }
-
-  return null;
-}
 
 export interface ReviewResult {
   verdict: ReviewVerdict;
@@ -90,21 +56,9 @@ Output JSON only:
     maxTokens: 1024,
   });
 
-  // Extract JSON using robust parser
-  const jsonStr = extractJSON(response);
-
-  if (!jsonStr) {
-    console.warn("Reviewer: Could not extract JSON from response:", response.slice(0, 200));
-    return {
-      verdict: "REVISE",
-      scores: {},
-      feedback: "Could not extract JSON from reviewer response. Defaulting to REVISE.",
-      iteration,
-    };
-  }
-
+  // Extract and parse JSON using robust parser
   try {
-    const parsed = JSON.parse(jsonStr) as {
+    const parsed = extractJSON(response) as {
       scores?: Record<string, number>;
       verdict?: string;
       feedback?: string;
@@ -120,11 +74,11 @@ Output JSON only:
       iteration,
     };
   } catch (e) {
-    console.warn("Reviewer: JSON parse failed:", e, "JSON string:", jsonStr.slice(0, 200));
+    console.warn("Reviewer: JSON extraction failed:", e, "Response:", response.slice(0, 200));
     return {
       verdict: "REVISE",
       scores: {},
-      feedback: "Could not parse reviewer response JSON. Defaulting to REVISE.",
+      feedback: "Could not extract JSON from reviewer response. Defaulting to REVISE.",
       iteration,
     };
   }

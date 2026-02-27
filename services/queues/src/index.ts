@@ -97,6 +97,7 @@ export default {
           const webhook = msg.body as {
             type: string;
             runId: string;
+            tenantId?: string;
             phase?: string;
             status?: string;
             verdict?: string;
@@ -105,10 +106,18 @@ export default {
             timestamp: number;
           };
 
-          // Get all active webhook destinations
+          // Extract tenant context from webhook payload
+          const tenantId = webhook.tenantId;
+          if (!tenantId) {
+            console.error("Webhook event missing tenantId, skipping delivery");
+            msg.ack(); // Acknowledge to prevent retry loop
+            continue;
+          }
+
+          // Get webhook destinations for this tenant only (tenant-scoped)
           const destinations = await env.DB.prepare(
-            "SELECT id, url, hostname, secret, events FROM webhook_destinations WHERE active = 1"
-          ).all();
+            "SELECT id, url, hostname, secret, events FROM webhook_destinations WHERE tenant_id = ? AND active = 1"
+          ).bind(tenantId).all();
 
           const dests = (destinations.results ?? []) as Array<{
             id: string;

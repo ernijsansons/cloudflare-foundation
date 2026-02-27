@@ -1,5 +1,5 @@
 export interface Env {
-  AI: Ai;
+  AI: Ai; // Keep for embeddings
   DB: D1Database;
   FILES?: R2Bucket;
   VECTOR_INDEX?: VectorizeIndex;

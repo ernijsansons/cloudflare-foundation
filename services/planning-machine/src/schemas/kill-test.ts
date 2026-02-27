@@ -1,44 +1,53 @@
 import { z } from "zod";
 
-export const BootstrapFeasibilitySchema = z.object({
-  canOneSoloFounderBuild: z.boolean(),
-  canOneSoloFounderBuildReasoning: z.string().optional(),
-  timeToMVP: z.string().optional(),
-  timeToMVPWeeks: z.number().optional(),
-  canReachFirst100CustomersForFree: z.boolean(),
-  canReachFirst100CustomersForFreeChannels: z.array(z.string()).optional(),
-  hasFreeDist: z.boolean(),
-  timeToFirstRevenue: z.string().optional(),
-  timeToFirstRevenueWeeks: z.number().optional(),
-  cloudflareFreeTierSufficient: z.boolean().optional(),
-  cloudflareFreeTierReasoning: z.string().optional(),
-});
+export const BootstrapFeasibilitySchema = z.union([
+  z.string(),
+  z.object({
+    canOneSoloFounderBuild: z.boolean().nullish(),
+    canOneSoloFounderBuildReasoning: z.string().nullish(),
+    timeToMVP: z.string().nullish(),
+    timeToMVPWeeks: z.number().nullish(),
+    canReachFirst100CustomersForFree: z.boolean().nullish(),
+    canReachFirst100CustomersForFreeChannels: z.array(z.string()).nullish(),
+    hasFreeDist: z.boolean().nullish(),
+    timeToFirstRevenue: z.string().nullish(),
+    timeToFirstRevenueWeeks: z.number().nullish(),
+    cloudflareFreeTierSufficient: z.boolean().nullish(),
+    cloudflareFreeTierReasoning: z.string().nullish(),
+  }),
+]).nullish();
 
 export const AgenticAssessmentSchema = z.object({
-  isAgentic: z.boolean(),
-  agenticDepth: z.enum(["deep", "surface", "none"]),
-  whatMakesItAgentic: z.string().optional(),
-  dataCompoundingMechanism: z.string().optional(),
-});
+  isAgentic: z.boolean().nullish(),
+  agenticDepth: z.enum(["deep", "surface", "none"]).nullish(),
+  whatMakesItAgentic: z.string().nullish(),
+  dataCompoundingMechanism: z.string().nullish(),
+}).nullish();
+
+// Accept either array of strings or single string
+const FatalFlawsSchema = z.union([
+  z.array(z.string()),
+  z.string(),
+]).nullish();
 
 export const KillTestOutputSchema = z.object({
-  verdict: z.enum(["GO", "PIVOT", "KILL"]),
+  verdict: z.enum(["GO", "PIVOT", "KILL"]).nullish().default("PIVOT"),
   bootstrapFeasibility: BootstrapFeasibilitySchema,
-  agenticAssessment: AgenticAssessmentSchema.optional(),
-  fatalFlaws: z.array(z.string()),
-  pivotSuggestions: z.array(z.string()).optional(),
-  unfairAdvantagesNeeded: z.array(z.string()).optional(),
+  agenticAssessment: AgenticAssessmentSchema,
+  fatalFlaws: FatalFlawsSchema,
+  pivotSuggestions: z.array(z.string()).nullish(),
+  unfairAdvantagesNeeded: z.array(z.string()).nullish(),
   riskRegister: z.array(z.object({
-    risk: z.string(),
-    probability: z.string().optional(),
-    impact: z.string().optional(),
-    mitigation: z.string().optional(),
-  })).optional(),
+    risk: z.string().nullish(),
+    probability: z.string().nullish(),
+    impact: z.string().nullish(),
+    mitigation: z.string().nullish(),
+  })).nullish(),
   parkedForFuture: z.object({
-    reason: z.string(),
-    revisitEstimateMonths: z.number().min(6).max(24),
-    note: z.string().optional(),
-  }).optional(),
+    reason: z.string().nullish(),
+    revisitEstimateMonths: z.number().nullish(),
+    note: z.string().nullish(),
+  }).nullish(),
 });
 
 export type KillTestOutput = z.infer<typeof KillTestOutputSchema>;

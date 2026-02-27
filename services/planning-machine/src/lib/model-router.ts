@@ -1,12 +1,13 @@
 /**
- * Routes to different Cloudflare Workers AI models for generator/reviewer/tiebreaker
+ * Routes to Cloudflare Workers AI models
  * Includes retry logic with exponential backoff for transient failures
  */
 
+// Use llama-3.3-70b (128K context) for all roles
 export const MODELS = {
-  generator: "@cf/meta/llama-3.1-8b-instruct",
-  reviewer: "@cf/mistral/mistral-7b-instruct-v0.2",
-  tiebreaker: "@cf/meta/llama-3.1-8b-instruct",
+  generator: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  reviewer: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  tiebreaker: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
 } as const;
 
 export type ModelRole = keyof typeof MODELS;
@@ -18,15 +19,6 @@ export interface AiTextOptions {
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
-
-function messagesToPrompt(messages: Array<{ role: string; content: string }>): string {
-  return messages
-    .map((m) => {
-      const prefix = m.role === "system" ? "System: " : m.role === "user" ? "User: " : "Assistant: ";
-      return `${prefix}${m.content}`;
-    })
-    .join("\n\n") + "\n\nAssistant: ";
-}
 
 async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,27 +34,23 @@ export async function runModel(
   const temperature = options?.temperature ?? (role === "generator" ? 0.3 : 0.1);
   const maxTokens = options?.maxTokens ?? 4096;
 
-  const prompt = messagesToPrompt(messages);
-
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workers AI model IDs are valid strings
-      const response = await ai.run(modelId as any, {
-        prompt,
+      const response = await ai.run(modelId, {
+        messages,
         max_tokens: maxTokens,
         temperature,
       });
 
-      const result = response as { response?: string; data?: string; error?: string };
+      const result = response as { response?: string; error?: string };
 
-      // Check for error response from AI service
       if (result.error) {
-        throw new Error(`AI service error: ${result.error}`);
+        throw new Error(`AI model error: ${result.error}`);
       }
 
-      const text = result.response ?? result.data ?? "";
+      const text = result.response ?? "";
       if (!text) {
         throw new Error("Empty response from AI model");
       }
@@ -70,7 +58,7 @@ export async function runModel(
       return text;
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
-      console.error(`Model ${role} attempt ${attempt + 1}/${MAX_RETRIES} failed:`, lastError.message);
+      console.error(`Model ${role} (${modelId}) attempt ${attempt + 1}/${MAX_RETRIES} failed:`, lastError.message);
 
       // Don't wait on the last attempt
       if (attempt < MAX_RETRIES - 1) {
@@ -83,6 +71,9 @@ export async function runModel(
   throw new Error(`Model ${role} failed after ${MAX_RETRIES} attempts: ${lastError?.message ?? "Unknown error"}`);
 }
 
+/**
+ * Embeddings use Cloudflare Workers AI
+ */
 export async function runEmbedding(ai: Ai, text: string): Promise<number[]> {
   let lastError: Error | null = null;
 

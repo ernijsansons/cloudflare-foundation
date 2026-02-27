@@ -1,102 +1,174 @@
 import { z } from "zod";
 
-export const ContentEngineOutputSchema = z.object({
-  onboardingCopy: z.object({
-    steps: z.array(z.object({
-      screenTitle: z.string(),
-      bodyText: z.string(),
-      fieldLabels: z.record(z.string()).optional(),
-      fieldPlaceholders: z.record(z.string()).optional(),
-      helperText: z.string().optional(),
-      buttonText: z.string(),
-      progressText: z.string().optional(),
-    })).optional(),
-    welcomeScreen: z.object({
-      headline: z.string(),
-      body: z.string(),
-      cta: z.string(),
+// ============================================================================
+// LEGAL & COMPLIANCE SCHEMA (Phase 1.3)
+// Expands from empty objects to comprehensive structured analysis
+// ============================================================================
+
+export const LegalComplianceSchema = z.object({
+  // Applicable Regulations
+  applicableRegulations: z.object({
+    gdpr: z.object({
+      applies: z.boolean(),
+      requirements: z.array(z.string()).default([]),
+      implementationCost: z.string().optional(),
+      launchBlocker: z.boolean(),
+    }),
+    ccpa: z.object({
+      applies: z.boolean(),
+      requirements: z.array(z.string()).default([]),
+      implementationCost: z.string().optional(),
+      launchBlocker: z.boolean(),
+    }),
+    euAiAct: z.object({
+      applies: z.boolean(),
+      tier: z.enum(["minimal", "limited", "high", "unacceptable"]).optional(),
+      requirements: z.array(z.string()).default([]),
+      launchBlocker: z.boolean(),
+    }),
+    industrySpecific: z.array(z.object({
+      regulation: z.string(),  // e.g., "HIPAA", "FINRA", "PCI-DSS"
+      applies: z.boolean(),
+      requirements: z.array(z.string()),
+      certificationRequired: z.boolean(),
+    })).default([]),
+  }),
+
+  // Data Governance
+  dataGovernance: z.object({
+    dataResidency: z.object({
+      required: z.boolean(),
+      regions: z.array(z.string()).default([]),  // e.g., ["EU", "US", "UK"]
+      cloudflareStrategy: z.string().optional(),  // How to implement with R2/D1
+    }),
+    retentionPolicy: z.object({
+      userData: z.string(),           // e.g., "7 years after account deletion"
+      analyticsData: z.string(),      // e.g., "90 days"
+      auditLogs: z.string(),          // e.g., "7 years" (SOC2/HIPAA)
+      backups: z.string(),
+      deletionProcedure: z.string(),  // How users request deletion
+    }),
+    dataClassification: z.object({
+      pii: z.array(z.string()).default([]),       // Fields containing PII
+      sensitive: z.array(z.string()).default([]), // Extra sensitive fields
+      public: z.array(z.string()).default([]),
+    }),
+  }),
+
+  // AI Disclosure
+  aiDisclosure: z.object({
+    required: z.boolean(),
+    disclosureText: z.string().optional(),
+    userConsentRequired: z.boolean(),
+    modelProviderCompliance: z.string().optional(),
+  }),
+
+  // Audit & Logging Requirements
+  auditAndLogging: z.object({
+    legalRequirements: z.array(z.string()).default([]),
+    retentionPeriod: z.string(),
+    accessControls: z.string(),
+    immutability: z.boolean(),  // Audit hash chain requirement
+  }),
+
+  // Compliance Certifications
+  complianceCertifications: z.object({
+    soc2: z.object({
+      required: z.boolean(),
+      type: z.enum(["Type I", "Type II", "Not needed"]),
+      timeline: z.string().optional(),
+      bootstrapCost: z.string().optional(),
+      whenToStart: z.string().optional(),
+    }),
+    iso27001: z.object({
+      required: z.boolean(),
+      timeline: z.string().optional(),
     }).optional(),
-    firstRunGuidance: z.object({
-      tooltipCopy: z.string().optional(),
-      calloutCopy: z.string().optional(),
+    hipaa: z.object({
+      required: z.boolean(),
+      subjectTo: z.string().optional(),
     }).optional(),
   }),
-  transactionalEmails: z.object({
-    welcome: z.object({
-      subjectLines: z.array(z.string()),
-      body: z.string(),
-      cta: z.string(),
-    }).optional(),
-    passwordReset: z.object({
-      subject: z.string(),
-      body: z.string(),
-      securityNote: z.string().optional(),
-    }).optional(),
-    trialExpiring: z.object({
-      subjectLines: z.array(z.string()),
-      body: z.string(),
-      upgradeCta: z.string(),
-    }).optional(),
-    invoiceReceipt: z.object({
-      subject: z.string(),
-      body: z.string(),
-    }).optional(),
-    featureAnnouncement: z.object({
-      subject: z.string(),
-      body: z.string(),
-    }).optional(),
-  }).optional(),
-  emptyStates: z.array(z.object({
-    pageRoute: z.string(),
-    headline: z.string(),
-    body: z.string(),
-    ctaText: z.string(),
-    illustration: z.string().optional(),
-  })).optional(),
-  errorMessages: z.object({
-    validation: z.record(z.string()).optional(),
-    apiErrors: z.record(z.string()).optional(),
-    networkErrors: z.object({
-      offline: z.string(),
-      timeout: z.string(),
-      retry: z.string(),
-    }).optional(),
-    paymentErrors: z.record(z.string()).optional(),
-  }).optional(),
-  successMessages: z.record(z.string()).optional(),
-  loadingStates: z.record(z.string()).optional(),
-  faqContent: z.array(z.object({
-    question: z.string(),
-    answer: z.string(),
-    category: z.string().optional(),
-  })).optional(),
-  legalRequirements: z.object({
+
+  // Risk Matrix
+  riskMatrix: z.array(z.object({
+    risk: z.string(),
+    likelihood: z.enum(["high", "medium", "low"]),
+    impact: z.enum(["catastrophic", "major", "moderate", "minor"]),
+    mitigation: z.string(),
+    bootstrapPriority: z.enum(["launch-blocker", "month-1", "month-3", "year-1"]),
+  })).default([]),
+
+  // Bootstrap Compliance Strategy
+  bootstrapCompliance: z.object({
+    launchBlockers: z.array(z.string()).default([]),
+    canDeferUntil: z.array(z.object({
+      milestone: z.string(),
+      items: z.array(z.string()),
+    })).default([]),
+    freeTooling: z.array(z.string()).default([]),
+    whenToHireLawyer: z.string(),
+  }),
+
+  // Vendor Compliance
+  vendorCompliance: z.array(z.object({
+    vendor: z.string(),
+    dataProcessing: z.boolean(),
+    dpaRequired: z.boolean(),  // Data Processing Agreement
+    subProcessors: z.array(z.string()).default([]),
+  })).default([]),
+
+  // Indemnity & Liability
+  indemnityAndLiability: z.object({
+    limitationOfLiability: z.string(),
+    indemnificationScope: z.string(),
+    insuranceRecommendation: z.string().optional(),
+  }),
+
+  // Copy Templates (Original functionality)
+  copyTemplates: z.object({
     privacyPolicy: z.object({
-      dataCollected: z.array(z.string()).optional(),
-      purpose: z.string().optional(),
-      retentionPeriod: z.string().optional(),
-      thirdParties: z.array(z.string()).optional(),
-      userRights: z.array(z.string()).optional(),
+      sections: z.array(z.string()).default([]),
+      keyPoints: z.array(z.string()).default([]),
     }).optional(),
     termsOfService: z.object({
-      scope: z.string().optional(),
-      acceptableUse: z.string().optional(),
-      liabilityLimits: z.string().optional(),
-      termination: z.string().optional(),
+      sections: z.array(z.string()).default([]),
+      keyPoints: z.array(z.string()).default([]),
     }).optional(),
     cookieConsent: z.object({
-      categories: z.array(z.string()).optional(),
+      cookieTypes: z.array(z.string()).default([]),
       consentMechanism: z.string().optional(),
     }).optional(),
-    gdprCompliance: z.object({
-      lawfulBasis: z.string().optional(),
-      dataSubjectRights: z.array(z.string()).optional(),
-    }).optional(),
-  }).optional(),
-  changelogFormat: z.object({
-    template: z.string(),
-    frequency: z.string().optional(),
   }).optional(),
 });
+
+// ============================================================================
+// MAIN CONTENT ENGINE OUTPUT SCHEMA
+// ============================================================================
+
+// Use z.any() passthrough for maximum leniency
+const anyField = z.any().nullish();
+const anyArray = z.any().nullish().default([]);
+
+export const ContentEngineOutputSchema = z.object({
+  onboardingCopy: anyField,
+  transactionalEmails: anyField,
+  emptyStates: anyArray,
+  errorMessages: anyField,
+  successMessages: anyField,
+  loadingStates: anyField,
+  faqContent: anyArray,
+
+  // Expanded Legal Requirements (Phase 1.3)
+  legalRequirements: LegalComplianceSchema.optional(),
+
+  changelogFormat: anyField,
+  /**
+   * Draft tasks contributed by content-engine toward final TASKS.json.
+   * Include: landing page copy tasks, email sequence tasks, UX copy tasks.
+   * These are type: "marketing" tasks with humanReviewRequired: true.
+   */
+  draftTasks: anyArray,
+}).passthrough();
 
 export type ContentEngineOutput = z.infer<typeof ContentEngineOutputSchema>;

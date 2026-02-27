@@ -83,6 +83,172 @@ Submit a contact form.
 }
 ```
 
+### GET /api/public/factory/templates
+
+List all available Cloudflare project templates.
+
+**Query Parameters:**
+- `category` (optional): Filter by category (e.g., "api", "frontend")
+- `framework` (optional): Filter by framework (e.g., "hono", "react")
+- `maxComplexity` (optional): Maximum complexity score (1-5)
+- `includeDeprecated` (optional): Include deprecated templates (default: false)
+- `tenant_id` (optional): Tenant identifier for audit logging
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "1",
+      "slug": "cloudflare-workers-api",
+      "name": "Cloudflare Workers API",
+      "description": "Simple API template",
+      "category": "api",
+      "framework": "hono",
+      "source": "cloudflare",
+      "complexity": 2,
+      "estimatedCostLow": 0,
+      "estimatedCostMid": 5,
+      "estimatedCostHigh": 20,
+      "bindings": ["d1_databases"],
+      "tags": ["api", "rest"],
+      "deprecated": false,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 32
+}
+```
+
+### GET /api/public/factory/templates/:slug
+
+Get details for a specific template.
+
+**Path Parameters:**
+- `slug`: Template slug identifier
+
+**Response:**
+```json
+{
+  "id": "1",
+  "slug": "cloudflare-workers-api",
+  "name": "Cloudflare Workers API",
+  "description": "Simple API template",
+  "category": "api",
+  "framework": "hono",
+  "source": "cloudflare",
+  "complexity": 2,
+  "estimatedCostLow": 0,
+  "estimatedCostMid": 5,
+  "estimatedCostHigh": 20,
+  "bindings": ["d1_databases"],
+  "tags": ["api", "rest"],
+  "deprecated": false,
+  "createdAt": "2024-01-01T00:00:00Z",
+  "updatedAt": "2024-01-01T00:00:00Z"
+}
+```
+
+**Status Codes:**
+- `200` - Template found
+- `404` - Template not found
+
+### GET /api/public/factory/capabilities
+
+List all available Cloudflare platform capabilities.
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "1",
+      "slug": "d1",
+      "name": "D1 Database",
+      "description": "SQLite database",
+      "bindingType": "d1_databases",
+      "hasFreeQuota": true,
+      "freeQuota": "5M reads/day, 5GB storage",
+      "paidPricing": "$0.75/M reads",
+      "bestFor": ["structured-data", "relational"],
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 15
+}
+```
+
+### GET /api/public/factory/capabilities/free
+
+List only capabilities with free tier quotas.
+
+**Response:** Same as `/factory/capabilities` but filtered for free tier only.
+
+### GET /api/public/factory/build-specs
+
+List architecture build specifications from planning runs.
+
+**Query Parameters:**
+- `limit` (optional): Number of results per page (default: 50, max: 100)
+- `offset` (optional): Pagination offset (default: 0)
+- `status` (optional): Filter by status ("draft", "approved", "rejected", "fallback")
+- `tenant_id` (optional): Tenant identifier for audit logging
+
+**Response:**
+```json
+{
+  "buildSpecs": [
+    {
+      "id": "spec-1",
+      "runId": "run-123",
+      "recommended": {
+        "slug": "cloudflare-workers-api",
+        "name": "Cloudflare Workers API",
+        "score": 95,
+        "reasoning": "Best fit for API project",
+        "bindings": [],
+        "estimatedCost": { "bootstrap": 0, "growth": 5, "scale": 20 },
+        "motionTier": "none",
+        "complexity": 2,
+        "tradeoffs": []
+      },
+      "alternatives": [],
+      "dataModel": { "tables": [], "indexes": [], "migrations": [] },
+      "apiRoutes": [],
+      "frontend": null,
+      "agents": [],
+      "freeWins": [],
+      "growthPath": null,
+      "scaffoldCommand": "npm create cloudflare@latest",
+      "totalEstimatedMonthlyCost": { "bootstrap": 0, "growth": 5, "scale": 20 },
+      "status": "draft",
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "pagination": {
+    "limit": 50,
+    "offset": 0,
+    "count": 1
+  }
+}
+```
+
+### GET /api/public/factory/build-specs/:runId
+
+Get architecture build specification for a specific planning run.
+
+**Path Parameters:**
+- `runId`: Planning run identifier
+
+**Response:** Single BuildSpec object (same structure as array item above)
+
+**Status Codes:**
+- `200` - Build spec found
+- `404` - Build spec not found for this run
+
 ---
 
 ## Data Endpoints

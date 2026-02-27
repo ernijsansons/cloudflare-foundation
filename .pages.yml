@@ -1,0 +1,7 @@
+# Cloudflare Pages Build Configuration
+build:
+  command: cd services/ui && pnpm install && pnpm run build
+  output_directory: services/ui/.svelte-kit/cloudflare
+  root_directory: /
+  environment:
+    NODE_VERSION: "20"

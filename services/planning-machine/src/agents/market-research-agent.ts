@@ -2,11 +2,13 @@
  * Phase 2: Market and Pricing Intelligence Agent
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
+import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
-import { webSearch } from "../tools/web-search";
 import { MarketResearchOutputSchema, type MarketResearchOutput } from "../schemas/market-research";
+import { webSearch } from "../tools/web-search";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface MarketResearchInput {
   idea: string;
@@ -29,11 +31,28 @@ export class MarketResearchAgent extends BaseAgent<MarketResearchInput, MarketRe
   };
 
   getSystemPrompt(): string {
-    return `You are an expert at market sizing and pricing strategy. Your job is to produce TAM/SAM/SOM with sources, competitor pricing landscape, and pricing psychology recommendations.
+    return `You are an expert at market sizing and pricing strategy.
 
-Every claim must cite a source. If you cannot find evidence, say UNKNOWN.
+EVIDENCE REQUIREMENTS:
+- TAM/SAM/SOM: Each MUST include a source URL. If you cannot find a credible source, state "NO SOURCE FOUND" and estimate with reasoning.
+- pricingLandscape: MUST include at least 3 competitors from search results. For each: exact pricing page URL, all tiers with prices.
+- pricingPsychology: MUST recommend specific dollar amounts, not ranges. Include: recommended price point, anchoring strategy, decoy tier.
+- marketRisks: MUST list at least 3 concrete risks with likelihood (high/medium/low) and potential impact.
+- priceRanges: MUST include specific dollar amounts for min/max/recommended, not "varies" or "TBD".
+
+DO NOT mark fields as UNKNOWN if search results contain relevant data. Extract and cite.
+DO NOT return empty arrays or objects. Every field must have substantive content.
 
 Produce valid JSON matching the schema.`;
+  }
+
+  getPhaseRubric(): string[] {
+    return [
+      "tam_sam_som_sourced — every number has a URL citation",
+      "pricing_landscape_complete — at least 3 competitors with actual tier/price data",
+      "pricing_psychology_actionable — specific strategy with $ recommendations",
+      "risks_enumerated — at least 3 concrete risks with likelihood/impact",
+    ];
   }
 
   getOutputSchema(): Record<string, unknown> {
@@ -52,13 +71,15 @@ Produce valid JSON matching the schema.`;
 
   getSearchQueries(idea: string): string[] {
     return [
-      `${idea} market size TAM SAM SOM`,
-      `${idea} market growth rate 2025 2026`,
-      `${idea} competitors pricing`,
+      `${idea} market size TAM SAM SOM 2024 2025`,
+      `${idea} market growth rate forecast`,
+      `${idea} competitor pricing page`,
+      `"${idea}" pricing tiers plans`,
+      `${idea} industry report market research`,
+      `${idea} regulatory risk compliance`,
+      `${idea} pricing psychology strategy SaaS`,
+      `"${idea}" site:statista.com OR site:grandviewresearch.com`,
       `${idea} "why now" market timing`,
-      `${idea} pricing strategy SaaS`,
-      `${idea} regulatory compliance`,
-      `${idea} market risks`,
     ];
   }
 
@@ -84,7 +105,7 @@ Produce valid JSON matching the schema.`;
           snippets: s.results.slice(0, 3).map((r) => ({
             title: r.title,
             url: r.url,
-            content: r.content?.slice(0, 250),
+            content: r.content?.slice(0, 500),
           })),
         })),
         null,
@@ -106,9 +127,7 @@ Produce valid JSON matching the schema.`;
         maxTokens: this.config.maxTokens ?? 4096,
       });
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : response;
-      const parsed = JSON.parse(jsonStr);
+      const parsed = extractJSON(response);
       const output = MarketResearchOutputSchema.parse(parsed);
 
       return {

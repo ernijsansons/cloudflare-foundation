@@ -40,7 +40,7 @@ export function contextTokenMiddleware() {
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
         .replace(/=+$/, "");
-      c.req.raw.headers.set("X-Context-Token", `${header}.${body}.${sig}`);
+      c.set("contextToken", `${header}.${body}.${sig}`);
     }
     await next();
   };

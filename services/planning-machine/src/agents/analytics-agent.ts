@@ -2,10 +2,11 @@
  * Phase 11: Analytics and Tracking Agent
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
+import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
 import { AnalyticsOutputSchema, type AnalyticsOutput } from "../schemas/analytics";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface AnalyticsInput {
   idea: string;
@@ -21,13 +22,24 @@ export class AnalyticsAgent extends BaseAgent<AnalyticsInput, AnalyticsOutput> {
       "Is every user action tracked?",
       "Are conversion funnels actionable?",
       "No PII in event properties?",
+      "Does the error taxonomy cover all transient failure modes for Cloudflare bindings?",
+      "Are retry strategies optimized (exponential backoff) to avoid thundering herd?",
+      "Are escalation targets (supervisor/human) clearly defined for critical failures?",
     ],
     maxTokens: 4096,
     includeFoundationContext: true,
   };
 
   getSystemPrompt(): string {
-    return `You are an expert at product analytics. Produce event taxonomy for foundation POST /api/analytics/event (blobs, doubles, indexes). Define conversion funnels, dashboard spec, A/B test plan, queue message schemas for audit/notifications/analytics/webhooks. No PII in events. Produce valid JSON matching the schema.`;
+    return `You are an expert at product analytics and system resilience. Produce event taxonomy for foundation POST /api/analytics/event (blobs, doubles, indexes). Define conversion funnels, dashboard spec, A/B test plan, queue message schemas.
+
+ERROR TAXONOMY & RESILIENCE (PHASE 3):
+- MANDATORY: Define errorTaxonomy with structured retry/escalate/fail logic
+- Specify transient vs permanent errors for: D1 (read-only mode), KV (eventual consistency), Workers AI (rate limits)
+- Define retryStrategy (exponential backoff) and escalation paths (DLQ, supervisor, human)
+- Provide deterministic user-facing error messages
+
+No PII in events. Produce valid JSON matching the schema.`;
   }
 
   getOutputSchema(): Record<string, unknown> {
@@ -38,10 +50,15 @@ export class AnalyticsAgent extends BaseAgent<AnalyticsInput, AnalyticsOutput> {
       abTestPlan: [{ test: "string", variants: ["string"], metric: "string", minimumSampleSize: "number", duration: "string" }],
       queueMessageSchemas: { foundationNotifications: "string", foundationWebhooks: "string", foundationAnalytics: "string" },
       analyticsEngineQueries: [{ name: "string", sql: "string", description: "string" }],
+      errorTaxonomy: {
+        globalErrors: [{ code: "string", category: "transient|permanent|security|logical", retryStrategy: { shouldRetry: true, maxRetries: 3, backoff: "exponential" }, escalation: { shouldEscalate: true, target: "human" }, userMessage: "string" }],
+        componentSpecificErrors: { "WorkersAI": [] },
+        failureModes: [{ component: "string", scenario: "string", mitigation: "string" }]
+      }
     };
   }
 
-  async run(ctx: AgentContext, input: AnalyticsInput): Promise<AgentResult<AnalyticsOutput>> {
+  async run(ctx: AgentContext, _input: AnalyticsInput): Promise<AgentResult<AnalyticsOutput>> {
     const context = this.buildContextPrompt(ctx);
 
     const messages = [
@@ -51,8 +68,7 @@ export class AnalyticsAgent extends BaseAgent<AnalyticsInput, AnalyticsOutput> {
 
     try {
       const response = await runModel(this.env.AI, "generator", messages, { temperature: 0.3, maxTokens: this.config.maxTokens ?? 4096 });
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
+      const parsed = extractJSON(response);
       const output = AnalyticsOutputSchema.parse(parsed);
       return { success: true, output };
     } catch (e) {

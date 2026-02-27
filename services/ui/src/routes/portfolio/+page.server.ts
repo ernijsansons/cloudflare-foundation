@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ platform }) => {
       res = await fetch("http://127.0.0.1:8787/api/planning/runs?limit=100");
     } else if (platform?.env?.GATEWAY) {
       // Production: use service binding
-      res = await platform.env.GATEWAY.fetch("https://_/api/planning/runs?limit=100");
+      res = await platform.env.GATEWAY.fetch("https://_/api/public/planning/runs?limit=100");
     } else {
       return { runs: [], error: "Gateway not configured" };
     }

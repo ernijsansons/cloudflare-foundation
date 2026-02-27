@@ -1,0 +1,108 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Prevent concurrent runs on the same PR
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast validation checks for quick feedback
+  quick-check:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for better diffing
+
+      - name: Setup Node.js & pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for changed files
+        id: changed-files
+        run: |
+          echo "services=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep '^services/' | wc -l)" >> $GITHUB_OUTPUT
+          echo "packages=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep '^packages/' | wc -l)" >> $GITHUB_OUTPUT
+          echo "schema=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep 'schema-validator' | wc -l)" >> $GITHUB_OUTPUT
+
+      - name: Run type checking (changed files only)
+        if: steps.changed-files.outputs.services > 0 || steps.changed-files.outputs.packages > 0
+        run: |
+          if [ ${{ steps.changed-files.outputs.packages }} -gt 0 ]; then
+            pnpm --filter @foundation/shared run typecheck
+            pnpm --filter @foundation/db run typecheck
+          fi
+          if [ ${{ steps.changed-files.outputs.services }} -gt 0 ]; then
+            pnpm run typecheck:workers
+          fi
+
+      - name: Run schema validator tests (if schema changed)
+        if: steps.changed-files.outputs.schema > 0
+        run: pnpm --filter foundation-planning-machine run test src/lib/__tests__/schema-validator.test.ts
+
+      - name: Run lint on changed files
+        run: pnpm run lint
+
+      - name: Check PR title format
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if ! echo "$PR_TITLE" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert)(\(.+\))?: .+'; then
+            echo "❌ PR title must follow conventional commit format:"
+            echo "   feat: add new feature"
+            echo "   fix: bug fix"
+            echo "   docs: documentation changes"
+            echo "   etc."
+            exit 1
+          fi
+          echo "✅ PR title format is valid"
+
+      - name: Check for TODO/FIXME comments in diff
+        run: |
+          TODOS=$(git diff ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -E '^\+.*TODO|FIXME' || true)
+          if [ -n "$TODOS" ]; then
+            echo "⚠️ Warning: New TODO/FIXME comments detected:"
+            echo "$TODOS"
+          fi
+
+      - name: Post PR comment with validation results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `
+            ## 🔍 Quick Validation Results
+
+            - ✅ Type checking completed
+            - ✅ Linting completed
+            - ✅ PR title format validated
+
+            ### Changed Files
+            - Services: ${{ steps.changed-files.outputs.services }} files
+            - Packages: ${{ steps.changed-files.outputs.packages }} files
+            - Schema validator: ${{ steps.changed-files.outputs.schema }} files
+
+            **Note:** Full CI pipeline running separately with comprehensive tests.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });

@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.svelte-kit/
+.wrangler/
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+
+# Package manager
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Generated files
+*.d.ts.map
+
+# Planning machine output
+planning-machine/output/
+**/output/
+
+# Large documentation
+docs/COMPREHENSIVE_AUDIT_REPORT.md
+docs/COMPLETE_DOCUMENTATION_SYSTEM_GUIDE.md
+docs/DOCUMENTATION_SYSTEM_TASKS.json
+
+# Temporary files
+null/
+NUL
+
+# Generated TypeScript definitions
+*.d.ts
+
+# Migration files
+**/migrations/*.sql
+
+# Config files (already formatted)
+wrangler.toml
+wrangler.jsonc
+
+# Additional exclusions to reduce memory usage
+**/.turbo/
+**/.cache/
+**/tsconfig.json
+**/tsconfig.*.json
+**/*.config.js
+**/*.config.ts
+**/vitest.config.ts
+**/vite.config.ts
+
+# Cache files
+.eslintcache
+.prettiercache
+
+# Vendor and third-party
+**/vendor/
+**/third-party/
+**/.next/

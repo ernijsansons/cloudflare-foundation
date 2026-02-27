@@ -1,44 +1,67 @@
 import { Hono } from "hono";
+
+import { FoundationMcpServer } from "./mcp/FoundationMcpServer";
 import { authMiddleware } from "./middleware/auth";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { corsMiddleware } from "./middleware/cors";
 import { correlationMiddleware, createTracedHeaders } from "./middleware/correlation";
 import { tenantMiddleware } from "./middleware/tenant";
 import { contextTokenMiddleware } from "./middleware/context-token";
-import { turnstileMiddleware } from "./middleware/turnstile";
-import { appendAuditEvent, verifyAuditChain } from "./lib/audit-chain";
-import { MAX_FILE_SIZE, ALLOWED_FILE_TYPES, MAX_FILENAME_LENGTH } from "./constants";
+import { correlationMiddleware } from "./middleware/correlation";
+import { corsMiddleware } from "./middleware/cors";
+import { rateLimitMiddleware } from "./middleware/rate-limit";
+import { rateLimitDOMiddleware } from "./middleware/rate-limit-do";
+import { requestLoggerMiddleware } from "./middleware/request-logger";
+import { securityHeadersMiddleware } from "./middleware/security-headers";
+import { tenantMiddleware } from "./middleware/tenant";
+import adminRoutes from "./routes/admin";
+import agentsRoutes from "./routes/agents";
+import analyticsRoutes from "./routes/analytics";
+import cronRoutes from "./routes/cron";
+import dataRoutes from "./routes/data";
+import factoryRoutes from "./routes/factory";
+import filesRoutes from "./routes/files";
+import imagesRoutes from "./routes/images";
+import mcpRoutes from "./routes/mcp";
+import naomiRoutes from "./routes/naomi";
+import planningRoutes from "./routes/planning";
+import projectDocsRouter from "./routes/project-docs";
+import publicRoutes from "./routes/public";
+import webhooksRoutes from "./routes/webhooks";
+import workflowsRoutes from "./routes/workflows";
 import type { Env, Variables } from "./types";
 
 export type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+// Global middleware - applied to all routes
 app.use("*", corsMiddleware());
 app.use("*", correlationMiddleware());
-app.use("*", rateLimitMiddleware());
+app.use("*", requestLoggerMiddleware({ excludePaths: ["/health", "/api/health"] }));
+app.use("*", securityHeadersMiddleware());
 
+// Health check endpoints - no auth required, no rate limiting
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 app.get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
-app.post("/api/public/signup", turnstileMiddleware(), async (c) => {
-  try {
-    await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON" }, 400);
+// Public routes - registered BEFORE auth middleware so they bypass auth.
+// Apply unauthenticated rate limiting explicitly for /api/public/* endpoints.
+app.use("/api/public/*", async (c, next) => {
+  const useDoRateLimiting = c.env.USE_DO_RATE_LIMITING === "true";
+  if (useDoRateLimiting) {
+    return rateLimitDOMiddleware()(c, next);
   }
-  return c.json({ created: true });
+  return rateLimitMiddleware()(c, next);
 });
 
-app.post("/api/public/contact", turnstileMiddleware(), async (c) => {
-  try {
-    await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON" }, 400);
-  }
-  return c.json({ sent: true });
-});
+// Public routes
+app.route("/api/public", publicRoutes);
 
+// MCP routes - no auth required (McpAgent handles its own session)
+app.route("/mcp", mcpRoutes);
+
+// Auth middleware - applied to all /api/* routes below
 app.use("/api/*", authMiddleware());
 app.use("/api/*", tenantMiddleware());
 app.use("/api/*", contextTokenMiddleware());
@@ -65,6 +88,7 @@ app.all("/api/agents/:agentType/:agentId/*", async (c) => {
     console.error("Agent service error:", e);
     return c.json({ error: "Agent service unavailable" }, 503);
   }
+  return rateLimitMiddleware()(c, next);
 });
 
 app.all("/api/planning/*", async (c) => {
@@ -572,3 +596,4 @@ app.post("/api/analytics/event", async (c) => {
 });
 
 export default app;
+export { FoundationMcpServer };

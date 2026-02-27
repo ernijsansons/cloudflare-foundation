@@ -79,6 +79,42 @@ export default {
       );
     }
 
+    // Rate limit check endpoint - proxy to TenantRateLimiter DO
+    if (url.pathname === "/rate-limit/check" && request.method === "POST") {
+      try {
+        const body = await request.json() as { limitId: string; increment?: boolean; maxRequests?: number };
+        if (!body.limitId) {
+          return Response.json({ error: "limitId is required" }, { status: 400 });
+        }
+
+        // Get DO instance by limitId (e.g., "tenant:abc123" or "ip:192.168.1.1")
+        const id = env.RATE_LIMITER.idFromName(body.limitId);
+        const stub = env.RATE_LIMITER.get(id);
+
+        // Forward check request to DO with maxRequests if provided
+        const checkUrl = new URL("https://fake-host/check");
+        if (body.maxRequests) {
+          checkUrl.searchParams.set("maxRequests", String(body.maxRequests));
+        }
+        const doResponse = await stub.fetch(checkUrl.toString());
+
+        // Parse response and add resetAt timestamp
+        const data = await doResponse.json() as { allowed: boolean; remaining: number; retryAfter?: number };
+        const resetAt = data.retryAfter ? Date.now() + (data.retryAfter * 1000) : Date.now() + 60000;
+
+        return Response.json(
+          { ...data, resetAt },
+          {
+            status: doResponse.status,
+            headers: doResponse.headers
+          }
+        );
+      } catch (error) {
+        console.error("Rate limit check error:", error);
+        return Response.json({ error: "Rate limit service error" }, { status: 500 });
+      }
+    }
+
     if (url.pathname.startsWith("/mcp")) {
       return FoundationMcpServer.serve("/mcp").fetch(request, env, ctx);
     }

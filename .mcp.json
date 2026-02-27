@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "cloudflare-foundation": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "mcp-remote",
+        "http://localhost:8787/mcp"
+      ]
+    }
+  }
+}

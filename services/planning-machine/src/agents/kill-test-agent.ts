@@ -6,10 +6,9 @@
  * lower temperatureSynthesizer for conservative GO/KILL decisions.
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
+import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
-import { webSearch } from "../tools/web-search";
+import type { OrchestrationResult } from "../lib/orchestrator";
 import { KillTestOutputSchema, type KillTestOutput } from "../schemas/kill-test";
 import type { OrchestrationResult } from "../lib/orchestrator";
 import { extractJSON } from "../lib/orchestrator";
@@ -175,9 +174,7 @@ Produce valid JSON matching the schema. verdict must be one of: GO, PIVOT, KILL.
         maxTokens: this.config.maxTokens ?? 2048,
       });
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : response;
-      const parsed = JSON.parse(jsonStr);
+      const parsed = extractJSON(response);
       const output = KillTestOutputSchema.parse(parsed);
 
       return { success: true, output };

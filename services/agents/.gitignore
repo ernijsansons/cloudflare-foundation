@@ -1,0 +1,12 @@
+# Local development secrets
+.dev.vars
+
+# Wrangler outputs
+.wrangler/
+wrangler.toml.local
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/

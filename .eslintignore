@@ -1,0 +1,75 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.svelte-kit/
+.wrangler/
+**/output/
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+
+# Package manager
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Generated files
+*.d.ts.map
+**/.cloudflare/
+**/.turbo/
+
+# Planning machine output
+planning-machine/output/
+
+# Large documentation
+docs/COMPREHENSIVE_AUDIT_REPORT.md
+docs/COMPLETE_DOCUMENTATION_SYSTEM_GUIDE.md
+docs/DOCUMENTATION_SYSTEM_TASKS.json
+
+# Temporary files
+null/
+NUL
+
+# Migration files
+**/migrations/*.sql
+
+# Config files
+*.config.js
+*.config.ts
+wrangler.toml
+wrangler.jsonc
+
+# Test and spec files (excluded from full lint, but checked in incremental)
+**/__tests__/
+**/*.test.ts
+**/*.spec.ts
+**/*.test.js
+**/*.spec.js
+
+# Large generated/vendor files
+**/vendor/
+**/third-party/
+**/.next/
+
+# Cache directories
+**/.cache/
+.eslintcache
+.prettiercache

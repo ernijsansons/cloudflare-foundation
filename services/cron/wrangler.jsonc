@@ -5,6 +5,13 @@
   "compatibility_date": "2025-09-25",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "foundation-primary",
+      "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244"
+    }
+  ],
   "triggers": {
     "crons": [
       "0 * * * *",

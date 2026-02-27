@@ -2,10 +2,12 @@
  * Phase 13: Synthesis and Build Manifest Agent
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
+import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
 import { SynthesisOutputSchema, type SynthesisOutput } from "../schemas/synthesis";
+import type { Env } from "../types";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface SynthesisInput {
   idea: string;
@@ -72,8 +74,7 @@ Produce valid JSON matching the schema.`;
 
     try {
       const response = await runModel(this.env.AI, "generator", messages, { temperature: 0.3, maxTokens: this.config.maxTokens ?? 8192 });
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : response);
+      const parsed = extractJSON(response);
       const output = SynthesisOutputSchema.parse(parsed);
       return { success: true, output };
     } catch (e) {

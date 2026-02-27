@@ -1,46 +1,96 @@
 import { z } from "zod";
 
+// Helper to accept string or object with value property
+const stringOrObject = z.union([
+  z.string(),
+  z.object({}).passthrough(),
+]).nullish();
+
+// Helper to accept array or object
+const arrayOrObject = z.union([
+  z.array(z.any()),
+  z.object({}).passthrough(),
+]).nullish();
+
 export const AdjacentProductSchema = z.object({
-  product: z.string(),
-  description: z.string(),
-  revenueCeiling: z.enum(["VERY_HIGH", "HIGH", "MEDIUM", "LOW"]),
-  implementationEffort: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  audienceOverlap: z.number().min(0).max(1),
-  agenticPotential: z.enum(["HIGH", "MEDIUM", "LOW"]),
-  reasoning: z.string(),
-  sources: z.array(z.object({
-    claim: z.string(),
-    url: z.string().optional(),
-  })).optional(),
+  product: stringOrObject,
+  description: stringOrObject,
+  revenueCeiling: z.union([
+    z.enum(["VERY_HIGH", "HIGH", "MEDIUM", "LOW"]),
+    z.string(),
+    z.number(),
+  ]).nullish(),
+  implementationEffort: z.union([
+    z.enum(["LOW", "MEDIUM", "HIGH"]),
+    z.string(),
+    z.number(),
+  ]).nullish(),
+  audienceOverlap: z.union([z.number(), z.string()]).nullish(),
+  agenticPotential: z.union([
+    z.enum(["HIGH", "MEDIUM", "LOW"]),
+    z.string(),
+    z.number(),
+  ]).nullish(),
+  reasoning: stringOrObject,
+  sources: arrayOrObject,
 });
 
 export const UpsellFeatureSchema = z.object({
-  feature: z.string(),
-  description: z.string(),
-  willingnessToPayEvidence: z.string(),
-  revenueImpact: z.enum(["HIGH", "MEDIUM", "LOW"]),
-  effortToAdd: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  agenticValue: z.string().optional(),
+  feature: stringOrObject,
+  description: stringOrObject,
+  willingnessToPayEvidence: stringOrObject,
+  revenueImpact: z.union([
+    z.enum(["HIGH", "MEDIUM", "LOW"]),
+    z.string(),
+    z.number(),
+  ]).nullish(),
+  effortToAdd: z.union([
+    z.enum(["LOW", "MEDIUM", "HIGH"]),
+    z.string(),
+    z.number(),
+  ]).nullish(),
+  agenticValue: stringOrObject,
 });
 
 export const RevenueRankingItemSchema = z.object({
-  id: z.string(),
-  type: z.enum(["primary", "adjacent", "upsell"]),
-  name: z.string(),
-  revenuePotential: z.number().optional(),
-  speedToRevenue: z.enum(["FAST", "MEDIUM", "SLOW"]),
-  agenticDepth: z.enum(["deep", "surface", "none"]),
-  rank: z.number(),
+  id: stringOrObject,
+  type: z.union([
+    z.enum(["primary", "adjacent", "upsell"]),
+    z.string(),
+    z.number(),
+  ]).nullish(),
+  name: stringOrObject,
+  revenuePotential: z.union([z.number(), z.string()]).nullish(),
+  speedToRevenue: z.union([
+    z.enum(["FAST", "MEDIUM", "SLOW"]),
+    z.string(),
+    z.number(),
+  ]).nullish(),
+  agenticDepth: z.union([
+    z.enum(["deep", "surface", "none"]),
+    z.string(),
+    z.number(),
+  ]).nullish(),
+  rank: z.union([z.number(), z.string()]).nullish(),
 });
 
 export const RevenueExpansionOutputSchema = z.object({
-  primaryProduct: z.string(),
-  adjacentProducts: z.array(AdjacentProductSchema),
-  upsellFeatures: z.array(UpsellFeatureSchema),
-  ecosystemStrategy: z.string(),
-  agenticValueChain: z.string(),
-  palantirLessons: z.array(z.string()),
-  revenueRanking: z.array(RevenueRankingItemSchema),
+  primaryProduct: stringOrObject,
+  adjacentProducts: z.union([
+    z.array(AdjacentProductSchema),
+    z.object({}).passthrough(),
+  ]).nullish().default([]),
+  upsellFeatures: z.union([
+    z.array(UpsellFeatureSchema),
+    z.object({}).passthrough(),
+  ]).nullish().default([]),
+  ecosystemStrategy: stringOrObject,
+  agenticValueChain: stringOrObject,
+  palantirLessons: arrayOrObject.default([]),
+  revenueRanking: z.union([
+    z.array(RevenueRankingItemSchema),
+    z.object({}).passthrough(),
+  ]).nullish().default([]),
 });
 
 export type RevenueExpansionOutput = z.infer<typeof RevenueExpansionOutputSchema>;

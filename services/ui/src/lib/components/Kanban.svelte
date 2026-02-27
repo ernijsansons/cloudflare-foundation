@@ -18,11 +18,12 @@
 </script>
 
 <div class="kanban">
-  {#each columns as column (column.id)}
+  {#each columns as column, index (column.id)}
     <KanbanColumn
       title={column.title}
       status={column.status}
       color={column.color}
+      phaseNumber={index + 1}
       cards={getCardsForColumn(column.status)}
       {onCardClick}
       {onCardMove}

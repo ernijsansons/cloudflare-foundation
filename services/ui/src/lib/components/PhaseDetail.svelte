@@ -2,6 +2,15 @@
   import type { PhaseName, PlanningArtifact } from "$lib/types";
   import { phaseDocs, getPhaseIndex, PHASE_ORDER } from "$lib/data/phase-docs";
   import ArtifactViewer from "./ArtifactViewer.svelte";
+  import TakeawaysPanel from "./panels/TakeawaysPanel.svelte";
+  import DecisionPanel from "./panels/DecisionPanel.svelte";
+  import UnknownsPanel from "./panels/UnknownsPanel.svelte";
+  import KLLMConsensusPanel from "./KLLMConsensusPanel.svelte";
+  import ModelResponseViewer from "./ModelResponseViewer.svelte";
+  import WildIdeasSection from "./WildIdeasSection.svelte";
+  import { normalizePhaseArtifact } from "$lib/utils/phase-normalizer";
+  import { getRendererComponentForPhase } from "$lib/renderers/renderer-registry";
+  import { hasWildIdeas } from "$lib/utils/orchestration-detection";
 
   interface Props {
     phase: PhaseName;
@@ -24,6 +33,18 @@
   }
 
   let status = $derived(getStatusBadge(artifact));
+
+  // Normalize artifact to extract structured data
+  let normalized = $derived(artifact ? normalizePhaseArtifact(phase, artifact) : null);
+
+  // Get custom renderer component if available
+  let rendererComponent = $derived(getRendererComponentForPhase(phase));
+
+  // K-LLM orchestration state
+  let activeTab = $state<"final" | "ensemble" | "wild">("final");
+  let orchestration = $derived(normalized?.orchestration);
+  let hasOrchestration = $derived(!!orchestration);
+  let showWildIdeas = $derived(orchestration ? hasWildIdeas(orchestration) : false);
 </script>
 
 <div class="phase-detail">
@@ -69,10 +90,99 @@
       </section>
     {/if}
 
+    {#if normalized}
+      <!-- Takeaways Panel -->
+      {#if normalized.takeaways.length > 0}
+        <section class="phase-section">
+          <h3 class="section-title">Takeaways</h3>
+          <TakeawaysPanel takeaways={normalized.takeaways} />
+        </section>
+      {/if}
+
+      <!-- Decisions Panel -->
+      {#if normalized.decisions.length > 0}
+        <section class="phase-section">
+          <h3 class="section-title">Key Decisions</h3>
+          <DecisionPanel decisions={normalized.decisions} />
+        </section>
+      {/if}
+
+      <!-- Unknowns Panel -->
+      {#if normalized.unknowns.length > 0}
+        <section class="phase-section">
+          <h3 class="section-title">Unknowns</h3>
+          <UnknownsPanel unknowns={normalized.unknowns} />
+        </section>
+      {/if}
+    {/if}
+
     {#if artifact}
       <section class="phase-section">
-        <h3 class="section-title">Artifact</h3>
-        <ArtifactViewer artifact={artifact.content} expanded={true} />
+        {#if hasOrchestration}
+          <!-- K-LLM Ensemble Tab Switcher -->
+          <div class="tab-switcher">
+            <button
+              class="tab-button"
+              class:active={activeTab === "final"}
+              type="button"
+              onclick={() => activeTab = "final"}
+            >
+              Final Output
+            </button>
+            <button
+              class="tab-button"
+              class:active={activeTab === "ensemble"}
+              type="button"
+              onclick={() => activeTab = "ensemble"}
+            >
+              Ensemble Details
+            </button>
+            {#if showWildIdeas}
+              <button
+                class="tab-button"
+                class:active={activeTab === "wild"}
+                type="button"
+                onclick={() => activeTab = "wild"}
+              >
+                Wild Ideas ({orchestration.wildIdeas.length})
+              </button>
+            {/if}
+          </div>
+
+          <!-- Tab Content -->
+          {#if activeTab === "final"}
+            <div class="tab-content">
+              <h3 class="section-title">Final Synthesized Output</h3>
+              {#if rendererComponent}
+                <svelte:component this={rendererComponent} content={artifact.content} />
+              {:else}
+                <ArtifactViewer artifact={artifact.content} expanded={true} />
+              {/if}
+            </div>
+          {:else if activeTab === "ensemble"}
+            <div class="tab-content">
+              <h3 class="section-title">K-LLM Ensemble Analysis</h3>
+              <KLLMConsensusPanel orchestration={orchestration} />
+              <div class="mt-4">
+                <h4 class="subsection-title">Individual Model Outputs</h4>
+                <ModelResponseViewer modelOutputs={orchestration.modelOutputs} />
+              </div>
+            </div>
+          {:else if activeTab === "wild"}
+            <div class="tab-content">
+              <h3 class="section-title">Divergent Thinking</h3>
+              <WildIdeasSection wildIdeas={orchestration.wildIdeas} />
+            </div>
+          {/if}
+        {:else}
+          <!-- No orchestration - single model output -->
+          <h3 class="section-title">Artifact</h3>
+          {#if rendererComponent}
+            <svelte:component this={rendererComponent} content={artifact.content} />
+          {:else}
+            <ArtifactViewer artifact={artifact.content} expanded={true} />
+          {/if}
+        {/if}
       </section>
 
       {#if artifact.review_verdict || artifact.overall_score}
@@ -413,5 +523,57 @@
   .phase-progress {
     font-size: 0.8125rem;
     color: var(--color-text-muted);
+  }
+
+  /* Tab Switcher */
+  .tab-switcher {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--color-bg-secondary);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+
+  .tab-button {
+    flex: 1;
+    padding: 0.625rem 1rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tab-button:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text);
+  }
+
+  .tab-button.active {
+    background: var(--color-bg-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+
+  .tab-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .subsection-title {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .mt-4 {
+    margin-top: 1rem;
   }
 </style>

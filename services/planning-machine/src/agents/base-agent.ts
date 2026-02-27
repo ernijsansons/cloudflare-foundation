@@ -3,8 +3,8 @@
  * Uses the 5-phase reasoning protocol
  */
 
-import type { Env } from "../types";
-import type { ReasoningState } from "../lib/reasoning-engine";
+import type { PlanningWorkflowPhaseName } from "@foundation/shared";
+
 import { getFoundationContext } from "../lib/foundation-context";
 import type { OrchestrationResult, OrchestratorConfig } from "../lib/orchestrator";
 import { orchestrateModels } from "../lib/orchestrator";
@@ -23,6 +23,9 @@ export interface AgentResult<T = unknown> {
   output?: T;
   reasoningState?: ReasoningState;
   score?: number;
+  /** Non-fatal warnings (e.g., fallback used, degraded output) */
+  warnings?: string[];
+  /** Fatal errors that caused failure */
   errors?: string[];
   /** Present when multi-model orchestration was used — contains per-model outputs and wild ideas */
   orchestration?: OrchestrationResult;

@@ -8,10 +8,9 @@
  * before synthesis and stored alongside the artifact for human review.
  */
 
-import type { Env } from "../types";
-import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
+import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
-import { webSearch } from "../tools/web-search";
+import type { OrchestrationResult } from "../lib/orchestrator";
 import { OpportunityOutputSchema, type OpportunityOutput } from "../schemas/opportunity";
 import type { OrchestrationResult } from "../lib/orchestrator";
 import { extractJSON } from "../lib/orchestrator";
@@ -177,9 +176,7 @@ Output valid JSON matching the schema. Include agenticScore for each variant.`;
         maxTokens: 2048,
       });
 
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : response;
-      const parsed = JSON.parse(jsonStr);
+      const parsed = extractJSON(response);
       const output = OpportunityOutputSchema.parse(parsed);
 
       return { success: true, output };

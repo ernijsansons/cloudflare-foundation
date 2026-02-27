@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ platform }) => {
     } else if (platform?.env?.GATEWAY) {
       // Production: use service binding
       res = await platform.env.GATEWAY.fetch(
-        "https://_/api/planning/parked-ideas?limit=100"
+        "https://_/api/public/planning/parked-ideas?limit=100"
       );
     } else {
       return { ideas: [], error: "Gateway not configured" };
