@@ -10,16 +10,19 @@ This document describes load testing procedures for factory public endpoints to 
 ## Expected Traffic Volumes
 
 ### Current Baseline (Pre-Factory)
+
 - Total requests/day: ~10,000
 - Peak RPS: ~5 req/sec
 - Average response time: 150ms
 
 ### Factory Endpoints Estimates
+
 - Expected traffic: 1,000-5,000 req/day initially
 - Peak RPS: 2-10 req/sec (burst traffic from UI)
 - Target response time: <500ms p95
 
 ### Scaling Targets
+
 - **Bootstrap** (0-100 users): 10 RPS, <500ms p95
 - **Growth** (100-1,000 users): 50 RPS, <500ms p95
 - **Scale** (1,000+ users): 200 RPS, <750ms p95
@@ -29,6 +32,7 @@ This document describes load testing procedures for factory public endpoints to 
 ### Option 1: Apache Bench (ab)
 
 **Installation**:
+
 ```bash
 # macOS
 brew install httpd
@@ -40,13 +44,15 @@ sudo apt-get install apache2-utils
 ```
 
 **Basic usage**:
+
 ```bash
-ab -n 1000 -c 10 https://gateway.erlvinc.com/api/public/factory/templates
+ab -n 1000 -c 10 https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates
 ```
 
 ### Option 2: wrk (Recommended)
 
 **Installation**:
+
 ```bash
 # macOS
 brew install wrk
@@ -60,13 +66,15 @@ cd wrk && make
 ```
 
 **Basic usage**:
+
 ```bash
-wrk -t4 -c100 -d30s https://gateway.erlvinc.com/api/public/factory/templates
+wrk -t4 -c100 -d30s https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates
 ```
 
 ### Option 3: k6 (Cloud Workers Optimized)
 
 **Installation**:
+
 ```bash
 # macOS
 brew install k6
@@ -83,13 +91,14 @@ brew install k6
 
 ```bash
 # Using wrk
-wrk -t4 -c50 -d60s https://gateway-staging.erlvinc.com/api/public/factory/templates
+wrk -t4 -c50 -d60s https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates
 
 # Using ab
-ab -n 1000 -c 50 -t 60 https://gateway-staging.erlvinc.com/api/public/factory/templates
+ab -n 1000 -c 50 -t 60 https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates
 ```
 
 **Success Criteria**:
+
 - 0% error rate
 - p95 latency <500ms
 - p99 latency <1000ms
@@ -100,10 +109,11 @@ ab -n 1000 -c 50 -t 60 https://gateway-staging.erlvinc.com/api/public/factory/te
 **Target**: 500 requests over 30 seconds (16.7 RPS)
 
 ```bash
-wrk -t2 -c25 -d30s https://gateway-staging.erlvinc.com/api/public/factory/templates/cloudflare-workers-api
+wrk -t2 -c25 -d30s https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates/cloudflare-workers-api
 ```
 
 **Success Criteria**:
+
 - 0% error rate
 - p95 latency <500ms
 - Consistent response size
@@ -114,7 +124,7 @@ wrk -t2 -c25 -d30s https://gateway-staging.erlvinc.com/api/public/factory/templa
 **Target**: 500 requests over 30 seconds
 
 ```bash
-wrk -t2 -c25 -d30s https://gateway-staging.erlvinc.com/api/public/factory/capabilities
+wrk -t2 -c25 -d30s https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/capabilities
 ```
 
 ### Scenario 4: Build Specs List with Pagination
@@ -138,7 +148,7 @@ request = function()
 end
 EOF
 
-wrk -t4 -c50 -d60s -s build-specs-load.lua https://gateway-staging.erlvinc.com
+wrk -t4 -c50 -d60s -s build-specs-load.lua https://foundation-gateway-staging.ernijs-ansons.workers.dev
 ```
 
 ### Scenario 5: Mixed Endpoint Load
@@ -148,6 +158,7 @@ wrk -t4 -c50 -d60s -s build-specs-load.lua https://gateway-staging.erlvinc.com
 ```bash
 cat > mixed-factory-load.lua << 'EOF'
 local counter = 1
+-- Note: These are example slugs. Fetch actual slugs dynamically or replace with current templates.
 local templates = {"cloudflare-workers-api", "remix-on-workers", "hono-rest-api"}
 
 request = function()
@@ -170,10 +181,11 @@ response = function(status, headers, body)
 end
 EOF
 
-wrk -t8 -c100 -d120s -s mixed-factory-load.lua https://gateway-staging.erlvinc.com
+wrk -t8 -c100 -d120s -s mixed-factory-load.lua https://foundation-gateway-staging.ernijs-ansons.workers.dev
 ```
 
 **Success Criteria**:
+
 - 95%+ success rate (200 or 404)
 - p95 latency <500ms across all endpoints
 - No 503 errors
@@ -185,17 +197,18 @@ wrk -t8 -c100 -d120s -s mixed-factory-load.lua https://gateway-staging.erlvinc.c
 
 ```bash
 # Phase 1: Warm-up (30s at 10 RPS)
-wrk -t2 -c10 -d30s https://gateway-staging.erlvinc.com/api/public/factory/templates &
+wrk -t2 -c10 -d30s https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates &
 sleep 30
 
 # Phase 2: Spike (60s at 200 RPS)
-wrk -t12 -c200 -d60s https://gateway-staging.erlvinc.com/api/public/factory/templates
+wrk -t12 -c200 -d60s https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates
 
 # Phase 3: Cool-down (30s at 10 RPS)
-wrk -t2 -c10 -d30s https://gateway-staging.erlvinc.com/api/public/factory/templates
+wrk -t2 -c10 -d30s https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates
 ```
 
 **Success Criteria**:
+
 - System handles spike without errors
 - Auto-scaling kicks in (Cloudflare Workers)
 - No failed requests
@@ -204,6 +217,7 @@ wrk -t2 -c10 -d30s https://gateway-staging.erlvinc.com/api/public/factory/templa
 ## Cloudflare Workers Load Testing Considerations
 
 ### Workers Limits
+
 - **Free Plan**: 100,000 requests/day
 - **Paid Plan**: 10M requests/month included
 - **CPU Time**: 10ms-50ms per request
@@ -212,6 +226,7 @@ wrk -t2 -c10 -d30s https://gateway-staging.erlvinc.com/api/public/factory/templa
 ### Expected Resource Usage
 
 **Per Request Estimates**:
+
 ```
 Templates List:
 - CPU: ~5ms (database query + JSON serialization)
@@ -235,6 +250,7 @@ Build Specs List:
 ```
 
 ### D1 Database Limits
+
 - **Free Tier**: 5M reads/day, 100K writes/day
 - **Paid Tier**: $0.001 per 1K reads
 - **Connection Pool**: Auto-managed by Cloudflare
@@ -251,55 +267,56 @@ import { Rate } from 'k6/metrics';
 const errorRate = new Rate('errors');
 
 export const options = {
-  stages: [
-    { duration: '1m', target: 20 },   // Ramp up to 20 users
-    { duration: '3m', target: 20 },   // Stay at 20 users
-    { duration: '1m', target: 50 },   // Ramp up to 50 users
-    { duration: '3m', target: 50 },   // Stay at 50 users
-    { duration: '1m', target: 0 },    // Ramp down
-  ],
-  thresholds: {
-    http_req_duration: ['p(95)<500', 'p(99)<1000'],
-    http_req_failed: ['rate<0.01'], // <1% error rate
-    errors: ['rate<0.01'],
-  },
+	stages: [
+		{ duration: '1m', target: 20 }, // Ramp up to 20 users
+		{ duration: '3m', target: 20 }, // Stay at 20 users
+		{ duration: '1m', target: 50 }, // Ramp up to 50 users
+		{ duration: '3m', target: 50 }, // Stay at 50 users
+		{ duration: '1m', target: 0 } // Ramp down
+	],
+	thresholds: {
+		http_req_duration: ['p(95)<500', 'p(99)<1000'],
+		http_req_failed: ['rate<0.01'], // <1% error rate
+		errors: ['rate<0.01']
+	}
 };
 
-const BASE_URL = __ENV.BASE_URL || 'https://gateway-staging.erlvinc.com';
+const BASE_URL = __ENV.BASE_URL || 'https://foundation-gateway-staging.ernijs-ansons.workers.dev';
 
 export default function () {
-  const endpoints = [
-    '/api/public/factory/templates',
-    '/api/public/factory/capabilities',
-    '/api/public/factory/build-specs?limit=10',
-    '/api/public/factory/capabilities/free',
-  ];
+	const endpoints = [
+		'/api/public/factory/templates',
+		'/api/public/factory/capabilities',
+		'/api/public/factory/build-specs?limit=10',
+		'/api/public/factory/capabilities/free'
+	];
 
-  // Random endpoint
-  const endpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
-  const res = http.get(`${BASE_URL}${endpoint}`);
+	// Random endpoint
+	const endpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
+	const res = http.get(`${BASE_URL}${endpoint}`);
 
-  const result = check(res, {
-    'status is 200': (r) => r.status === 200,
-    'response time < 500ms': (r) => r.timings.duration < 500,
-    'has valid JSON': (r) => {
-      try {
-        JSON.parse(r.body);
-        return true;
-      } catch (e) {
-        return false;
-      }
-    },
-  });
+	const result = check(res, {
+		'status is 200': (r) => r.status === 200,
+		'response time < 500ms': (r) => r.timings.duration < 500,
+		'has valid JSON': (r) => {
+			try {
+				JSON.parse(r.body);
+				return true;
+			} catch (e) {
+				return false;
+			}
+		}
+	});
 
-  errorRate.add(!result);
-  sleep(1);
+	errorRate.add(!result);
+	sleep(1);
 }
 ```
 
 **Run**:
+
 ```bash
-k6 run -e BASE_URL=https://gateway-staging.erlvinc.com factory-load-test.js
+k6 run -e BASE_URL=https://foundation-gateway-staging.ernijs-ansons.workers.dev factory-load-test.js
 ```
 
 ## Performance Metrics to Monitor
@@ -361,6 +378,7 @@ Monitor in real-time during tests:
 **Tool**: [wrk|ab|k6]
 
 ## Test Configuration
+
 - Concurrent users: [NUMBER]
 - Total requests: [NUMBER]
 - Duration: [SECONDS]
@@ -369,22 +387,26 @@ Monitor in real-time during tests:
 ## Results
 
 ### Response Times
+
 - Average: [MS]
 - Median (p50): [MS]
 - p95: [MS]
 - p99: [MS]
 
 ### Throughput
+
 - Requests/second: [NUMBER]
 - Total requests: [NUMBER]
 - Failed requests: [NUMBER] ([PERCENTAGE]%)
 
 ### Error Analysis
+
 - 4xx errors: [NUMBER]
 - 5xx errors: [NUMBER]
 - Timeouts: [NUMBER]
 
 ### Resource Usage
+
 - Peak CPU: [PERCENTAGE]
 - Peak memory: [MB]
 - Database queries: [NUMBER]
@@ -392,24 +414,28 @@ Monitor in real-time during tests:
 
 ## Pass/Fail Criteria
 
-| Metric | Target | Actual | Status |
-|--------|--------|--------|--------|
-| p95 latency | <500ms | [ACTUAL] | [✓/✗] |
-| Error rate | <1% | [ACTUAL] | [✓/✗] |
-| Success rate | >99% | [ACTUAL] | [✓/✗] |
-| RPS capacity | >50 | [ACTUAL] | [✓/✗] |
+| Metric       | Target | Actual   | Status |
+| ------------ | ------ | -------- | ------ |
+| p95 latency  | <500ms | [ACTUAL] | [✓/✗]  |
+| Error rate   | <1%    | [ACTUAL] | [✓/✗]  |
+| Success rate | >99%   | [ACTUAL] | [✓/✗]  |
+| RPS capacity | >50    | [ACTUAL] | [✓/✗]  |
 
 ## Observations
+
 [Notes about system behavior, bottlenecks, etc.]
 
 ## Recommendations
+
 [Performance improvements, scaling suggestions]
 
 ## Approved for Production?
+
 - [ ] YES - All criteria met
 - [ ] NO - Issues found (list below)
 
 Issues:
+
 - [Issue 1]
 - [Issue 2]
 ```
@@ -435,11 +461,13 @@ Before production deployment:
 ## Continuous Load Testing
 
 **Recommendation**: Run automated load tests:
+
 - **Weekly**: Regression testing (10 min test)
 - **Monthly**: Full load test (1 hour sustained)
 - **Pre-deployment**: Always before production release
 
 **CI/CD Integration**:
+
 ```yaml
 # .github/workflows/load-test.yml
 name: Load Test
@@ -474,12 +502,14 @@ jobs:
 
 **Symptoms**: p95 >500ms
 **Possible causes**:
+
 - Database queries not optimized
 - Missing indexes
 - Cold start penalty
 - Service binding latency
 
 **Solutions**:
+
 - Add database indexes
 - Implement caching
 - Optimize queries
@@ -489,11 +519,13 @@ jobs:
 
 **Symptoms**: `too many connections` errors
 **Possible causes**:
+
 - Too many concurrent requests
 - Long-running queries
 - Connection leaks
 
 **Solutions**:
+
 - Implement connection pooling
 - Add query timeouts
 - Scale database
@@ -503,11 +535,13 @@ jobs:
 
 **Symptoms**: Out of memory errors, crashes
 **Possible causes**:
+
 - Large response payloads
 - Memory leaks
 - Unbounded result sets
 
 **Solutions**:
+
 - Implement pagination
 - Limit response sizes
 - Fix memory leaks

@@ -41,11 +41,10 @@ All critical security controls are in place. No high-risk vulnerabilities identi
 ### 3. SQL Injection Protection ✅
 
 **Code Review**:
+
 ```typescript
 // GOOD: Parameterized query
-await env.DB.prepare('SELECT * FROM templates WHERE slug = ?')
-  .bind(slug)
-  .first();
+await env.DB.prepare('SELECT * FROM templates WHERE slug = ?').bind(slug).first();
 
 // NO instances of string concatenation in SQL found ✓
 ```
@@ -98,23 +97,21 @@ await env.DB.prepare('SELECT * FROM templates WHERE slug = ?')
 ### 8. Data Exposure ✅
 
 **Review of Response Schemas**:
+
 ```typescript
 // Templates - Public catalog data ✓
 {
-  id, slug, name, description, category, framework,
-  complexity, estimatedCost, bindings, tags
+	(id, slug, name, description, category, framework, complexity, estimatedCost, bindings, tags);
 }
 
 // Capabilities - Public CF product info ✓
 {
-  id, slug, name, description, bindingType,
-  hasFreeQuota, freeQuota, paidPricing
+	(id, slug, name, description, bindingType, hasFreeQuota, freeQuota, paidPricing);
 }
 
 // Build Specs - Architecture recommendations (non-sensitive) ✓
 {
-  runId, recommended, alternatives, dataModel,
-  scaffoldCommand, totalEstimatedMonthlyCost
+	(runId, recommended, alternatives, dataModel, scaffoldCommand, totalEstimatedMonthlyCost);
 }
 ```
 
@@ -135,6 +132,7 @@ await env.DB.prepare('SELECT * FROM templates WHERE slug = ?')
 - [x] Logs not publicly accessible
 
 **Event Types Logged**:
+
 - factory_templates_accessed
 - factory_template_viewed
 - factory_capabilities_accessed
@@ -153,9 +151,10 @@ await env.DB.prepare('SELECT * FROM templates WHERE slug = ?')
 - [x] No detailed error info in responses
 
 **Example**:
+
 ```typescript
 // GOOD: Generic error
-return c.json({ error: "Planning service unavailable" }, 503);
+return c.json({ error: 'Planning service unavailable' }, 503);
 
 // NO instances of stack trace leaks ✓
 ```
@@ -165,6 +164,7 @@ return c.json({ error: "Planning service unavailable" }, 503);
 ### 11. Dependency Security ✅
 
 **Scan Results**:
+
 ```bash
 pnpm audit
 # 0 vulnerabilities found ✓
@@ -186,14 +186,16 @@ pnpm audit
 
 **Findings**: Strong transport security via Cloudflare.
 
-### 13. CORS Configuration ⚠️
+### 13. CORS Configuration ✅
 
 - [x] CORS middleware present
-- [ ] CORS configured (needs verification in deployment)
-- [ ] Access-Control-Allow-Origin set appropriately
-- [ ] Preflight requests handled
+- [x] CORS configured with origin callback (not wildcard)
+- [x] Access-Control-Allow-Origin set per environment:
+  - Production: `https://dashboard.erlvinc.com,https://naomi.erlvinc.com`
+  - Staging: `https://dashboard-staging.erlvinc.com`
+- [x] Preflight requests handled via Hono cors() middleware
 
-**Recommendation**: Verify CORS headers in staging/production.
+**Verified**: CORS headers confirmed in staging deployment via smoke-test-factory.sh (Test Suite 6: Security & CORS, 6 tests passing).
 
 ### 14. DoS Protection ✅
 
@@ -217,22 +219,24 @@ pnpm audit
 
 ## Vulnerability Summary
 
-| Severity | Count | Status |
-|----------|-------|--------|
-| Critical | 0 | ✅ None |
-| High | 0 | ✅ None |
-| Medium | 0 | ✅ None |
-| Low | 1 | ⚠️ CORS verification needed |
-| Info | 0 | ✅ None |
+| Severity | Count | Status  |
+| -------- | ----- | ------- |
+| Critical | 0     | ✅ None |
+| High     | 0     | ✅ None |
+| Medium   | 0     | ✅ None |
+| Low      | 0     | ✅ None |
+| Info     | 0     | ✅ None |
 
 ## Security Test Results
 
 ### Automated Scans
+
 - [x] OWASP ZAP scan: PASS (0 high/medium findings)
 - [x] Dependency audit: PASS (0 vulnerabilities)
 - [x] Static analysis (TypeScript): PASS (0 security issues)
 
 ### Manual Testing
+
 - [x] SQL injection attempts: ALL BLOCKED
 - [x] Path traversal attempts: ALL BLOCKED
 - [x] Rate limit bypass: PROTECTED
@@ -242,12 +246,14 @@ pnpm audit
 ## Compliance
 
 ### GDPR ✅
+
 - [x] No PII collected via factory endpoints
 - [x] Tenant isolation enforced
 - [x] Audit logs for data access
 - [x] Data retention policy defined
 
 ### SOC 2 ✅
+
 - [x] Access controls documented
 - [x] Audit trail complete
 - [x] Change management (git history)
@@ -256,12 +262,14 @@ pnpm audit
 ## Security Recommendations
 
 ### Pre-Production (Required)
+
 1. ✅ Verify CORS configuration in staging
 2. ✅ Test rate limiting under load
 3. ✅ Validate audit log integrity
 4. ✅ Review all error messages
 
 ### Post-Production (Recommended)
+
 1. Enable WAF (Web Application Firewall) rules
 2. Implement request signing for sensitive operations
 3. Add response caching (Cache-Control headers)
@@ -269,6 +277,7 @@ pnpm audit
 5. Implement request ID tracking (X-Request-ID)
 
 ### Ongoing
+
 1. Monthly dependency audits
 2. Quarterly security reviews
 3. Penetration testing annually
@@ -283,7 +292,8 @@ pnpm audit
 **Next Review**: 2026-05-27 (Quarterly)
 
 **Conditions**:
-- Verify CORS configuration in staging before production
+
+- ✅ CORS configuration verified in staging (smoke-test-factory.sh Test Suite 6)
 - Monitor audit logs for anomalies in first 48 hours
 - Review security posture monthly
 
