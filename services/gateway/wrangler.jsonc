@@ -91,7 +91,21 @@
       "analytics_engine_datasets": [
         { "binding": "ANALYTICS", "dataset": "foundation_events_staging" }
       ],
-      "images": { "binding": "IMAGES" }
+      "images": { "binding": "IMAGES" },
+      "workflows": [
+        { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows-staging" },
+        { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows-staging" },
+        { "binding": "REPORT_WORKFLOW", "name": "report-generation", "class_name": "ReportGenerationWorkflow", "script_name": "foundation-workflows-staging" },
+        { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows-staging" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "FOUNDATION_MCP", "class_name": "FoundationMcpServer" }
+        ]
+      },
+      "migrations": [
+        { "tag": "v1", "new_classes": ["FoundationMcpServer"] }
+      ]
     },
     "production": {
       "name": "foundation-gateway-production",
@@ -129,7 +143,21 @@
       "analytics_engine_datasets": [
         { "binding": "ANALYTICS", "dataset": "foundation_events" }
       ],
-      "images": { "binding": "IMAGES" }
+      "images": { "binding": "IMAGES" },
+      "workflows": [
+        { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows-production" },
+        { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows-production" },
+        { "binding": "REPORT_WORKFLOW", "name": "report-generation", "class_name": "ReportGenerationWorkflow", "script_name": "foundation-workflows-production" },
+        { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows-production" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "FOUNDATION_MCP", "class_name": "FoundationMcpServer" }
+        ]
+      },
+      "migrations": [
+        { "tag": "v1", "new_classes": ["FoundationMcpServer"] }
+      ]
     }
   }
 }
