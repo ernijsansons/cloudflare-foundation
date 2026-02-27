@@ -71,7 +71,7 @@
         { "binding": "SESSION_KV", "id": "c53d7df2c22c43f590f960a913113737" }
       ],
       "d1_databases": [
-        { "binding": "DB", "database_name": "foundation-primary", "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "foundation-primary-staging", "database_id": "eee97642-7f7e-466d-b6df-f4c68b822356", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [
         { "binding": "FILES", "bucket_name": "foundation-files-staging" }
