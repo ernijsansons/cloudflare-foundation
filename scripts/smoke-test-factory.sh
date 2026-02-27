@@ -59,6 +59,10 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 TEMPLATE_SLUG=""
 
+# Throttle delay between tests (seconds) to stay under rate limit
+# 60 req/min = 1 req/sec, so 1.5s delay keeps us under limit
+TEST_DELAY=1.5
+
 # Test functions
 test_start() {
     TESTS_RUN=$((TESTS_RUN + 1))
@@ -68,15 +72,18 @@ test_start() {
 test_pass() {
     TESTS_PASSED=$((TESTS_PASSED + 1))
     echo -e "${GREEN}✓ PASS${NC}"
+    sleep $TEST_DELAY
 }
 
 test_fail() {
     TESTS_FAILED=$((TESTS_FAILED + 1))
     echo -e "${RED}✗ FAIL${NC} - $1"
+    sleep $TEST_DELAY
 }
 
 test_warn() {
     echo -e "${YELLOW}⚠ WARN${NC} - $1"
+    sleep $TEST_DELAY
 }
 
 # HTTP test helper with retry/backoff for rate limiting
@@ -85,8 +92,8 @@ http_test() {
     local path=$2
     local expected_code=$3
     local description=$4
-    local max_retries=3
-    local retry_delay=2
+    local max_retries=5
+    local base_delay=5
 
     test_start "$description"
 
@@ -100,12 +107,12 @@ http_test() {
         elif [ "$HTTP_CODE" -eq 429 ]; then
             # Rate limited - retry with exponential backoff
             if [ $attempt -lt $max_retries ]; then
-                local wait_time=$((retry_delay * attempt))
-                echo -en "\n      ${YELLOW}Rate limited (429), retrying in ${wait_time}s (attempt $attempt/$max_retries)...${NC} "
+                local wait_time=$((base_delay * attempt))
+                echo -en "\n      ${YELLOW}Rate limited (429), waiting ${wait_time}s (attempt $attempt/$max_retries)...${NC} "
                 sleep $wait_time
                 attempt=$((attempt + 1))
             else
-                test_fail "Rate limited after $max_retries attempts"
+                test_fail "Rate limited after $max_retries attempts (consider waiting 60s before re-running)"
                 return 1
             fi
         else
@@ -121,8 +128,8 @@ json_test() {
     local jq_filter=$2
     local expected=$3
     local description=$4
-    local max_retries=3
-    local retry_delay=2
+    local max_retries=5
+    local base_delay=5
 
     test_start "$description"
 
@@ -132,8 +139,8 @@ json_test() {
 
         if [ "$HTTP_CODE" -eq 429 ]; then
             if [ $attempt -lt $max_retries ]; then
-                local wait_time=$((retry_delay * attempt))
-                echo -en "\n      ${YELLOW}Rate limited (429), retrying in ${wait_time}s (attempt $attempt/$max_retries)...${NC} "
+                local wait_time=$((base_delay * attempt))
+                echo -en "\n      ${YELLOW}Rate limited (429), waiting ${wait_time}s (attempt $attempt/$max_retries)...${NC} "
                 sleep $wait_time
                 attempt=$((attempt + 1))
                 continue
@@ -170,8 +177,8 @@ perf_test() {
     local path=$1
     local max_time_ms=$2
     local description=$3
-    local max_retries=3
-    local retry_delay=2
+    local max_retries=5
+    local base_delay=5
 
     test_start "$description"
 
@@ -187,7 +194,7 @@ perf_test() {
 
             if [ "$HTTP_CODE" -eq 429 ]; then
                 if [ $attempt -lt $max_retries ]; then
-                    local wait_time=$((retry_delay * attempt))
+                    local wait_time=$((base_delay * attempt))
                     echo -en "\n      ${YELLOW}Rate limited, waiting ${wait_time}s...${NC} "
                     sleep $wait_time
                     attempt=$((attempt + 1))
@@ -224,6 +231,21 @@ echo "Factory Endpoints Smoke Test Suite"
 echo "========================================="
 echo "Environment: $ENVIRONMENT"
 echo "Base URL: $BASE_URL"
+echo ""
+
+# Pre-flight rate limit check - wait if currently rate limited
+echo -e "${BLUE}[PREFLIGHT]${NC} Checking rate limit status..."
+PREFLIGHT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/public/factory/templates")
+if [ "$PREFLIGHT_CODE" -eq 429 ]; then
+    echo -e "${YELLOW}Currently rate limited. Waiting 90s before starting tests...${NC}"
+    echo -e "${YELLOW}(Rate limit is 60 req/min - this ensures full reset)${NC}"
+    sleep 90
+    echo -e "${GREEN}Rate limit cooldown complete.${NC}"
+elif [ "$PREFLIGHT_CODE" -eq 200 ]; then
+    echo -e "${GREEN}Rate limit OK. Starting tests (with ${TEST_DELAY}s delay between tests)...${NC}"
+else
+    echo -e "${YELLOW}Preflight returned $PREFLIGHT_CODE. Proceeding anyway...${NC}"
+fi
 echo ""
 
 # Test Suite 1: Templates Endpoint
