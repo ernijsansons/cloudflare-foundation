@@ -8,10 +8,9 @@
  * can persist them alongside the synthesized artifact.
  */
 
-import type { BaseAgent , AgentContext, AgentResult } from "../agents/base-agent";
 import type { Env } from "../types";
-
-import { extractJSON } from "./json-extractor";
+import type { BaseAgent } from "../agents/base-agent";
+import type { AgentContext, AgentResult } from "../agents/base-agent";
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -20,8 +19,8 @@ import { extractJSON } from "./json-extractor";
 export interface OrchestratorConfig {
   /** Workers AI model IDs for parallel inference */
   parallelModels: string[];
-  /** "anthropic" to use Claude API; or a Workers AI model ID string */
-  synthesizerModel: "anthropic" | string;
+  /** "minimax" | "anthropic" for external API; or a Workers AI model ID string */
+  synthesizerModel: "minimax" | "anthropic" | string;
   /** Max tokens per parallel call (default: 4096) */
   maxTokensParallel?: number;
   /** Max tokens for synthesizer (default: 4096) */
@@ -78,7 +77,7 @@ const DEFAULT_CONFIG: Required<OrchestratorConfig> = {
     "@cf/meta/llama-4-scout",
     "@cf/qwen/qwen-3-coder",
   ],
-  synthesizerModel: "anthropic",
+  synthesizerModel: "minimax",
   maxTokensParallel: 4096,
   maxTokensSynthesizer: 4096,
   temperatureParallel: 0.5,
@@ -115,8 +114,8 @@ export async function orchestrateModels(
     runWorkersAIModel(env.AI, modelId, systemPrompt, userPrompt, cfg)
   );
 
-  // Optionally include MiniMax if key is present
-  if (env.MINIMAX_API_KEY) {
+  // Optionally include MiniMax as 4th parallel model (only when not used as synthesizer)
+  if (env.MINIMAX_API_KEY && cfg.synthesizerModel !== "minimax") {
     parallelCalls.push(
       runMiniMaxModel(env.MINIMAX_API_KEY, systemPrompt, userPrompt, cfg)
     );
@@ -168,11 +167,13 @@ export async function orchestrateModels(
     extractWildIdeas(env.AI, successfulOutputs),
     runSynthesis(env, successfulOutputs, userPrompt, cfg),
     Promise.resolve(
-      cfg.synthesizerModel === "anthropic" && env.ANTHROPIC_API_KEY
-        ? "claude-3-5-sonnet-20241022"
-        : cfg.synthesizerModel === "anthropic"
-          ? "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b" // fallback when no key
-          : cfg.synthesizerModel
+      cfg.synthesizerModel === "minimax" && env.MINIMAX_API_KEY
+        ? "MiniMax-M2.5"
+        : cfg.synthesizerModel === "anthropic" && env.ANTHROPIC_API_KEY
+          ? "claude-3-5-sonnet-20241022"
+          : cfg.synthesizerModel === "anthropic" || cfg.synthesizerModel === "minimax"
+            ? "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b" // fallback when no key
+            : cfg.synthesizerModel
     ),
   ]);
 
@@ -254,13 +255,23 @@ async function runSynthesis(
     "- No commentary, explanations, or markdown outside the JSON object",
   ].join("\n");
 
+  if (cfg.synthesizerModel === "minimax" && env.MINIMAX_API_KEY) {
+    const result = await runMiniMaxModel(
+      env.MINIMAX_API_KEY,
+      "You are an expert synthesizer. Output only valid JSON.",
+      synthPrompt,
+      { ...cfg, maxTokensParallel: cfg.maxTokensSynthesizer, temperatureParallel: cfg.temperatureSynthesizer }
+    );
+    return result.text;
+  }
+
   if (cfg.synthesizerModel === "anthropic" && env.ANTHROPIC_API_KEY) {
     return runAnthropicModel(env.ANTHROPIC_API_KEY, synthPrompt, cfg);
   }
 
-  // Fallback: use DeepSeek R1 as synthesizer if no Anthropic key
+  // Fallback: use DeepSeek R1 when no external synthesizer key
   const synthModel =
-    cfg.synthesizerModel !== "anthropic"
+    cfg.synthesizerModel !== "anthropic" && cfg.synthesizerModel !== "minimax"
       ? cfg.synthesizerModel
       : "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b";
 
@@ -467,5 +478,28 @@ async function runMiniMaxModel(
   }
 }
 
-// Re-export extractJSON from shared utility for backwards compatibility
-export { extractJSON } from "./json-extractor";
+// ---------------------------------------------------------------------------
+// Internal: JSON extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the first JSON object or array from a string.
+ * Handles both raw JSON and markdown code fences (```json ... ```).
+ */
+export function extractJSON(text: string): unknown {
+  // Strip markdown code fence if present
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = fenceMatch ? fenceMatch[1]!.trim() : text;
+
+  // Try to find a JSON object or array
+  const objMatch = candidate.match(/\{[\s\S]*\}/);
+  const arrMatch = candidate.match(/\[[\s\S]*\]/);
+
+  // Prefer object over array (most agent outputs are objects)
+  const jsonStr = objMatch ?? arrMatch;
+  if (!jsonStr) {
+    throw new Error("No JSON found in synthesizer output");
+  }
+
+  return JSON.parse(jsonStr[0]);
+}

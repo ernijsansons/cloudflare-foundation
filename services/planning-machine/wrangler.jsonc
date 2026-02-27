@@ -21,26 +21,8 @@
   },
   "vars": {
     // Set to "true" to enable multi-model parallel inference + synthesis for supported agents.
-    // Requires ANTHROPIC_API_KEY secret to be set via: wrangler secret put ANTHROPIC_API_KEY
-    // Optionally set MINIMAX_API_KEY via: wrangler secret put MINIMAX_API_KEY
-    "ORCHESTRATION_ENABLED": "true"
-  },
-  "env": {
-    "staging": {
-      "name": "foundation-planning-machine-staging",
-      "d1_databases": [
-        { "binding": "DB", "database_name": "planning-primary-staging", "database_id": "fa8c8660-eed3-4611-bbbe-6e75f9074100", "migrations_dir": "migrations" }
-      ],
-      "r2_buckets": [{ "binding": "FILES", "bucket_name": "planning-files-staging" }],
-      "vectorize": [{ "binding": "VECTOR_INDEX", "index_name": "planning-embeddings-staging" }]
-    },
-    "production": {
-      "name": "foundation-planning-machine-production",
-      "d1_databases": [
-        { "binding": "DB", "database_name": "planning-primary", "database_id": "a5d92afd-7c3a-48b8-89ae-abf1a523f6ce", "migrations_dir": "migrations" }
-      ],
-      "r2_buckets": [{ "binding": "FILES", "bucket_name": "planning-files" }],
-      "vectorize": [{ "binding": "VECTOR_INDEX", "index_name": "planning-embeddings" }]
-    }
+    // Requires MINIMAX_API_KEY secret (synthesizer): wrangler secret put MINIMAX_API_KEY
+    // Optionally set ANTHROPIC_API_KEY to use Claude instead of MiniMax for synthesis
+    "ORCHESTRATION_ENABLED": "false"
   }
 }

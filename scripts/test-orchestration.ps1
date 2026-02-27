@@ -1,8 +1,8 @@
 # test-orchestration.ps1 - Manual validation for LLM orchestration
-# Run with ORCHESTRATION_ENABLED=true and ANTHROPIC_API_KEY set.
+# Run with ORCHESTRATION_ENABLED=true and MINIMAX_API_KEY set.
 #
 # Prerequisites:
-#   1. wrangler secret put ANTHROPIC_API_KEY   # required for synthesis
+#   1. wrangler secret put MINIMAX_API_KEY   # required for synthesis (default)
 #   2. Set ORCHESTRATION_ENABLED: "true" in services/planning-machine/wrangler.jsonc vars
 #   3. Apply migration: npx wrangler d1 migrations apply planning-primary --remote
 #
@@ -30,7 +30,7 @@ function Print-Result {
 
 Write-Host "=== LLM Orchestration Validation ===" -ForegroundColor Cyan
 Write-Host "Base URL: $BaseUrl"
-Write-Host "Ensure ORCHESTRATION_ENABLED=true and ANTHROPIC_API_KEY is set."
+Write-Host "Ensure ORCHESTRATION_ENABLED=true and MINIMAX_API_KEY is set."
 Write-Host ""
 
 # 1. Create a planning run (opportunity phase uses orchestration)

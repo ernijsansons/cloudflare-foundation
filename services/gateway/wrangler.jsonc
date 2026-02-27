@@ -5,11 +5,7 @@
   "compatibility_date": "2025-09-25",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  "vars": {
-    "ENVIRONMENT": "development",
-    "ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000",
-    "USE_DO_RATE_LIMITING": "false"
-  },
+  "placement": { "mode": "smart" },
   "services": [
     { "binding": "AGENT_SERVICE", "service": "foundation-agents" },
     { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine" }
@@ -46,29 +42,16 @@
     { "binding": "ANALYTICS", "dataset": "foundation_events" }
   ],
   "images": { "binding": "IMAGES" },
-  "durable_objects": {
-    "bindings": [
-      { "name": "FOUNDATION_MCP", "class_name": "FoundationMcpServer" }
-    ]
-  },
-  "migrations": [
-    { "tag": "v1", "new_classes": ["FoundationMcpServer"] }
-  ],
   "env": {
     "staging": {
       "name": "foundation-gateway-staging",
-      "vars": {
-        "ENVIRONMENT": "staging",
-        "ALLOWED_ORIGINS": "https://dashboard-staging.erlvinc.com",
-        "USE_DO_RATE_LIMITING": "true"
-      },
       "services": [
         { "binding": "AGENT_SERVICE", "service": "foundation-agents-staging" },
         { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine-staging" }
       ],
       "kv_namespaces": [
-        { "binding": "RATE_LIMIT_KV", "id": "1e179df285ba4817b905633ce55d6d98" },
-        { "binding": "SESSION_KV", "id": "c53d7df2c22c43f590f960a913113737" }
+        { "binding": "RATE_LIMIT_KV", "id": "7fa65ae86f2f47ceb4b2239a07b31eb8" },
+        { "binding": "SESSION_KV", "id": "ec3eaf67adec4b0db41b7d5daf5ad8f3" }
       ],
       "d1_databases": [
         { "binding": "DB", "database_name": "foundation-primary-staging", "database_id": "eee97642-7f7e-466d-b6df-f4c68b822356", "migrations_dir": "migrations" }
@@ -76,44 +59,15 @@
       "r2_buckets": [
         { "binding": "FILES", "bucket_name": "foundation-files-staging" }
       ],
-      "queues": {
-        "producers": [
-          { "binding": "AUDIT_QUEUE", "queue": "foundation-audit-staging" },
-          { "binding": "NOTIFICATION_QUEUE", "queue": "foundation-notifications-staging" },
-          { "binding": "ANALYTICS_QUEUE", "queue": "foundation-analytics-staging" },
-          { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks-staging" }
-        ]
-      },
-      "ai": { "binding": "AI" },
       "vectorize": [
         { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings-staging" }
       ],
       "analytics_engine_datasets": [
         { "binding": "ANALYTICS", "dataset": "foundation_events_staging" }
-      ],
-      "images": { "binding": "IMAGES" },
-      "workflows": [
-        { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows-staging" },
-        { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows-staging" },
-        { "binding": "REPORT_WORKFLOW", "name": "report-generation", "class_name": "ReportGenerationWorkflow", "script_name": "foundation-workflows-staging" },
-        { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows-staging" }
-      ],
-      "durable_objects": {
-        "bindings": [
-          { "name": "FOUNDATION_MCP", "class_name": "FoundationMcpServer" }
-        ]
-      },
-      "migrations": [
-        { "tag": "v1", "new_classes": ["FoundationMcpServer"] }
       ]
     },
     "production": {
       "name": "foundation-gateway-production",
-      "vars": {
-        "ENVIRONMENT": "production",
-        "ALLOWED_ORIGINS": "https://dashboard.erlvinc.com,https://naomi.erlvinc.com",
-        "USE_DO_RATE_LIMITING": "true"
-      },
       "services": [
         { "binding": "AGENT_SERVICE", "service": "foundation-agents-production" },
         { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine-production" }
@@ -128,35 +82,11 @@
       "r2_buckets": [
         { "binding": "FILES", "bucket_name": "foundation-files" }
       ],
-      "queues": {
-        "producers": [
-          { "binding": "AUDIT_QUEUE", "queue": "foundation-audit" },
-          { "binding": "NOTIFICATION_QUEUE", "queue": "foundation-notifications" },
-          { "binding": "ANALYTICS_QUEUE", "queue": "foundation-analytics" },
-          { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks" }
-        ]
-      },
-      "ai": { "binding": "AI" },
       "vectorize": [
         { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings" }
       ],
       "analytics_engine_datasets": [
         { "binding": "ANALYTICS", "dataset": "foundation_events" }
-      ],
-      "images": { "binding": "IMAGES" },
-      "workflows": [
-        { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows-production" },
-        { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows-production" },
-        { "binding": "REPORT_WORKFLOW", "name": "report-generation", "class_name": "ReportGenerationWorkflow", "script_name": "foundation-workflows-production" },
-        { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows-production" }
-      ],
-      "durable_objects": {
-        "bindings": [
-          { "name": "FOUNDATION_MCP", "class_name": "FoundationMcpServer" }
-        ]
-      },
-      "migrations": [
-        { "tag": "v1", "new_classes": ["FoundationMcpServer"] }
       ]
     }
   }

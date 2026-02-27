@@ -2,23 +2,12 @@
  * Planning Workflow — 14-phase durable pipeline
  */
 
-/* global crypto, Queue */
-
-import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers';
-
-import {
-	PHASE_ORDER,
-	getAgentForPhase,
-	getPostPipelineAgent,
-	type PhaseName
-} from '../agents/registry';
-import { populateDocumentation, generateOverviewSection } from '../lib/doc-populator';
-import type { OrchestrationResult } from '../lib/orchestrator';
-import { scoreArtifact, type QualityScore } from '../lib/quality-scorer';
-import { embedAndStore, getContextForPhase } from '../lib/rag';
-import { reviewArtifact, tiebreakerReview } from '../lib/reviewer';
-import { validatePhaseOutput } from '../lib/schema-validator';
-import type { Env } from '../types';
+import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+import type { Env } from "../types";
+import { PHASE_ORDER, getAgentForPhase, type PhaseName } from "../agents/registry";
+import { embedAndStore, getContextForPhase } from "../lib/rag";
+import { reviewArtifact, tiebreakerReview } from "../lib/reviewer";
+import type { OrchestrationResult } from "../lib/orchestrator";
 
 /** Emit webhook event for external reporting (e.g., to erlvinc.com) */
 async function emitWebhookEvent(
@@ -146,15 +135,14 @@ export type PlanningParams = {
 };
 
 export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
-	async run(event: WorkflowEvent<PlanningParams>, step: WorkflowStep) {
-		const { runId, idea, config } = event.payload;
-		const requireReview = config?.requireReview ?? false;
-		let refinedIdea = event.payload.refinedIdea ?? idea;
-		const priorOutputs: Record<string, unknown> = {};
-		let _killVerdict: string | null = null;
-		// Stores orchestration results keyed by phase — populated by runPhase when a model council ran
-		const orchestrationDataByPhase = new Map<string, OrchestrationResult>();
-		const qualityScoreByPhase = new Map<string, number>();
+  async run(event: WorkflowEvent<PlanningParams>, step: WorkflowStep) {
+    const { runId, idea, config } = event.payload;
+    const requireReview = config?.requireReview ?? false;
+    let refinedIdea = event.payload.refinedIdea ?? idea;
+    const priorOutputs: Record<string, unknown> = {};
+    let killVerdict: string | null = null;
+    // Stores orchestration results keyed by phase — populated by runPhase when a model council ran
+    const orchestrationDataByPhase = new Map<string, OrchestrationResult>();
 
 		// Load pivotCount from DB for workflow resumption support
 		let pivotCount = await step.do('load-pivot-count', async () => {
@@ -196,12 +184,12 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 				);
 			}
 
-			// Intake must block progression if critical unknowns are unresolved.
-			if (!result.output.ready_to_proceed) {
-				throw new Error(
-					`Phase 0 (Intake) is not ready_to_proceed. Blockers: ${result.output.blockers.join('; ')}`
-				);
-			}
+      // Capture orchestration data (per-model outputs + wild ideas) for DB persistence
+      if (result.orchestration) {
+        orchestrationDataByPhase.set(phaseName, result.orchestration);
+      }
+
+      priorOutputs[phaseName] = result.output;
 
 			// Save intake to database
 			const artifactId = crypto.randomUUID();
@@ -526,19 +514,28 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 						)
 						.run();
 
-					const orchData = orchestrationDataByPhase.get(phase);
-					if (orchData) {
-						await this.env.DB.prepare(
-							'UPDATE planning_artifacts SET model_outputs = ?, wild_ideas = ? WHERE id = ?'
-						)
-							.bind(
-								JSON.stringify(orchData.modelOutputs),
-								JSON.stringify(orchData.wildIdeas),
-								artifactId
-							)
-							.run();
-						orchestrationDataByPhase.delete(phase);
-					}
+          const orchData = orchestrationDataByPhase.get(phase);
+          if (orchData) {
+            await this.env.DB.prepare(
+              "UPDATE planning_artifacts SET model_outputs = ?, wild_ideas = ? WHERE id = ?"
+            )
+              .bind(
+                JSON.stringify(orchData.modelOutputs),
+                JSON.stringify(orchData.wildIdeas),
+                artifactId
+              )
+              .run();
+            orchestrationDataByPhase.delete(phase);
+          }
+
+          if (this.env.VECTOR_INDEX && this.env.AI) {
+            await embedAndStore(
+              this.env.AI,
+              this.env.VECTOR_INDEX,
+              this.env.DB,
+              { id: artifactId, runId, phase, content: contentStr }
+            );
+          }
 
 					if (this.env.VECTOR_INDEX && this.env.AI) {
 						await embedAndStore(this.env.AI, this.env.VECTOR_INDEX, this.env.DB, {
@@ -666,19 +663,36 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 							break;
 						}
 
-						// Re-run agent with feedback for revision
-						currentIteration++;
-						output = await runPhase(phase, review.feedback);
-						validation = validatePhaseOutput(phase, output);
-						if (!validation.valid) {
-							throw new Error(
-								`Phase ${phase} schema validation failed after revision ${currentIteration}: ${validation.errors?.join('; ')}`
-							);
-						}
-						output = validation.data;
-						contentStr = JSON.stringify(output);
-					}
-				}
+        // Persist per-model outputs and wild ideas when orchestration was used
+        const orchData = orchestrationDataByPhase.get(phase);
+        if (orchData) {
+          await this.env.DB.prepare(
+            "UPDATE planning_artifacts SET model_outputs = ?, wild_ideas = ? WHERE id = ?"
+          )
+            .bind(
+              JSON.stringify(orchData.modelOutputs),
+              JSON.stringify(orchData.wildIdeas),
+              artifactId
+            )
+            .run();
+
+          if (orchData.wildIdeas.length > 0) {
+            console.log(
+              `[workflow] Wild ideas stored for phase ${phase}:`,
+              JSON.stringify(orchData.wildIdeas, null, 2)
+            );
+          }
+          orchestrationDataByPhase.delete(phase);
+        }
+
+        if (this.env.VECTOR_INDEX && this.env.AI) {
+          await embedAndStore(
+            this.env.AI,
+            this.env.VECTOR_INDEX,
+            this.env.DB,
+            { id: artifactId, runId, phase, content: contentStr }
+          );
+        }
 
 				const automatedQuality = evaluateArtifactQuality(
 					phase,

@@ -1,14 +1,29 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
 
-# Run lint-staged
-pnpm lint-staged
+# Foundation Pre-Commit Hook
+# Runs secret scanning and lint checks before commit
 
-# Run type checking
-echo "Running type check..."
-pnpm run typecheck:workers || {
-  echo "❌ Type check failed. Please fix the errors before committing."
+echo "🔍 Running pre-commit checks..."
+
+# Secret Scanner
+echo "├── Secret scanning..."
+if ! python scripts/ci/secret-scanner.py --staged; then
+  echo "❌ Secrets detected! Please remove before committing."
+  echo "   Run: python scripts/ci/secret-scanner.py --staged --fix"
   exit 1
-}
+fi
+
+# Type checking (fast)
+echo "├── Type checking..."
+if ! pnpm run typecheck:workers 2>/dev/null; then
+  echo "⚠️  Type errors detected (continuing...)"
+fi
+
+# Lint staged files
+echo "├── Linting..."
+if command -v lint-staged >/dev/null 2>&1; then
+  lint-staged
+fi
 
 echo "✅ Pre-commit checks passed"

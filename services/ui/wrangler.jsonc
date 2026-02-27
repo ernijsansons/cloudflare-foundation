@@ -15,6 +15,10 @@
   // 4. To change: Set GATEWAY_URL in Pages Dashboard → erlvinc-dashboard → Settings →
   //    Environment Variables → Preview (or Production)
   "services": [
-    { "binding": "GATEWAY", "service": "foundation-gateway-production" }
+    { "binding": "GATEWAY", "service": "foundation-gateway" }
+  ],
+  "routes": [
+    { "pattern": "dashboard.erlvinc.com/*", "zone_name": "erlvinc.com" },
+    { "pattern": "naomi.erlvinc.com/*", "zone_name": "erlvinc.com" }
   ]
 }

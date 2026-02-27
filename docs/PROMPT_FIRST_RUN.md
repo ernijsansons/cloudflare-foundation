@@ -4,17 +4,6 @@
 
 **How to use:** Copy this document (or the relevant sections) into your prompt when asking Claude Code to set up or validate the first run. Reference: "Follow docs/PROMPT_FIRST_RUN.md."
 
-**Short prompt for Claude Code:**
-> Follow docs/PROMPT_FIRST_RUN.md. Execute the Claude Code Execution Order: set CONTEXT_SIGNING_KEY, TURNSTILE_SECRET, TAVILY_API_KEY; apply gateway and planning-machine D1 migrations; create foundation-embeddings and planning-embeddings Vectorize indexes; run pnpm run deploy. Skip steps already done. User provides secrets when wrangler secret put prompts.
-
----
-
-## Prerequisites
-
-- **Node 20+**, **pnpm** (`npm install -g pnpm`), **Wrangler CLI** (included via `pnpm install`)
-- **Cloudflare account** — run `wrangler login` before deploy
-- **Windows:** Use Git Bash or WSL for `bash scripts/*.sh`; or run equivalent `wrangler` commands manually from each service directory
-
 ---
 
 ## Current State: What's Done
@@ -38,7 +27,7 @@ The codebase is feature-complete:
 | Step | What | Command |
 |------|------|---------|
 | 1 | CONTEXT_SIGNING_KEY | `cd services/gateway && wrangler secret put CONTEXT_SIGNING_KEY` — generate with `openssl rand -base64 32` |
-| 2 | TURNSTILE_SECRET | `cd services/gateway && wrangler secret put TURNSTILE_SECRET` — create a site at [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) and copy the secret key |
+| 2 | TURNSTILE_SECRET | `cd services/gateway && wrangler secret put TURNSTILE_SECRET` — from Cloudflare Turnstile dashboard |
 | 3 | Gateway D1 migrations | `cd services/gateway && npx wrangler d1 migrations apply foundation-primary --remote` |
 | 4 | Planning D1 migrations | `cd services/planning-machine && npx wrangler d1 migrations apply planning-primary --remote` |
 | 5 | Vectorize indexes | See [Vectorize Setup](#vectorize-setup) below |
@@ -75,15 +64,13 @@ Without search keys, all 15 agents get "Search unavailable" placeholders instead
 
 | Step | What | Command |
 |------|------|---------|
-| 9 | MINIMAX_API_KEY + ORCHESTRATION_ENABLED: "true" | `cd services/planning-machine && wrangler secret put MINIMAX_API_KEY` — then set `"ORCHESTRATION_ENABLED": "true"` in wrangler.jsonc vars. Migration 0005 (model_outputs, wild_ideas) is applied with planning migrations. |
+| 9 | MINIMAX_API_KEY + ORCHESTRATION_ENABLED: "true" | `cd services/planning-machine && wrangler secret put MINIMAX_API_KEY` — then set `"ORCHESTRATION_ENABLED": "true"` in wrangler.jsonc vars |
 | 10 | DNS for dashboard.erlvinc.com | UI domain routing; needs Cloudflare DNS records pointing to Pages |
 | 11 | Auth UI | Login/signup pages; auth middleware defaults to "default" tenant for solo use |
 
 ---
 
 ## Shortest Path to First Run (7 Steps)
-
-That's 6 setup commands + 1 deploy. The code is ready — infrastructure and secrets only.
 
 1. `cd services/gateway && wrangler secret put CONTEXT_SIGNING_KEY`
 2. `cd services/gateway && wrangler secret put TURNSTILE_SECRET`
@@ -121,7 +108,7 @@ cd services/planning-machine && npx wrangler d1 migrations apply planning-primar
 cd services/gateway && wrangler vectorize create foundation-embeddings --dimensions=384 --metric=cosine
 cd services/planning-machine && wrangler vectorize create planning-embeddings --dimensions=768 --metric=cosine
 
-# 7. Deploy (use pnpm, not npm)
+# 7. Deploy
 pnpm install && pnpm run deploy
 ```
 
@@ -138,25 +125,22 @@ wrangler d1 create planning-primary
 # Or: pnpm run planning:setup (for planning DB only)
 # Update wrangler.jsonc with database_id from output
 
-# KV (RATE_LIMIT_KV, SESSION_KV, CACHE_KV)
+# KV
 bash scripts/setup-kv.sh
 # Update services/gateway/wrangler.jsonc, services/agents/wrangler.jsonc with id values
 
-# R2 (gateway: foundation-files, foundation-assets; planning: planning-files)
+# R2
 bash scripts/setup-r2.sh
-wrangler r2 bucket create planning-files   # planning-machine needs this
 
-# Queues (foundation-audit, foundation-notifications, foundation-analytics, foundation-webhooks)
+# Queues
 bash scripts/setup-queues.sh
 ```
-
-**Deploy order** (deploy-all.sh): queues → workflows → agents → planning-machine → gateway → cron → ui
 
 ---
 
 ## Verification
 
-After deploy, replace `<account>` with your Cloudflare account subdomain (e.g. from Workers dashboard):
+After deploy:
 
 ```bash
 # Gateway health
@@ -166,9 +150,7 @@ curl https://foundation-gateway.<account>.workers.dev/health
 curl https://foundation-planning-machine.<account>.workers.dev/api/planning/health
 ```
 
-**UI:** Open the deployed UI URL (foundation-ui.\<account>.workers.dev or your Pages URL) → AI Labs → Create → enter "AI-powered CRM for small businesses" → confirm run starts and phases progress.
-
-**Orchestration validation:** Run `scripts/test-orchestration.ps1` (or `.sh`) with ORCHESTRATION_ENABLED=true and MINIMAX_API_KEY set.
+**UI:** Open the deployed UI URL → AI Labs → Create → enter "AI-powered CRM for small businesses" → confirm run starts and phases progress.
 
 ---
 
@@ -183,20 +165,7 @@ pnpm install && pnpm run dev
 - Uses in-memory/local D1, KV, R2, Queues
 - Open http://localhost:8788 (or port shown)
 - For real search: copy `services/planning-machine/.dev.vars.example` to `.dev.vars`, add TAVILY_API_KEY
-- For orchestration: add MINIMAX_API_KEY to `.dev.vars`, set `"ORCHESTRATION_ENABLED": "true"` in `services/planning-machine/wrangler.jsonc` vars
-- **Vite proxy:** `services/ui/vite.config.ts` proxies `/api/planning` to `127.0.0.1:8787`. If full dev runs on 8788, change target to 8788 or ensure planning routes are reachable
-
----
-
-## Troubleshooting
-
-| Issue | Fix |
-|-------|-----|
-| Build fails with `EBUSY` or locked `.svelte-kit` | Stop all Node processes, remove `services/ui/.svelte-kit`, run `pnpm run dev` again |
-| Port 8788 in use | Add `--port 8789` to the `dev` script in `package.json` |
-| Gateway/planning not reachable | Run `pnpm run dev` (not just `vite dev`) so all workers start together |
-| Validation fails before deploy | Run `bash scripts/validate-config.sh`; fix any missing IDs or placeholders in wrangler.jsonc |
-| "Search unavailable" in agents | Set TAVILY_API_KEY (Tier 2) |
+- Vite proxy: `/api/planning` targets wrangler dev port (check `services/ui/vite.config.ts` — 8787 or 8788)
 
 ---
 

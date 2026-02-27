@@ -44,13 +44,13 @@
     "staging": {
       "name": "foundation-agents-staging",
       "d1_databases": [
-        { "binding": "DB", "database_name": "foundation-primary-staging", "database_id": "STAGING_DB_ID" }
+        { "binding": "DB", "database_name": "foundation-primary-staging", "database_id": "eee97642-7f7e-466d-b6df-f4c68b822356" }
+      ],
+      "kv_namespaces": [
+        { "binding": "CACHE_KV", "id": "6240f158d5744ad99cabf5db2d8e4cbf" }
       ],
       "r2_buckets": [
         { "binding": "FILES", "bucket_name": "foundation-files-staging" }
-      ],
-      "kv_namespaces": [
-        { "binding": "CACHE_KV", "id": "STAGING_KV_ID" }
       ],
       "vectorize": [
         { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings-staging" }
@@ -61,11 +61,11 @@
       "d1_databases": [
         { "binding": "DB", "database_name": "foundation-primary", "database_id": "34bce593-9df9-4acf-ac40-c8d93a7c7244" }
       ],
-      "r2_buckets": [
-        { "binding": "FILES", "bucket_name": "foundation-files" }
-      ],
       "kv_namespaces": [
         { "binding": "CACHE_KV", "id": "ef2305fbf6da4cffa948193efd40f40c" }
+      ],
+      "r2_buckets": [
+        { "binding": "FILES", "bucket_name": "foundation-files" }
       ],
       "vectorize": [
         { "binding": "VECTOR_INDEX", "index_name": "foundation-embeddings" }

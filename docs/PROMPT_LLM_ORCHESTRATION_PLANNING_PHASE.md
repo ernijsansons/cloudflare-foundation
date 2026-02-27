@@ -98,7 +98,7 @@ planning-workflow.ts
 - Optionally override `getOrchestratorConfig()` for phase-specific model mix or temperatures (e.g., kill-test with lower `temperatureSynthesizer` for GO/KILL decisions)
 - In `run()`, check `this.env.ORCHESTRATION_ENABLED === "true"` and call `runWithOrchestration()` vs `runSingleModel()` (see OpportunityAgent, KillTestAgent)
 
-**Manual validation:** Run `scripts/test-orchestration.ps1` with `ORCHESTRATION_ENABLED=true` and `ANTHROPIC_API_KEY` set. Unit tests: `services/planning-machine/src/agents/__tests__/opportunity-agent.orchestration.test.ts`.
+**Manual validation:** Run `scripts/test-orchestration.ps1` with `ORCHESTRATION_ENABLED=true` and `MINIMAX_API_KEY` set. Unit tests: `services/planning-machine/src/agents/__tests__/opportunity-agent.orchestration.test.ts`.
 
 ---
 
@@ -111,8 +111,8 @@ planning-workflow.ts
 | **DeepSeek R1** | Workers AI | Reasoning, math, coding | Free (tier) | `env.AI` |
 | **Llama 4 Scout** | Workers AI | Balanced generalist | Free | `env.AI` |
 | **Qwen 3 Coder** | Workers AI | Coding-focused | Free | `env.AI` |
-| **MiniMax 2.5** | External API | Agentic, long-context | Paid | `env.MINIMAX_API_KEY` |
-| **Claude 3.5 Sonnet** | Anthropic API | Synthesis, judge | Paid | `env.ANTHROPIC_API_KEY` |
+| **MiniMax 2.5** | External API | Agentic, long-context, synthesis (default) | Paid | `env.MINIMAX_API_KEY` |
+| **Claude 3.5 Sonnet** | Anthropic API | Synthesis, judge (optional) | Paid | `env.ANTHROPIC_API_KEY` |
 
 ### 3.2 Workers AI Model IDs (Cloudflare)
 
