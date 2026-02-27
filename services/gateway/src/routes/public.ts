@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { turnstileMiddleware } from "../middleware/turnstile";
+import { appendAuditEvent } from "../lib/audit-chain";
 import type { Env, Variables } from "../types";
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -665,6 +666,15 @@ app.get("/factory/templates", async (c) => {
   if (!proxied) {
     return c.json({ error: "Planning service not configured" }, 503);
   }
+
+  // Audit logging for factory access
+  const tenantId = c.req.query("tenant_id") || "default";
+  await appendAuditEvent(c.env.DB, {
+    type: "factory_templates_accessed",
+    tenantId,
+    payload: { search, status: proxied.status },
+  });
+
   return proxied;
 });
 
@@ -677,6 +687,15 @@ app.get("/factory/templates/:slug", async (c) => {
   if (!proxied) {
     return c.json({ error: "Planning service not configured" }, 503);
   }
+
+  // Audit logging for factory template access
+  const tenantId = c.req.query("tenant_id") || "default";
+  await appendAuditEvent(c.env.DB, {
+    type: "factory_template_viewed",
+    tenantId,
+    payload: { slug, status: proxied.status },
+  });
+
   return proxied;
 });
 
@@ -688,6 +707,15 @@ app.get("/factory/capabilities", async (c) => {
   if (!proxied) {
     return c.json({ error: "Planning service not configured" }, 503);
   }
+
+  // Audit logging for factory capabilities access
+  const tenantId = c.req.query("tenant_id") || "default";
+  await appendAuditEvent(c.env.DB, {
+    type: "factory_capabilities_accessed",
+    tenantId,
+    payload: { status: proxied.status },
+  });
+
   return proxied;
 });
 
@@ -699,6 +727,15 @@ app.get("/factory/capabilities/free", async (c) => {
   if (!proxied) {
     return c.json({ error: "Planning service not configured" }, 503);
   }
+
+  // Audit logging for factory free capabilities access
+  const tenantId = c.req.query("tenant_id") || "default";
+  await appendAuditEvent(c.env.DB, {
+    type: "factory_capabilities_free_accessed",
+    tenantId,
+    payload: { status: proxied.status },
+  });
+
   return proxied;
 });
 
@@ -711,6 +748,15 @@ app.get("/factory/build-specs", async (c) => {
   if (!proxied) {
     return c.json({ error: "Planning service not configured" }, 503);
   }
+
+  // Audit logging for factory build specs access
+  const tenantId = c.req.query("tenant_id") || "default";
+  await appendAuditEvent(c.env.DB, {
+    type: "factory_build_specs_accessed",
+    tenantId,
+    payload: { search, status: proxied.status },
+  });
+
   return proxied;
 });
 
@@ -723,6 +769,15 @@ app.get("/factory/build-specs/:runId", async (c) => {
   if (!proxied) {
     return c.json({ error: "Planning service not configured" }, 503);
   }
+
+  // Audit logging for factory build spec access
+  const tenantId = c.req.query("tenant_id") || "default";
+  await appendAuditEvent(c.env.DB, {
+    type: "factory_build_spec_viewed",
+    tenantId,
+    payload: { runId, status: proxied.status },
+  });
+
   return proxied;
 });
 

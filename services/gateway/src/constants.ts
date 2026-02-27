@@ -4,6 +4,32 @@
  */
 
 // =============================================================================
+// Public Routes - Centralized Definition
+// =============================================================================
+
+/**
+ * Public route prefixes that do not require authentication or tenant context.
+ * Routes are matched using prefix matching (startsWith).
+ *
+ * - /health, /api/health - Health checks
+ * - /api/public/* - Public API endpoints (signup, contact, factory)
+ * - /mcp/* - MCP protocol (handles its own session authentication)
+ */
+export const PUBLIC_ROUTE_PREFIXES = [
+  "/health",
+  "/api/health",
+  "/api/public/",
+  "/mcp/",
+] as const;
+
+/**
+ * Check if the given path matches any public route prefix.
+ */
+export function isPublicRoute(path: string): boolean {
+  return PUBLIC_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+// =============================================================================
 // Rate Limiting
 // =============================================================================
 

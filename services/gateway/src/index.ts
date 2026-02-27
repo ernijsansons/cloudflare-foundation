@@ -41,14 +41,8 @@ app.use("*", securityHeadersMiddleware());
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 app.get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
-// Public routes - light rate limiting (IP-based)
-app.use("/api/public/*", async (c, next) => {
-  const useDoRateLimiting = c.env.USE_DO_RATE_LIMITING === "true";
-  if (useDoRateLimiting) {
-    return rateLimitDOMiddleware()(c, next);
-  }
-  return rateLimitMiddleware()(c, next);
-});
+// Public routes - registered BEFORE auth middleware so they bypass auth
+// Rate limiting is applied once via the /api/* middleware below
 app.route("/api/public", publicRoutes);
 
 // MCP routes - no auth required (McpAgent handles its own session)

@@ -1,23 +1,13 @@
 import type { Context, Next } from "hono";
+
+import { isPublicRoute, PUBLIC_ROUTE_PREFIXES } from "../constants";
 import type { Env, Variables } from "../types";
 
 /**
- * Public routes that do not require authentication.
- * Routes are matched using prefix matching (startsWith).
+ * Re-export for backwards compatibility.
+ * @deprecated Import from "../constants" instead.
  */
-export const PUBLIC_ROUTES = [
-  "/health",
-  "/api/health",
-  "/api/public/",
-  "/mcp/",
-] as const;
-
-/**
- * Check if the given path matches any public route prefix.
- */
-function isPublicRoute(path: string): boolean {
-  return PUBLIC_ROUTES.some(route => path.startsWith(route));
-}
+export const PUBLIC_ROUTES = PUBLIC_ROUTE_PREFIXES;
 
 /**
  * Authentication middleware that validates session tokens for protected routes.

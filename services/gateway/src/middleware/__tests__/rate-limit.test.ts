@@ -38,7 +38,7 @@ describe("rateLimitDOMiddleware", () => {
       const res = await app.request("/test", {}, mockEnv as Env);
 
       expect(res.status).toBe(200);
-      expect(res.headers.get("X-RateLimit-Limit")).toBe("60");
+      expect(res.headers.get("X-RateLimit-Limit")).toBe("200");
       expect(res.headers.get("X-RateLimit-Remaining")).toBe("85");
       expect(mockAgentService.fetch).toHaveBeenCalledWith(
         "https://fake-host/rate-limit/check",
@@ -105,43 +105,45 @@ describe("rateLimitDOMiddleware", () => {
     });
   });
 
-  describe("Fail-closed behavior", () => {
+  describe("Fail-open behavior (availability over enforcement)", () => {
     beforeEach(() => {
       app.use("*", rateLimitDOMiddleware());
       app.get("/test", (c) => c.json({ success: true }));
     });
 
-    it("should fail closed when DO service errors", async () => {
+    it("should fail open when DO service errors", async () => {
       mockAgentService.fetch.mockRejectedValue(new Error("DO service error"));
 
       const res = await app.request("/test", {}, mockEnv as Env);
 
-      expect(res.status).toBe(429);
+      // Fail-open: allow request through on service errors
+      expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data).toEqual({ error: "Rate limit service unavailable" });
-      expect(res.headers.get("Retry-After")).toBe("60");
+      expect(data).toEqual({ success: true });
     });
 
-    it("should fail closed on timeout (>500ms)", async () => {
+    it("should fail open on timeout (>500ms)", async () => {
       mockAgentService.fetch.mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 600))
       );
 
       const res = await app.request("/test", {}, mockEnv as Env);
 
-      expect(res.status).toBe(429);
+      // Fail-open: allow request through on timeout
+      expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data).toEqual({ error: "Rate limit service unavailable" });
+      expect(data).toEqual({ success: true });
     });
 
-    it("should fail closed when AGENT_SERVICE is unavailable", async () => {
+    it("should fail open when AGENT_SERVICE is unavailable", async () => {
       mockAgentService.fetch.mockRejectedValue(new Error("Service binding error"));
 
       const res = await app.request("/test", {}, mockEnv as Env);
 
-      expect(res.status).toBe(429);
+      // Fail-open: allow request through on service binding errors
+      expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data).toEqual({ error: "Rate limit service unavailable" });
+      expect(data).toEqual({ success: true });
     });
   });
 
@@ -254,7 +256,7 @@ describe("rateLimitDOMiddleware", () => {
       app.get("/test", (c) => c.json({ success: true }));
     });
 
-    it("should set correct headers for authenticated users (limit=100)", async () => {
+    it("should set correct headers for authenticated users (limit=500)", async () => {
       mockAgentService.fetch.mockResolvedValue(
         new Response(JSON.stringify({ allowed: true, remaining: 75 }), {
           status: 200,
@@ -270,11 +272,11 @@ describe("rateLimitDOMiddleware", () => {
 
       const res = await authenticatedApp.request("/test", {}, mockEnv as Env);
 
-      expect(res.headers.get("X-RateLimit-Limit")).toBe("100");
+      expect(res.headers.get("X-RateLimit-Limit")).toBe("500");
       expect(res.headers.get("X-RateLimit-Remaining")).toBe("75");
     });
 
-    it("should set correct headers for unauthenticated users (limit=60)", async () => {
+    it("should set correct headers for unauthenticated users (limit=200)", async () => {
       mockAgentService.fetch.mockResolvedValue(
         new Response(JSON.stringify({ allowed: true, remaining: 40 }), {
           status: 200,
@@ -283,7 +285,7 @@ describe("rateLimitDOMiddleware", () => {
 
       const res = await app.request("/test", {}, mockEnv as Env);
 
-      expect(res.headers.get("X-RateLimit-Limit")).toBe("60");
+      expect(res.headers.get("X-RateLimit-Limit")).toBe("200");
       expect(res.headers.get("X-RateLimit-Remaining")).toBe("40");
     });
 
@@ -300,13 +302,15 @@ describe("rateLimitDOMiddleware", () => {
       expect(res.headers.get("X-RateLimit-Remaining")).toBe("0");
     });
 
-    it("should set X-RateLimit-Remaining to 0 on service errors", async () => {
+    it("should pass through request on service errors (fail-open)", async () => {
       mockAgentService.fetch.mockRejectedValue(new Error("Error"));
 
       const res = await app.request("/test", {}, mockEnv as Env);
 
-      expect(res.status).toBe(429);
-      expect(res.headers.get("X-RateLimit-Remaining")).toBe("0");
+      // Fail-open: request passes through, no rate limit headers on error
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toEqual({ success: true });
     });
   });
 });
