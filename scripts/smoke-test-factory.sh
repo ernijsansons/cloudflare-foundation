@@ -63,6 +63,118 @@ TEMPLATE_SLUG=""
 # 60 req/min = 1 req/sec, so 1.5s delay keeps us under limit
 TEST_DELAY=1.5
 
+parse_retry_after_from_headers() {
+    local headers_file="$1"
+    local retry_after
+    retry_after=$(tr -d '\r' < "$headers_file" | awk -F': ' 'BEGIN{IGNORECASE=1} /^Retry-After:/{print $2; exit}')
+    if [[ "$retry_after" =~ ^[0-9]+$ ]]; then
+        echo "$retry_after"
+    else
+        echo "60"
+    fi
+}
+
+wait_for_rate_limit_reset() {
+    local path="${1:-/api/public/factory/templates}"
+    local max_cycles="${2:-8}"
+    local cycle=1
+
+    while [ "$cycle" -le "$max_cycles" ]; do
+        local headers_file
+        headers_file=$(mktemp)
+        local code
+        code=$(curl -s -D "$headers_file" -o /dev/null -w "%{http_code}" "$BASE_URL$path")
+
+        if [ "$code" -ne 429 ]; then
+            rm -f "$headers_file"
+            return 0
+        fi
+
+        local retry_after
+        retry_after=$(parse_retry_after_from_headers "$headers_file")
+        local wait_time=$((retry_after + 2))
+        rm -f "$headers_file"
+
+        echo -e "${YELLOW}Rate limited on pre-check. Waiting ${wait_time}s (cycle ${cycle}/${max_cycles})...${NC}"
+        sleep "$wait_time"
+        cycle=$((cycle + 1))
+    done
+
+    return 1
+}
+
+http_code_with_retry() {
+    local method="$1"
+    local path="$2"
+    local max_retries="${3:-5}"
+    local attempt=1
+
+    while [ "$attempt" -le "$max_retries" ]; do
+        local headers_file
+        headers_file=$(mktemp)
+        local code
+        code=$(curl -s -D "$headers_file" -o /dev/null -w "%{http_code}" -X "$method" "$BASE_URL$path")
+
+        if [ "$code" -eq 429 ]; then
+            if [ "$attempt" -lt "$max_retries" ]; then
+                local retry_after
+                retry_after=$(parse_retry_after_from_headers "$headers_file")
+                local wait_time=$((retry_after + 2))
+                rm -f "$headers_file"
+                echo -en "\n      ${YELLOW}Rate limited (429), waiting ${wait_time}s (attempt $attempt/$max_retries)...${NC} "
+                sleep "$wait_time"
+                attempt=$((attempt + 1))
+                continue
+            fi
+        fi
+
+        rm -f "$headers_file"
+        echo "$code"
+        return 0
+    done
+
+    echo "429"
+    return 0
+}
+
+fetch_json_with_retry() {
+    local path="$1"
+    local max_retries="${2:-5}"
+    local attempt=1
+
+    while [ "$attempt" -le "$max_retries" ]; do
+        local headers_file
+        local body_file
+        headers_file=$(mktemp)
+        body_file=$(mktemp)
+
+        local code
+        code=$(curl -s -D "$headers_file" -o "$body_file" -w "%{http_code}" "$BASE_URL$path")
+
+        if [ "$code" -eq 200 ]; then
+            cat "$body_file"
+            rm -f "$headers_file" "$body_file"
+            return 0
+        fi
+
+        if [ "$code" -eq 429 ] && [ "$attempt" -lt "$max_retries" ]; then
+            local retry_after
+            retry_after=$(parse_retry_after_from_headers "$headers_file")
+            local wait_time=$((retry_after + 2))
+            rm -f "$headers_file" "$body_file"
+            echo -e "${YELLOW}Rate limited while fetching JSON ($path). Waiting ${wait_time}s (attempt $attempt/$max_retries)...${NC}" >&2
+            sleep "$wait_time"
+            attempt=$((attempt + 1))
+            continue
+        fi
+
+        rm -f "$headers_file" "$body_file"
+        return 1
+    done
+
+    return 1
+}
+
 # Test functions
 test_start() {
     TESTS_RUN=$((TESTS_RUN + 1))
@@ -93,33 +205,22 @@ http_test() {
     local expected_code=$3
     local description=$4
     local max_retries=5
-    local base_delay=5
 
     test_start "$description"
+    HTTP_CODE=$(http_code_with_retry "$method" "$path" "$max_retries")
 
-    local attempt=1
-    while [ $attempt -le $max_retries ]; do
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" "$BASE_URL$path")
+    if [ "$HTTP_CODE" -eq "$expected_code" ]; then
+        test_pass
+        return 0
+    fi
 
-        if [ "$HTTP_CODE" -eq "$expected_code" ]; then
-            test_pass
-            return 0
-        elif [ "$HTTP_CODE" -eq 429 ]; then
-            # Rate limited - retry with exponential backoff
-            if [ $attempt -lt $max_retries ]; then
-                local wait_time=$((base_delay * attempt))
-                echo -en "\n      ${YELLOW}Rate limited (429), waiting ${wait_time}s (attempt $attempt/$max_retries)...${NC} "
-                sleep $wait_time
-                attempt=$((attempt + 1))
-            else
-                test_fail "Rate limited after $max_retries attempts (consider waiting 60s before re-running)"
-                return 1
-            fi
-        else
-            test_fail "Expected HTTP $expected_code, got $HTTP_CODE"
-            return 1
-        fi
-    done
+    if [ "$HTTP_CODE" -eq 429 ]; then
+        test_fail "Rate limited after $max_retries attempts"
+        return 1
+    fi
+
+    test_fail "Expected HTTP $expected_code, got $HTTP_CODE"
+    return 1
 }
 
 # JSON response test with retry/backoff for rate limiting
@@ -128,48 +229,24 @@ json_test() {
     local jq_filter=$2
     local expected=$3
     local description=$4
-    local max_retries=5
-    local base_delay=5
-
     test_start "$description"
+    if ! RESPONSE=$(fetch_json_with_retry "$path" 5); then
+        test_fail "Request failed, non-200 response, or repeated rate limiting"
+        return 1
+    fi
 
-    local attempt=1
-    while [ $attempt -le $max_retries ]; do
-        HTTP_CODE=$(curl -s -o /tmp/json_test_response.txt -w "%{http_code}" "$BASE_URL$path")
+    if ! RESULT=$(echo "$RESPONSE" | jq -r "$jq_filter" 2>/dev/null); then
+        test_fail "Invalid JSON response or jq filter error"
+        return 1
+    fi
 
-        if [ "$HTTP_CODE" -eq 429 ]; then
-            if [ $attempt -lt $max_retries ]; then
-                local wait_time=$((base_delay * attempt))
-                echo -en "\n      ${YELLOW}Rate limited (429), waiting ${wait_time}s (attempt $attempt/$max_retries)...${NC} "
-                sleep $wait_time
-                attempt=$((attempt + 1))
-                continue
-            else
-                test_fail "Rate limited after $max_retries attempts"
-                return 1
-            fi
-        fi
+    if [ "$RESULT" == "$expected" ]; then
+        test_pass
+        return 0
+    fi
 
-        RESPONSE=$(cat /tmp/json_test_response.txt 2>/dev/null || echo "")
-
-        if [ -z "$RESPONSE" ]; then
-            test_fail "Request failed or empty response"
-            return 1
-        fi
-
-        if ! RESULT=$(echo "$RESPONSE" | jq -r "$jq_filter" 2>/dev/null); then
-            test_fail "Invalid JSON response or jq filter error"
-            return 1
-        fi
-
-        if [ "$RESULT" == "$expected" ]; then
-            test_pass
-            return 0
-        else
-            test_fail "Expected '$expected', got '$RESULT'"
-            return 1
-        fi
-    done
+    test_fail "Expected '$expected', got '$RESULT'"
+    return 1
 }
 
 # Performance test with rate limit handling
@@ -178,9 +255,16 @@ perf_test() {
     local max_time_ms=$2
     local description=$3
     local max_retries=5
-    local base_delay=5
 
     test_start "$description"
+
+    # Warm cache/worker before timed samples to avoid cold-start false negatives.
+    local warmup_code
+    warmup_code=$(http_code_with_retry "GET" "$path" "$max_retries")
+    if [ "$warmup_code" -eq 429 ]; then
+        test_fail "Rate limited during performance warmup"
+        return 1
+    fi
 
     local samples=()
     local i
@@ -194,7 +278,7 @@ perf_test() {
 
             if [ "$HTTP_CODE" -eq 429 ]; then
                 if [ $attempt -lt $max_retries ]; then
-                    local wait_time=$((base_delay * attempt))
+                    local wait_time=62
                     echo -en "\n      ${YELLOW}Rate limited, waiting ${wait_time}s...${NC} "
                     sleep $wait_time
                     attempt=$((attempt + 1))
@@ -216,7 +300,7 @@ perf_test() {
     local samples_str
     samples_str=$(IFS=,; echo "${samples[*]}")
 
-    if [ "$median_ms" -lt "$max_time_ms" ]; then
+    if [ "$median_ms" -le "$max_time_ms" ]; then
         test_pass
         echo -e "      Response times (ms): ${samples_str} | median: ${median_ms}ms"
         return 0
@@ -235,16 +319,11 @@ echo ""
 
 # Pre-flight rate limit check - wait if currently rate limited
 echo -e "${BLUE}[PREFLIGHT]${NC} Checking rate limit status..."
-PREFLIGHT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/public/factory/templates")
-if [ "$PREFLIGHT_CODE" -eq 429 ]; then
-    echo -e "${YELLOW}Currently rate limited. Waiting 90s before starting tests...${NC}"
-    echo -e "${YELLOW}(Rate limit is 60 req/min - this ensures full reset)${NC}"
-    sleep 90
-    echo -e "${GREEN}Rate limit cooldown complete.${NC}"
-elif [ "$PREFLIGHT_CODE" -eq 200 ]; then
+if wait_for_rate_limit_reset "/api/public/factory/templates" 10; then
     echo -e "${GREEN}Rate limit OK. Starting tests (with ${TEST_DELAY}s delay between tests)...${NC}"
 else
-    echo -e "${YELLOW}Preflight returned $PREFLIGHT_CODE. Proceeding anyway...${NC}"
+    echo -e "${RED}Unable to clear rate limit window after extended wait. Try again later.${NC}"
+    exit 1
 fi
 echo ""
 
@@ -287,8 +366,12 @@ http_test "GET" "/api/public/factory/templates?offset=2" 200 "Pagination offset 
 
 http_test "GET" "/api/public/factory/templates?limit=5&offset=2" 200 "Pagination limit+offset together works"
 
-# Resolve a valid template slug dynamically from current staging data.
-TEMPLATE_SLUG=$(curl -sS "$BASE_URL/api/public/factory/templates?limit=1" | jq -r '.items[0].slug // empty')
+# Resolve a valid template slug dynamically from current data.
+if ! TEMPLATES_JSON=$(fetch_json_with_retry "/api/public/factory/templates?limit=1" 5); then
+    echo "Unable to resolve a template slug from /factory/templates (request failed)."
+    exit 1
+fi
+TEMPLATE_SLUG=$(echo "$TEMPLATES_JSON" | jq -r '.items[0].slug // empty')
 
 echo ""
 
@@ -390,7 +473,7 @@ http_test "GET" "/api/public/factory/build-specs/nonexistent-run" 404 "GET nonex
 test_start "Build spec detail with valid runId"
 FIRST_RUN_ID=""
 
-if ! BUILD_SPECS_JSON=$(curl -sS "$BASE_URL/api/public/factory/build-specs?limit=20"); then
+if ! BUILD_SPECS_JSON=$(fetch_json_with_retry "/api/public/factory/build-specs?limit=20" 5); then
     test_fail "Failed to fetch build specs list for detail test"
 else
     RUN_ID_CANDIDATES=$(echo "$BUILD_SPECS_JSON" | jq -r '.buildSpecs[]?.runId // empty' 2>/dev/null || true)
@@ -409,7 +492,7 @@ else
             if ! bash "$SCRIPT_DIR/seed-factory-staging-data.sh" >/dev/null; then
                 test_fail "Seed script failed: $SCRIPT_DIR/seed-factory-staging-data.sh"
             else
-                BUILD_SPECS_JSON=$(curl -sS "$BASE_URL/api/public/factory/build-specs?limit=20")
+                BUILD_SPECS_JSON=$(fetch_json_with_retry "/api/public/factory/build-specs?limit=20" 5)
                 RUN_ID_CANDIDATES=$(echo "$BUILD_SPECS_JSON" | jq -r '.buildSpecs[]?.runId // empty' 2>/dev/null || true)
 
                 for RUN_ID in $RUN_ID_CANDIDATES; do
@@ -428,15 +511,36 @@ else
     if [ -n "$FIRST_RUN_ID" ]; then
         test_pass
         echo -e "      Using runId: ${FIRST_RUN_ID}"
-    elif [ "$ENVIRONMENT" = "production" ]; then
-        # Production may not have build specs yet - this is expected and not a failure
-        # Count as pass since the endpoint works, just no data to verify detail response
-        TESTS_PASSED=$((TESTS_PASSED + 1))
-        echo -e "${YELLOW}⚠ SKIP${NC} (no data)"
-        echo -e "      ${YELLOW}Note: Build specs are generated by Architecture Advisor after planning runs complete.${NC}"
-        echo -e "      ${YELLOW}Endpoint verified working via 404 test above. Detail test skipped.${NC}"
+    elif [ "$ENVIRONMENT" = "production" ] && [ "${FACTORY_SMOKE_AUTO_SEED_PRODUCTION:-false}" = "true" ]; then
+        if [ -f "$SCRIPT_DIR/seed-factory-production-data.sh" ]; then
+            if ! bash "$SCRIPT_DIR/seed-factory-production-data.sh" >/dev/null; then
+                test_fail "Production seed script failed: $SCRIPT_DIR/seed-factory-production-data.sh"
+            else
+                if ! BUILD_SPECS_JSON=$(fetch_json_with_retry "/api/public/factory/build-specs?limit=20" 5); then
+                    test_fail "Failed to fetch build specs after production seed"
+                else
+                    RUN_ID_CANDIDATES=$(echo "$BUILD_SPECS_JSON" | jq -r '.buildSpecs[]?.runId // empty' 2>/dev/null || true)
+                    for RUN_ID in $RUN_ID_CANDIDATES; do
+                        HTTP_CODE=$(http_code_with_retry "GET" "/api/public/factory/build-specs/$RUN_ID" 5)
+                        if [ "$HTTP_CODE" -eq 200 ]; then
+                            FIRST_RUN_ID="$RUN_ID"
+                            break
+                        fi
+                    done
+
+                    if [ -n "$FIRST_RUN_ID" ]; then
+                        test_pass
+                        echo -e "      Using runId after production seed: ${FIRST_RUN_ID}"
+                    else
+                        test_fail "No build specs available after production seed"
+                    fi
+                fi
+            fi
+        else
+            test_fail "No build specs in production and seed script is missing: $SCRIPT_DIR/seed-factory-production-data.sh"
+        fi
     else
-        test_fail "No build specs available to validate detail endpoint (including post-seed)"
+        test_fail "No build specs available to validate detail endpoint. Seed production data or set FACTORY_SMOKE_AUTO_SEED_PRODUCTION=true."
     fi
 fi
 
@@ -461,7 +565,7 @@ else
 fi
 
 test_start "No authentication required for public endpoints"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/public/factory/templates")
+HTTP_CODE=$(http_code_with_retry "GET" "/api/public/factory/templates" 5)
 if [ "$HTTP_CODE" -eq 200 ]; then
     test_pass
 else
@@ -482,7 +586,7 @@ else
 fi
 
 test_start "POST not allowed on templates endpoint"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/public/factory/templates")
+HTTP_CODE=$(http_code_with_retry "POST" "/api/public/factory/templates" 5)
 if [ "$HTTP_CODE" -eq 405 ] || [ "$HTTP_CODE" -eq 404 ]; then
     test_pass
 else
@@ -490,7 +594,7 @@ else
 fi
 
 test_start "PUT not allowed on templates endpoint"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X PUT "$BASE_URL/api/public/factory/templates/test")
+HTTP_CODE=$(http_code_with_retry "PUT" "/api/public/factory/templates/test" 5)
 if [ "$HTTP_CODE" -eq 405 ] || [ "$HTTP_CODE" -eq 404 ]; then
     test_pass
 else
@@ -498,7 +602,7 @@ else
 fi
 
 test_start "DELETE not allowed on templates endpoint"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/public/factory/templates/test")
+HTTP_CODE=$(http_code_with_retry "DELETE" "/api/public/factory/templates/test" 5)
 if [ "$HTTP_CODE" -eq 405 ] || [ "$HTTP_CODE" -eq 404 ]; then
     test_pass
 else
@@ -514,7 +618,7 @@ echo "-------------------"
 http_test "GET" "/api/public/factory/invalid-endpoint" 404 "Invalid endpoint returns 404"
 
 test_start "Malformed query parameters handled gracefully"
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/public/factory/templates?maxComplexity=invalid")
+HTTP_CODE=$(http_code_with_retry "GET" "/api/public/factory/templates?maxComplexity=invalid" 5)
 if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 400 ]; then
     test_pass
 else

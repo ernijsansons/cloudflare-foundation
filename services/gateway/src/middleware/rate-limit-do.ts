@@ -73,12 +73,28 @@ export function rateLimitDOMiddleware() {
       ]);
 
       if (!checkResponse.ok) {
-        // Rate limit exceeded or error from DO
-        const data = await checkResponse.json() as { retryAfter?: number };
-        c.header("Retry-After", String(data.retryAfter ?? 60));
-        c.header("X-RateLimit-Limit", String(limit));
-        c.header("X-RateLimit-Remaining", "0");
-        return c.json({ error: "Rate limit exceeded" }, 429);
+        if (checkResponse.status === 429) {
+          // Upstream explicitly indicates rate limit exceeded.
+          const data = await checkResponse.json() as { retryAfter?: number };
+          c.header("Retry-After", String(data.retryAfter ?? 60));
+          c.header("X-RateLimit-Limit", String(limit));
+          c.header("X-RateLimit-Remaining", "0");
+          return c.json({ error: "Rate limit exceeded" }, 429);
+        }
+
+        // Fail open on upstream 5xx/errors to preserve availability.
+        const body = await checkResponse.text().catch(() => "");
+        console.error("[RATE_LIMIT_DO] Upstream rate-limit error, allowing request:", {
+          status: checkResponse.status,
+          body,
+        });
+        await next();
+        // Preserve header contract even in fail-open mode.
+        applyRateLimitHeaders(c, {
+          "X-RateLimit-Limit": String(limit),
+          "X-RateLimit-Remaining": String(limit),
+        });
+        return;
       }
 
       const result = await checkResponse.json() as {
@@ -103,6 +119,11 @@ export function rateLimitDOMiddleware() {
       // Fail open on errors (timeout, network, etc.) - availability over strict enforcement
       console.error("[RATE_LIMIT_DO] Error (allowing request):", error);
       await next();
+      // Preserve header contract even in fail-open mode.
+      applyRateLimitHeaders(c, {
+        "X-RateLimit-Limit": String(limit),
+        "X-RateLimit-Remaining": String(limit),
+      });
     }
   };
 }
