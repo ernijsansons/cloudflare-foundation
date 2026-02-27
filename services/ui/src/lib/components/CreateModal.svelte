@@ -7,7 +7,7 @@
   interface Props {
     open: boolean;
     onClose: () => void;
-    onSubmit: (data: { type: "idea" | "run"; idea: string; mode?: "local" | "cloud" }) => Promise<void>;
+    onSubmit: (_data: { type: "idea" | "run"; idea: string; mode?: "local" | "cloud" }) => Promise<void>;
   }
 
   let { open, onClose, onSubmit }: Props = $props();
@@ -17,6 +17,7 @@
   let idea = $state("");
   let loading = $state(false);
   let error = $state("");
+  let ideaInput = $state<{ focus: () => void } | null>(null);
 
   async function handleSubmit() {
     if (!idea.trim()) {
@@ -48,11 +49,18 @@
       document.removeEventListener("keydown", handleKeydown);
     };
   });
+
+  $effect(() => {
+    if (open && ideaInput) {
+      setTimeout(() => {
+        ideaInput?.focus();
+      }, 0);
+    }
+  });
 </script>
 
 {#if open}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div 
     class="modal-overlay" 
     onclick={onClose} 
@@ -64,6 +72,7 @@
       onclick={(e) => e.stopPropagation()} 
       role="dialog" 
       aria-modal="true"
+      tabindex="-1"
       in:fly={{ y: 20, duration: 300, easing: cubicOut }}
       out:scale={{ start: 0.95, duration: 200, easing: cubicOut }}
     >
@@ -103,10 +112,10 @@
             <label for="idea">Description</label>
             <textarea
               id="idea"
+              bind:this={ideaInput}
               bind:value={idea}
               placeholder="E.g., A fully autonomous agentic platform for creating dynamic Facebook ads..."
               rows="4"
-              autofocus
             ></textarea>
           </div>
 

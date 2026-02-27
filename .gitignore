@@ -12,3 +12,9 @@ dist/
 .cursor/
 test-output/
 test-scaffold/
+
+# Windows reserved device names (prevent accidental creation)
+nul
+con
+prn
+aux

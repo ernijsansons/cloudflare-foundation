@@ -25,7 +25,8 @@ import {
 	getFreeCapabilities,
 	formatTemplatesForContext,
 	formatCapabilitiesForContext,
-	formatFreeWinsForContext
+	formatFreeWinsForContext,
+	scoreTemplates
 } from '../lib/template-registry';
 import { ArchitectureAdvisorOutputSchema } from '../schemas/architecture-advisor';
 
@@ -207,10 +208,20 @@ Produce valid JSON matching the ArchitectureAdvisorOutput schema.`;
 			};
 		}
 
-		// 2. Build context with registry data + prior research
+		// 2. Pre-score templates algorithmically
+		const requirements = this.extractRequirements(ctx.priorOutputs);
+		const scoredTemplates = scoreTemplates(templates, requirements);
+		const topTemplate = scoredTemplates[0]; // Highest scoring
+
+		// 3. Build context with registry data + prior research + algorithmic scores
 		const registryContext = `
 ## Available Templates (${templates.length} total)
 ${formatTemplatesForContext(templates)}
+
+## Pre-Scored Recommendations (Algorithmic)
+Top Match: ${topTemplate?.template.name || 'N/A'} (score: ${topTemplate?.score || 0}/100)
+Reasons: ${topTemplate?.matchReasons.join(', ') || 'N/A'}
+Alternative: ${scoredTemplates[1]?.template.name || 'N/A'} (score: ${scoredTemplates[1]?.score || 0}/100)
 
 ## Cloudflare Capabilities (${capabilities.length} products)
 ${formatCapabilitiesForContext(capabilities)}
@@ -219,10 +230,10 @@ ${formatCapabilitiesForContext(capabilities)}
 ${formatFreeWinsForContext(freeCapabilities)}
 `;
 
-		// 3. Extract key insights from prior phases
+		// 4. Extract key insights from prior phases
 		const priorInsights = this.extractPriorInsights(ctx.priorOutputs);
 
-		// 4. Build the user prompt
+		// 5. Build the user prompt
 		const userPrompt = `Analyze the following idea and research output. Recommend the optimal Cloudflare architecture.
 
 ## Idea
@@ -250,7 +261,7 @@ Think carefully:
 
 Output valid JSON matching the schema. Include honest tradeoffs.`;
 
-		// 5. Run the model
+		// 6. Run the model
 		const systemPrompt = this.getSystemPrompt() + '\n\n' + registryContext;
 
 		const messages = [
@@ -267,6 +278,48 @@ Output valid JSON matching the schema. Include honest tradeoffs.`;
 			const parsed = extractJSON(response);
 			const agentOutput = ArchitectureAdvisorOutputSchema.parse(parsed);
 
+			// 7. Enhance LLM output with algorithmic insights
+			// Fill missing recommended if LLM didn't provide
+			if (!agentOutput.recommended && topTemplate) {
+				agentOutput.recommended = {
+					slug: topTemplate.template.slug,
+					name: topTemplate.template.name,
+					score: topTemplate.score,
+					reasoning: `Best match based on requirements (${topTemplate.score}/100). ${topTemplate.matchReasons.join(', ')}`,
+					bindings: [],
+					estimatedCost: {
+						bootstrap: topTemplate.template.estimatedCostLow,
+						growth: topTemplate.template.estimatedCostMid,
+						scale: topTemplate.template.estimatedCostHigh
+					},
+					motionTier: 'basic',
+					complexity: topTemplate.template.complexity,
+					tradeoffs: []
+				};
+			}
+
+			// Add alternatives if LLM didn't provide enough
+			if ((!agentOutput.alternatives || agentOutput.alternatives.length < 2) && scoredTemplates.length > 1) {
+				const existingAlternatives = agentOutput.alternatives || [];
+				const neededCount = 2 - existingAlternatives.length;
+				const additionalAlternatives = scoredTemplates.slice(1, 1 + neededCount).map((match) => ({
+					slug: match.template.slug,
+					name: match.template.name,
+					score: match.score,
+					reasoning: match.matchReasons.join(', '),
+					bindings: [],
+					estimatedCost: {
+						bootstrap: match.template.estimatedCostLow,
+						growth: match.template.estimatedCostMid,
+						scale: match.template.estimatedCostHigh
+					},
+					motionTier: 'basic' as const,
+					complexity: match.template.complexity,
+					tradeoffs: []
+				}));
+				agentOutput.alternatives = [...existingAlternatives, ...additionalAlternatives];
+			}
+
 			// Add scaffold command if not present
 			if (!agentOutput.scaffoldCommand && agentOutput.recommended?.slug) {
 				agentOutput.scaffoldCommand = `npm create cloudflare@latest -- --template=${agentOutput.recommended.slug}`;
@@ -277,10 +330,15 @@ Output valid JSON matching the schema. Include honest tradeoffs.`;
 
 			return { success: true, output: buildSpec };
 		} catch (e) {
-			console.error('[ArchitectureAdvisorAgent] Error:', e);
+			console.error('[ArchitectureAdvisorAgent] LLM failed, using fallback:', e);
+			const fallbackSpec = this.getFallbackBuildSpec(ctx.runId);
+			// Mark as fallback status so downstream consumers can detect degraded output
+			fallbackSpec.status = 'fallback';
 			return {
-				success: false,
-				errors: [e instanceof Error ? e.message : String(e)]
+				success: true,
+				output: fallbackSpec,
+				warnings: ['Generated using fallback stack due to LLM failure. Recommendations may not match your actual requirements.'],
+				errors: [`LLM failed: ${e instanceof Error ? e.message : String(e)}`]
 			};
 		}
 	}
@@ -363,5 +421,68 @@ Output valid JSON matching the schema. Include honest tradeoffs.`;
 		}
 
 		return insights.join('\n');
+	}
+
+	/**
+	 * Extract requirements from prior phase outputs for algorithmic scoring
+	 */
+	private extractRequirements(priorOutputs: Record<string, unknown>) {
+		const productDesign = priorOutputs['product-design'] as Record<string, unknown> | undefined;
+		const businessModel = priorOutputs['business-model'] as Record<string, unknown> | undefined;
+		const techArch = priorOutputs['tech-arch'] as Record<string, unknown> | undefined;
+
+		const featuresText = JSON.stringify(productDesign?.features || '').toLowerCase();
+
+		return {
+			needsDatabase: /database|persist|store|crud|d1/.test(featuresText),
+			needsRealtime: /real-time|websocket|live|chat|collaboration/.test(featuresText),
+			needsAI: /ai|llm|semantic|agent|embedding|vectorize/.test(featuresText),
+			needsAuth: /auth|login|signup|user|account/.test(featuresText),
+			maxBudget: businessModel?.maxBudget as number | undefined,
+			preferredFramework: techArch?.preferredFramework as string | undefined
+		};
+	}
+
+	/**
+	 * Get fallback BuildSpec when LLM fails
+	 */
+	private getFallbackBuildSpec(runId: string): BuildSpec {
+		return mapToBuildSpec(
+			{
+				recommended: {
+					slug: 'react-router-hono',
+					name: 'React Router with Hono API',
+					score: 70,
+					reasoning: 'Default safe stack (LLM unavailable). React Router for frontend, Hono for API, D1 for database.',
+					bindings: [
+						{ type: 'd1_databases', name: 'DB', resource: 'primary-db' }
+					],
+					estimatedCost: { bootstrap: 0, growth: 5, scale: 25 },
+					motionTier: 'basic',
+					complexity: 2,
+					tradeoffs: ['Generic stack, may need customization', 'Limited to D1 database (no Postgres)']
+				},
+				alternatives: [],
+				dataModel: {
+					tables: [],
+					indexes: [],
+					migrations: ['0001_initial.sql']
+				},
+				apiRoutes: [],
+				frontend: {
+					framework: 'react-router',
+					pages: ['/'],
+					components: ['App', 'Layout'],
+					motionTier: 'basic',
+					styling: 'tailwind'
+				},
+				agents: [],
+				freeWins: [],
+				growthPath: null,
+				scaffoldCommand: 'npm create cloudflare@latest -- --template=react-router',
+				totalEstimatedMonthlyCost: { bootstrap: 0, growth: 5, scale: 25 }
+			},
+			runId
+		);
 	}
 }

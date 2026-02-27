@@ -35,6 +35,12 @@ export interface Variables {
   plan?: string;
   correlationId?: string;
   contextToken?: string;
+  // Validation middleware fields (set by validateBody/validateQuery/validateParams)
+  validatedBody?: unknown;
+  validatedQuery?: unknown;
+  validatedParams?: unknown;
+  // Request logger (set by requestLoggerMiddleware)
+  logger?: import("./lib/logger").Logger;
 }
 
 // Project Documentation Types

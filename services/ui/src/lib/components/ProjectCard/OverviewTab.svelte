@@ -290,7 +290,7 @@
 
 	.action-button {
 		display: block;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: var(--gradient-brand);
 		color: white;
 		padding: 0.75rem 1.5rem;
 		border-radius: 8px;

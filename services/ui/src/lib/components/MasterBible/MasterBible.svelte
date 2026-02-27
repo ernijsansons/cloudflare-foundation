@@ -8,7 +8,6 @@
   import RunTimeline from './RunTimeline.svelte';
   import ArtifactExplorer from './ArtifactExplorer.svelte';
   import ExportPanel from './ExportPanel.svelte';
-  import Scorecard from './Scorecard.svelte';
 
   interface Props {
     projectId: string;
@@ -41,7 +40,7 @@
     artifacts,
     departments,
     agentJSON,
-    createdAt,
+    createdAt: _createdAt,
     updatedAt,
     onBack
   }: Props = $props();
@@ -299,7 +298,7 @@
     flex-direction: column;
     gap: 1rem;
     padding: 1.5rem 2rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-brand);
     color: white;
   }
 
@@ -475,149 +474,6 @@
     padding: 3rem;
     text-align: center;
     color: var(--color-text-muted, #6b7280);
-  }
-
-  /* Artifacts */
-  .artifacts-content {
-    max-width: 1200px;
-  }
-
-  .artifacts-content h2 {
-    margin: 0 0 1.5rem;
-    font-size: 1.5rem;
-  }
-
-  .artifacts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1rem;
-  }
-
-  .artifact-card {
-    background: var(--color-bg-secondary, #f9fafb);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 8px;
-    padding: 1rem;
-  }
-
-  .artifact-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .artifact-phase {
-    font-weight: 600;
-    color: var(--color-text, #111827);
-  }
-
-  .artifact-score {
-    background: var(--color-primary, #6366f1);
-    color: white;
-    padding: 0.125rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .artifact-meta {
-    margin-bottom: 0.75rem;
-  }
-
-  .verdict {
-    font-size: 0.75rem;
-    color: var(--color-text-muted, #6b7280);
-    text-transform: capitalize;
-  }
-
-  .artifact-content {
-    font-size: 0.875rem;
-  }
-
-  .artifact-content summary {
-    cursor: pointer;
-    color: var(--color-primary, #6366f1);
-    font-weight: 500;
-  }
-
-  .artifact-content pre {
-    margin-top: 0.75rem;
-    padding: 0.75rem;
-    background: white;
-    border-radius: 4px;
-    overflow-x: auto;
-    font-size: 0.75rem;
-    max-height: 300px;
-    overflow-y: auto;
-  }
-
-  .empty-artifacts {
-    grid-column: 1 / -1;
-    padding: 3rem;
-    text-align: center;
-    color: var(--color-text-muted, #6b7280);
-    background: var(--color-bg-secondary, #f9fafb);
-    border-radius: 8px;
-  }
-
-  .empty-artifacts p {
-    margin: 0;
-  }
-
-  .empty-artifacts .hint {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    background: none;
-    padding: 0;
-  }
-
-  /* Export */
-  .export-content {
-    max-width: 800px;
-  }
-
-  .export-content h2 {
-    margin: 0 0 1.5rem;
-    font-size: 1.5rem;
-  }
-
-  .export-grid {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .export-option {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.25rem;
-    background: var(--color-bg-secondary, #f9fafb);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-align: left;
-  }
-
-  .export-option:hover {
-    border-color: var(--color-primary, #6366f1);
-    background: white;
-  }
-
-  .export-icon {
-    font-size: 2rem;
-  }
-
-  .export-label {
-    font-weight: 600;
-    color: var(--color-text, #111827);
-  }
-
-  .export-desc {
-    font-size: 0.875rem;
-    color: var(--color-text-muted, #6b7280);
-    margin-left: auto;
   }
 
   /* Responsive */

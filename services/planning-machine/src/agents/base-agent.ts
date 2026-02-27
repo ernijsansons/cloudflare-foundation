@@ -27,6 +27,9 @@ export interface AgentResult<T = unknown> {
   output?: T;
   reasoningState?: ReasoningState;
   score?: number;
+  /** Non-fatal warnings (e.g., fallback used, degraded output) */
+  warnings?: string[];
+  /** Fatal errors that caused failure */
   errors?: string[];
   /** Present when multi-model orchestration was used — contains per-model outputs and wild ideas */
   orchestration?: OrchestrationResult;

@@ -12,27 +12,42 @@ export interface GatewayConfig {
   defaultTenantId: string;
 }
 
+interface GatewayPlatform {
+  env?: {
+    GATEWAY?: unknown;
+    GATEWAY_FALLBACK_URL?: string;
+  };
+}
+
 /**
  * Get gateway configuration based on environment
  * @param platform - Cloudflare platform binding
  * @returns Gateway configuration
  */
 export function getGatewayConfig(
-  platform: App.Platform | undefined
+  platform: GatewayPlatform | undefined
 ): GatewayConfig {
+  const env = platform?.env as Record<string, unknown> | undefined;
+  const configuredFallback =
+    typeof env?.GATEWAY_FALLBACK_URL === "string" &&
+    env.GATEWAY_FALLBACK_URL.trim().length > 0
+      ? env.GATEWAY_FALLBACK_URL.trim()
+      : undefined;
+
   // Development: prefer service binding, fallback to localhost
   if (dev) {
     return {
       useServiceBinding: !!platform?.env?.GATEWAY,
-      fallbackUrl: "http://127.0.0.1:8787",
+      fallbackUrl: configuredFallback ?? "http://127.0.0.1:8787",
       defaultTenantId: "default",
     };
   }
 
-  // Production: prefer service binding, fallback to deployed gateway worker
+  // Production: prefer service binding, no hardcoded external fallback.
+  // A fallback URL may be explicitly provided via env.GATEWAY_FALLBACK_URL.
   return {
     useServiceBinding: !!platform?.env?.GATEWAY,
-    fallbackUrl: "https://foundation-gateway-production.ernijs-ansons.workers.dev",
+    fallbackUrl: configuredFallback,
     defaultTenantId: "default",
   };
 }

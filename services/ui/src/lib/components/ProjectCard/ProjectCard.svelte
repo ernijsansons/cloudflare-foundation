@@ -192,7 +192,7 @@
 	}
 
 	.card-header {
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: var(--gradient-brand);
 		color: white;
 		padding: 1.5rem 2rem;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.1);

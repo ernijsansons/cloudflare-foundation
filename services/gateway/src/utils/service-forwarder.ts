@@ -1,5 +1,10 @@
 import type { Context } from "hono";
+
 import type { Env, Variables } from "../types";
+
+type ServiceBinding = {
+  fetch(request: Request): Promise<Response>;
+};
 
 /**
  * Utility to forward requests to downstream services with context injection.
@@ -12,9 +17,12 @@ import type { Env, Variables } from "../types";
  */
 export async function forwardToService(
   c: Context<{ Bindings: Env; Variables: Variables }>,
-  service: Fetcher,
+  service: ServiceBinding,
   options?: {
     pathTransform?: (path: string) => string;
+    queryTransform?: (
+      searchParams: URLSearchParams
+    ) => string | URLSearchParams | null | undefined;
     errorMessage?: string;
   }
 ): Promise<Response> {
@@ -26,6 +34,20 @@ export async function forwardToService(
       url.pathname = options.pathTransform(url.pathname);
     }
 
+    // Apply query transformation if provided
+    if (options?.queryTransform) {
+      const transformed = options.queryTransform(new URLSearchParams(url.searchParams));
+      if (transformed instanceof URLSearchParams) {
+        const query = transformed.toString();
+        url.search = query ? `?${query}` : "";
+      } else if (typeof transformed === "string") {
+        const query = transformed.startsWith("?") ? transformed.slice(1) : transformed;
+        url.search = query ? `?${query}` : "";
+      } else {
+        url.search = "";
+      }
+    }
+
     // Clone headers and add context token
     const headers = new Headers(c.req.raw.headers);
     const contextToken = c.get("contextToken");
@@ -34,7 +56,7 @@ export async function forwardToService(
     }
 
     // Properly forward the request with body
-    const init: RequestInit = {
+    const init: { method: string; headers: Headers; body?: ArrayBuffer } = {
       method: c.req.method,
       headers,
     };

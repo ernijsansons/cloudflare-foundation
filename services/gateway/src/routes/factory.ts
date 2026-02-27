@@ -9,6 +9,7 @@
  *   GET  /api/factory/templates/:slug    — Get single template
  *   GET  /api/factory/capabilities       — List all CF capabilities
  *   GET  /api/factory/capabilities/free  — List free capabilities
+ *   GET  /api/factory/build-specs        — List all build specs (with pagination)
  *   GET  /api/factory/build-specs/:runId — Get BuildSpec for a run
  *   POST /api/factory/build-specs/:runId — Trigger BuildSpec generation for a run
  */
@@ -16,6 +17,7 @@
 import { Hono } from "hono";
 
 import type { Env, Variables } from "../types";
+import { validateBuildSpecsParams, validateTemplatesParams } from "../utils/query-validator";
 import { forwardToService } from "../utils/service-forwarder";
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -29,8 +31,17 @@ app.get("/templates", async (c) => {
     return c.json({ error: "Planning service not configured" }, 503);
   }
 
+  const requestUrl = new URL(c.req.url);
+  const validatedParams = validateTemplatesParams(requestUrl);
+  const forwardedParams = new URLSearchParams(validatedParams);
+  const tenantId = requestUrl.searchParams.get("tenant_id");
+  if (tenantId) {
+    forwardedParams.set("tenant_id", tenantId);
+  }
+
   return forwardToService(c, c.env.PLANNING_SERVICE, {
     pathTransform: () => "/api/factory/templates",
+    queryTransform: () => forwardedParams,
     errorMessage: "Failed to fetch templates",
   });
 });
@@ -75,6 +86,32 @@ app.get("/capabilities/free", async (c) => {
   return forwardToService(c, c.env.PLANNING_SERVICE, {
     pathTransform: () => "/api/factory/capabilities/free",
     errorMessage: "Failed to fetch free capabilities",
+  });
+});
+
+/**
+ * GET /build-specs — List all build specs with optional filters
+ * Query params: limit (1-100), offset (0-10000), status (draft|approved|rejected|fallback)
+ *
+ * Security: Query params are validated and sanitized to prevent injection attacks.
+ */
+app.get("/build-specs", async (c) => {
+  if (!c.env.PLANNING_SERVICE) {
+    return c.json({ error: "Planning service not configured" }, 503);
+  }
+
+  const requestUrl = new URL(c.req.url);
+  const validatedParams = validateBuildSpecsParams(requestUrl);
+  const forwardedParams = new URLSearchParams(validatedParams);
+  const tenantId = requestUrl.searchParams.get("tenant_id");
+  if (tenantId) {
+    forwardedParams.set("tenant_id", tenantId);
+  }
+
+  return forwardToService(c, c.env.PLANNING_SERVICE, {
+    pathTransform: () => "/api/factory/build-specs",
+    queryTransform: () => forwardedParams,
+    errorMessage: "Failed to fetch build specs",
   });
 });
 

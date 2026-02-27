@@ -8,7 +8,7 @@
     projectId: string;
   }
 
-  let { artifacts, runs, projectId }: Props = $props();
+  let { artifacts, runs: _runs, projectId: _projectId }: Props = $props();
 
   // State
   let selectedPhase = $state<string | null>(null);
@@ -42,14 +42,6 @@
       : artifactTree
   );
 
-  // Flat list of all artifacts for grid view
-  const allArtifacts = $derived(
-    Object.entries(artifacts).map(([phase, artifact]) => ({
-      phase,
-      artifact
-    }))
-  );
-
   // Stats
   const stats = $derived({
     total: Object.keys(artifacts).length,
@@ -73,15 +65,6 @@
   function selectPhase(phaseId: string, artifact: PlanningArtifact | null) {
     selectedPhase = phaseId;
     selectedArtifact = artifact;
-  }
-
-  function togglePhase(phaseId: string, artifact: PlanningArtifact | null) {
-    if (selectedPhase === phaseId) {
-      selectedPhase = null;
-      selectedArtifact = null;
-    } else {
-      selectPhase(phaseId, artifact);
-    }
   }
 
   function formatPhase(phase: string): string {
@@ -179,7 +162,7 @@
 
   <div class="explorer-body">
     <!-- Tree View -->
-    <nav class="tree-view" role="tree" aria-label="Artifact tree navigation">
+    <div class="tree-view" role="tree" aria-label="Artifact tree navigation">
       {#each filteredTree as { stage, phases }}
         <div class="tree-stage">
           <button
@@ -212,7 +195,7 @@
                   class:has-data={hasData}
                   class:selected={selectedPhase === id}
                   onclick={() => selectPhase(id, artifact)}
-                  aria-selected={selectedPhase === id}
+                  aria-pressed={selectedPhase === id}
                 >
                   <span class="phase-indicator" class:active={hasData}></span>
                   <span class="phase-name">{formatPhase(id)}</span>
@@ -227,7 +210,7 @@
           {/if}
         </div>
       {/each}
-    </nav>
+    </div>
 
     <!-- Detail Panel -->
     <div class="detail-panel">

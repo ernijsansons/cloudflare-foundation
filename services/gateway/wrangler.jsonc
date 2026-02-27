@@ -60,7 +60,7 @@
       "vars": {
         "ENVIRONMENT": "staging",
         "ALLOWED_ORIGINS": "https://dashboard-staging.erlvinc.com",
-        "USE_DO_RATE_LIMITING": "false"
+        "USE_DO_RATE_LIMITING": "true"
       },
       "services": [
         { "binding": "AGENT_SERVICE", "service": "foundation-agents-staging" },
@@ -98,7 +98,7 @@
       "vars": {
         "ENVIRONMENT": "production",
         "ALLOWED_ORIGINS": "https://dashboard.erlvinc.com,https://naomi.erlvinc.com",
-        "USE_DO_RATE_LIMITING": "false"
+        "USE_DO_RATE_LIMITING": "true"
       },
       "services": [
         { "binding": "AGENT_SERVICE", "service": "foundation-agents-production" },

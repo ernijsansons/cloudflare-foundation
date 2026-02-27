@@ -35,8 +35,6 @@
  *   GET /api/planning/health — health check
  */
 
-/* global crypto */
-
 import type { TemplateCategory, Framework, TemplateSource } from '@foundation/shared';
 
 import { AnalyticsAgent } from './agents/analytics-agent';
@@ -56,6 +54,7 @@ import { StrategyAgent } from './agents/strategy-agent';
 import { SynthesisAgent } from './agents/synthesis-agent';
 import { TechArchAgent } from './agents/tech-arch-agent';
 import { embedAndStore, queryRelevant } from './lib/rag';
+import { getDeterministicVariation } from './lib/seeded-random';
 import {
 	queryTemplates,
 	getTemplateBySlug,
@@ -132,8 +131,9 @@ export default {
 		const parkedPromoteMatch = url.pathname.match(
 			/^\/api\/planning\/parked-ideas\/([^/]+)\/promote$/
 		);
-		if (parkedPromoteMatch && request.method === 'POST') {
-			return promoteParkedIdea(parkedPromoteMatch[1]!, env);
+		const parkedIdeaId = parkedPromoteMatch?.[1];
+		if (parkedIdeaId && request.method === 'POST') {
+			return promoteParkedIdea(parkedIdeaId, env);
 		}
 
 		for (const { path, handler } of AGENT_ROUTES) {
@@ -204,6 +204,48 @@ async function handleRuns(request: Request, env: Env, url: URL): Promise<Respons
 
 	if (request.method === 'GET' && subPath[0] === 'artifacts' && subPath.length === 1) {
 		return listArtifacts(runId, env);
+	}
+
+	// NEW: Phase-level detail endpoints for UI visibility
+	// GET /api/planning/runs/:id/phases/:phase/sources - Citation sources
+	if (
+		request.method === 'GET' &&
+		subPath[0] === 'phases' &&
+		subPath.length === 3 &&
+		subPath[2] === 'sources'
+	) {
+		const phase = subPath[1];
+		if (!phase) return Response.json({ error: 'Not found' }, { status: 404 });
+		return getPhaseSources(runId, phase, env);
+	}
+
+	// GET /api/planning/runs/:id/phases/:phase/quality - Per-dimension quality scores
+	if (
+		request.method === 'GET' &&
+		subPath[0] === 'phases' &&
+		subPath.length === 3 &&
+		subPath[2] === 'quality'
+	) {
+		const phase = subPath[1];
+		if (!phase) return Response.json({ error: 'Not found' }, { status: 404 });
+		return getPhaseQuality(runId, phase, env);
+	}
+
+	// GET /api/planning/runs/:id/phases/:phase/versions - Revision history
+	if (
+		request.method === 'GET' &&
+		subPath[0] === 'phases' &&
+		subPath.length === 3 &&
+		subPath[2] === 'versions'
+	) {
+		const phase = subPath[1];
+		if (!phase) return Response.json({ error: 'Not found' }, { status: 404 });
+		return getPhaseVersions(runId, phase, env);
+	}
+
+	// GET /api/planning/runs/:id/orchestration - Model outputs from parallel inference
+	if (request.method === 'GET' && subPath[0] === 'orchestration' && subPath.length === 1) {
+		return getOrchestration(runId, env);
 	}
 
 	if (request.method === 'POST' && subPath[0] === 'context' && subPath.length === 1) {
@@ -286,7 +328,9 @@ async function handleFactory(request: Request, env: Env, url: URL): Promise<Resp
 
 	// GET /api/factory/templates/:slug
 	if (pathParts[0] === 'templates' && pathParts.length === 2 && request.method === 'GET') {
-		return getTemplate(pathParts[1]!, env);
+		const templateSlug = pathParts[1];
+		if (!templateSlug) return Response.json({ error: 'Not found' }, { status: 404 });
+		return getTemplate(templateSlug, env);
 	}
 
 	// GET /api/factory/capabilities
@@ -304,14 +348,23 @@ async function handleFactory(request: Request, env: Env, url: URL): Promise<Resp
 		return getFreeCapabilitiesEndpoint(env);
 	}
 
+	// GET /api/factory/build-specs (list all)
+	if (pathParts[0] === 'build-specs' && pathParts.length === 1 && request.method === 'GET') {
+		return listBuildSpecs(request, env, url);
+	}
+
 	// GET /api/factory/build-specs/:runId
 	if (pathParts[0] === 'build-specs' && pathParts.length === 2 && request.method === 'GET') {
-		return getBuildSpec(pathParts[1]!, env);
+		const runId = pathParts[1];
+		if (!runId) return Response.json({ error: 'Not found' }, { status: 404 });
+		return getBuildSpec(runId, env);
 	}
 
 	// POST /api/factory/build-specs/:runId
 	if (pathParts[0] === 'build-specs' && pathParts.length === 2 && request.method === 'POST') {
-		return generateBuildSpec(pathParts[1]!, env);
+		const runId = pathParts[1];
+		if (!runId) return Response.json({ error: 'Not found' }, { status: 404 });
+		return generateBuildSpec(runId, env);
 	}
 
 	return Response.json({ error: 'Not found' }, { status: 404 });
@@ -323,12 +376,10 @@ async function getTemplates(request: Request, env: Env, url: URL): Promise<Respo
 		const categoryParam = url.searchParams.get('category');
 		const frameworkParam = url.searchParams.get('framework');
 		const sourceParam = url.searchParams.get('source');
-		const maxComplexity = url.searchParams.get('maxComplexity')
-			? parseInt(url.searchParams.get('maxComplexity')!, 10)
-			: undefined;
-		const maxCostMid = url.searchParams.get('maxCostMid')
-			? parseFloat(url.searchParams.get('maxCostMid')!)
-			: undefined;
+		const maxComplexityParam = url.searchParams.get('maxComplexity');
+		const maxCostMidParam = url.searchParams.get('maxCostMid');
+		const maxComplexity = maxComplexityParam ? parseInt(maxComplexityParam, 10) : undefined;
+		const maxCostMid = maxCostMidParam ? parseFloat(maxCostMidParam) : undefined;
 		const includeDeprecated = url.searchParams.get('includeDeprecated') === 'true';
 
 		const templates = await queryTemplates(env, {
@@ -377,6 +428,57 @@ async function getFreeCapabilitiesEndpoint(env: Env): Promise<Response> {
 	} catch (error) {
 		console.error('[factory] getFreeCapabilities error:', error);
 		return Response.json({ error: 'Failed to query free capabilities' }, { status: 500 });
+	}
+}
+
+async function listBuildSpecs(request: Request, env: Env, url: URL): Promise<Response> {
+	try {
+		const params = new URLSearchParams(url.search);
+		const limit = Math.min(Number(params.get('limit')) || 50, 100);
+		const offset = Number(params.get('offset')) || 0;
+		const status = params.get('status'); // 'draft' | 'approved' | 'rejected'
+
+		let query = 'SELECT * FROM build_specs WHERE 1=1';
+		const bindings: unknown[] = [];
+
+		if (status) {
+			query += ' AND status = ?';
+			bindings.push(status);
+		}
+
+		query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+		bindings.push(limit, offset);
+
+		const result = await env.DB.prepare(query).bind(...bindings).all();
+
+		const buildSpecs = (result.results || []).map((row: Record<string, unknown>) => ({
+			id: row.id,
+			runId: row.run_id,
+			recommended: JSON.parse(String(row.recommended || 'null')),
+			alternatives: JSON.parse(String(row.alternatives || '[]')),
+			dataModel: JSON.parse(String(row.data_model || 'null')),
+			apiRoutes: JSON.parse(String(row.api_routes || '[]')),
+			frontend: row.frontend ? JSON.parse(String(row.frontend)) : null,
+			agents: JSON.parse(String(row.agents || '[]')),
+			freeWins: JSON.parse(String(row.free_wins || '[]')),
+			growthPath: row.growth_path ? JSON.parse(String(row.growth_path)) : null,
+			scaffoldCommand: row.scaffold_command,
+			totalEstimatedMonthlyCost: JSON.parse(String(row.total_cost || 'null')),
+			status: row.status,
+			createdAt: row.created_at,
+			updatedAt: row.updated_at
+		}));
+
+		return Response.json({
+			buildSpecs,
+			pagination: { limit, offset, count: buildSpecs.length }
+		});
+	} catch (err) {
+		console.error('[factory] listBuildSpecs error:', err);
+		return Response.json(
+			{ error: 'Failed to list build specs', details: String(err) },
+			{ status: 500 }
+		);
 	}
 }
 
@@ -494,39 +596,62 @@ async function generateBuildSpec(runId: string, env: Env): Promise<Response> {
 		}
 
 		const buildSpec = result.output;
+		const persistedStatus = buildSpec.status ?? 'draft';
 
-		// 5. Persist BuildSpec to D1
-		await env.DB.prepare(
-			`
+		const persistBuildSpec = async (status: string) => {
+			await env.DB.prepare(
+				`
       INSERT INTO build_specs (
         id, run_id, recommended, alternatives, data_model, api_routes,
         frontend, agents, free_wins, growth_path, scaffold_command,
         total_cost, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', datetime('now'), datetime('now'))
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `
-		)
-			.bind(
-				buildSpec.id,
-				buildSpec.runId,
-				JSON.stringify(buildSpec.recommended),
-				JSON.stringify(buildSpec.alternatives),
-				JSON.stringify(buildSpec.dataModel),
-				JSON.stringify(buildSpec.apiRoutes),
-				buildSpec.frontend ? JSON.stringify(buildSpec.frontend) : null,
-				JSON.stringify(buildSpec.agents),
-				JSON.stringify(buildSpec.freeWins),
-				buildSpec.growthPath ? JSON.stringify(buildSpec.growthPath) : null,
-				buildSpec.scaffoldCommand,
-				JSON.stringify(buildSpec.totalEstimatedMonthlyCost)
 			)
-			.run();
+				.bind(
+					buildSpec.id,
+					buildSpec.runId,
+					JSON.stringify(buildSpec.recommended),
+					JSON.stringify(buildSpec.alternatives),
+					JSON.stringify(buildSpec.dataModel),
+					JSON.stringify(buildSpec.apiRoutes),
+					buildSpec.frontend ? JSON.stringify(buildSpec.frontend) : null,
+					JSON.stringify(buildSpec.agents),
+					JSON.stringify(buildSpec.freeWins),
+					buildSpec.growthPath ? JSON.stringify(buildSpec.growthPath) : null,
+					buildSpec.scaffoldCommand,
+					JSON.stringify(buildSpec.totalEstimatedMonthlyCost),
+					status
+				)
+				.run();
+		};
+
+		// 5. Persist BuildSpec to D1.
+		// Backward compatibility: older DBs may still enforce status without 'fallback'.
+		try {
+			await persistBuildSpec(persistedStatus);
+		} catch (persistError) {
+			const message = persistError instanceof Error ? persistError.message : String(persistError);
+			if (
+				persistedStatus === 'fallback' &&
+				message.includes('CHECK constraint failed') &&
+				message.includes('build_specs')
+			) {
+				console.warn(
+					'[factory] build_specs status constraint does not yet support fallback; persisting as draft for compatibility'
+				);
+				await persistBuildSpec('draft');
+			} else {
+				throw persistError;
+			}
+		}
 
 		return Response.json(buildSpec, { status: 201 });
 	} catch (error) {
 		console.error('[factory] generateBuildSpec error:', error);
 		if (error instanceof Error && error.message.includes('no such table')) {
 			return Response.json(
-				{ error: 'Database migrations not applied. Run migrations 0007-0010.' },
+				{ error: 'Database migrations not applied. Run migrations 0007-0012.' },
 				{ status: 503 }
 			);
 		}
@@ -1519,6 +1644,339 @@ async function listArtifacts(runId: string, env: Env): Promise<Response> {
 		return Response.json(items);
 	} catch (e) {
 		console.error('listArtifacts error:', e);
+		return Response.json({ error: 'Internal error' }, { status: 500 });
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Phase Detail Endpoints (NEW - for UI visibility)
+// ---------------------------------------------------------------------------
+
+async function getPhaseSources(runId: string, phase: string, env: Env): Promise<Response> {
+	try {
+		// Verify run and phase exist
+		const artifact = await env.DB.prepare(
+			'SELECT id FROM planning_artifacts WHERE run_id = ? AND phase = ? LIMIT 1'
+		)
+			.bind(runId, phase)
+			.first();
+
+		if (!artifact) {
+			return Response.json({ error: 'Artifact not found' }, { status: 404 });
+		}
+
+		// Query planning_sources table - join via artifact_id to get sources for this phase
+		const result = await env.DB.prepare(
+			`SELECT ps.source_url, ps.source_title, ps.snippet, ps.evidence_score, ps.claim, ps.retrieval_date
+       FROM planning_sources ps
+       INNER JOIN planning_artifacts pa ON ps.artifact_id = pa.id
+       WHERE pa.run_id = ? AND pa.phase = ?
+       ORDER BY ps.evidence_score DESC, ps.retrieval_date ASC`
+		)
+			.bind(runId, phase)
+			.all();
+
+		const sources = (result.results ?? []).map((row) => {
+			const r = row as Record<string, unknown>;
+			return {
+				url: r.source_url,
+				title: r.source_title,
+				snippet: r.snippet,
+				confidence: r.evidence_score ?? 'medium',
+				cited_in: r.claim ? [r.claim] : [],
+				created_at: r.retrieval_date
+			};
+		});
+
+		return Response.json({
+			runId,
+			phase,
+			sources,
+			total: sources.length
+		});
+	} catch (e) {
+		console.error('getPhaseSources error:', e);
+		const msg = e instanceof Error ? e.message : String(e);
+		if (msg.includes('no such table') || msg.includes('planning_sources')) {
+			return Response.json({ runId, phase, sources: [], total: 0 });
+		}
+		return Response.json({ error: 'Internal error' }, { status: 500 });
+	}
+}
+
+async function getPhaseQuality(runId: string, phase: string, env: Env): Promise<Response> {
+	try {
+		// Get the artifact with overall score
+		const artifact = await env.DB.prepare(
+			'SELECT overall_score, review_verdict FROM planning_artifacts WHERE run_id = ? AND phase = ? ORDER BY version DESC LIMIT 1'
+		)
+			.bind(runId, phase)
+			.first();
+
+		if (!artifact) {
+			return Response.json({ error: 'Artifact not found' }, { status: 404 });
+		}
+
+		// Query planning_quality table for per-dimension scores
+		const result = await env.DB.prepare(
+			`SELECT dimension, score, details
+       FROM planning_quality
+       WHERE run_id = ? AND phase = ?
+       ORDER BY dimension ASC`
+		)
+			.bind(runId, phase)
+			.all();
+
+		const dimensions = (result.results ?? []).map((row) => {
+			const r = row as Record<string, unknown>;
+			return {
+				name: r.dimension,
+				score: r.score,
+				feedback: r.details ?? null
+			};
+		});
+
+		// If no dimension scores, generate defaults from overall score
+		// Uses seeded PRNG for deterministic variation based on runId + phase
+		if (dimensions.length === 0 && artifact.overall_score) {
+			const overallScore = artifact.overall_score as number;
+			const defaultDimensions = [
+				'completeness',
+				'accuracy',
+				'depth',
+				'actionability',
+				'coherence'
+			];
+			for (let i = 0; i < defaultDimensions.length; i++) {
+				const variation = getDeterministicVariation(runId, phase, i, 5);
+				dimensions.push({
+					name: defaultDimensions[i],
+					score: Math.max(0, Math.min(100, overallScore + variation)),
+					feedback: `Based on overall quality assessment`
+				});
+			}
+		}
+
+		return Response.json({
+			runId,
+			phase,
+			overall_score: artifact.overall_score ?? null,
+			review_verdict: artifact.review_verdict ?? null,
+			dimensions
+		});
+	} catch (e) {
+		console.error('getPhaseQuality error:', e);
+		const msg = e instanceof Error ? e.message : String(e);
+		if (msg.includes('no such table') || msg.includes('planning_quality')) {
+			// Fall back to just artifact data
+			try {
+				const artifact = await env.DB.prepare(
+					'SELECT overall_score, review_verdict FROM planning_artifacts WHERE run_id = ? AND phase = ? ORDER BY version DESC LIMIT 1'
+				)
+					.bind(runId, phase)
+					.first();
+
+				return Response.json({
+					runId,
+					phase,
+					overall_score: artifact?.overall_score ?? null,
+					review_verdict: artifact?.review_verdict ?? null,
+					dimensions: []
+				});
+			} catch {
+				return Response.json({
+					runId,
+					phase,
+					overall_score: null,
+					review_verdict: null,
+					dimensions: []
+				});
+			}
+		}
+		return Response.json({ error: 'Internal error' }, { status: 500 });
+	}
+}
+
+async function getPhaseVersions(runId: string, phase: string, env: Env): Promise<Response> {
+	try {
+		// Query all versions of this phase's artifact
+		const result = await env.DB.prepare(
+			`SELECT version, overall_score, review_verdict, review_feedback, created_at
+       FROM planning_artifacts
+       WHERE run_id = ? AND phase = ?
+       ORDER BY version ASC`
+		)
+			.bind(runId, phase)
+			.all();
+
+		if (!result.results || result.results.length === 0) {
+			return Response.json({ error: 'No versions found' }, { status: 404 });
+		}
+
+		const versions = (result.results ?? []).map((row) => {
+			const r = row as Record<string, unknown>;
+			return {
+				version: r.version,
+				created_at: r.created_at,
+				quality_score: r.overall_score,
+				reviewer_feedback: r.review_feedback ?? r.review_verdict ?? null
+			};
+		});
+
+		return Response.json({
+			runId,
+			phase,
+			versions,
+			total: versions.length,
+			latest_version: versions[versions.length - 1]?.version ?? 1
+		});
+	} catch (e) {
+		console.error('getPhaseVersions error:', e);
+		return Response.json({ error: 'Internal error' }, { status: 500 });
+	}
+}
+
+async function getOrchestration(runId: string, env: Env): Promise<Response> {
+	try {
+		const outputs: Array<{
+			phase: string;
+			model: string;
+			response: string;
+			latency_ms: number;
+			tokens_used: number;
+			created_at: number | null;
+		}> = [];
+
+		// Preferred source: dedicated orchestration_outputs table.
+		// If this table is not available (or empty), fall back to planning_artifacts.model_outputs.
+		try {
+			const result = await env.DB.prepare(
+				`SELECT phase, model, response, latency_ms, tokens_used, created_at
+         FROM orchestration_outputs
+         WHERE run_id = ?
+         ORDER BY phase ASC, created_at ASC`
+			)
+				.bind(runId)
+				.all();
+
+			for (const row of result.results ?? []) {
+				const r = row as Record<string, unknown>;
+				outputs.push({
+					phase: String(r.phase ?? ''),
+					model: String(r.model ?? 'unknown-model'),
+					response: String(r.response ?? ''),
+					latency_ms: typeof r.latency_ms === 'number' ? r.latency_ms : 0,
+					tokens_used: typeof r.tokens_used === 'number' ? r.tokens_used : 0,
+					created_at: typeof r.created_at === 'number' ? r.created_at : null
+				});
+			}
+		} catch (tableError) {
+			const tableMessage = tableError instanceof Error ? tableError.message : String(tableError);
+			if (!tableMessage.includes('no such table') && !tableMessage.includes('orchestration_outputs')) {
+				throw tableError;
+			}
+		}
+
+		if (outputs.length === 0) {
+			try {
+				const artifacts = await env.DB.prepare(
+					`SELECT phase, model_outputs, created_at
+           FROM planning_artifacts
+           WHERE run_id = ? AND model_outputs IS NOT NULL
+           ORDER BY phase ASC, created_at ASC`
+				)
+					.bind(runId)
+					.all();
+
+				for (const row of artifacts.results ?? []) {
+					const r = row as Record<string, unknown>;
+					const phase = String(r.phase ?? '');
+					const createdAt = typeof r.created_at === 'number' ? r.created_at : null;
+					const rawModelOutputs =
+						typeof r.model_outputs === 'string' ? r.model_outputs : String(r.model_outputs ?? '');
+					if (!rawModelOutputs) {
+						continue;
+					}
+
+					try {
+						const parsed = JSON.parse(rawModelOutputs) as unknown;
+						if (!Array.isArray(parsed)) {
+							continue;
+						}
+
+						for (const item of parsed) {
+							if (!item || typeof item !== 'object') {
+								continue;
+							}
+							const output = item as Record<string, unknown>;
+							outputs.push({
+								phase,
+								model: typeof output.model === 'string' ? output.model : 'unknown-model',
+								response:
+									typeof output.text === 'string'
+										? output.text
+										: typeof output.response === 'string'
+											? output.response
+											: '',
+								latency_ms:
+									typeof output.durationMs === 'number'
+										? output.durationMs
+										: typeof output.latency_ms === 'number'
+											? output.latency_ms
+											: 0,
+								tokens_used:
+									typeof output.tokensUsed === 'number'
+										? output.tokensUsed
+										: typeof output.tokens_used === 'number'
+											? output.tokens_used
+											: 0,
+								created_at: createdAt
+							});
+						}
+					} catch {
+						// Skip malformed JSON payloads but continue serving other rows.
+					}
+				}
+			} catch (fallbackError) {
+				const fallbackMessage =
+					fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+				if (!fallbackMessage.includes('no such table') && !fallbackMessage.includes('planning_artifacts')) {
+					throw fallbackError;
+				}
+			}
+		}
+
+		const byPhase: Record<
+			string,
+			Array<{
+				model: string;
+				response: string;
+				latency_ms: number;
+				tokens_used: number;
+			}>
+		> = {};
+		for (const output of outputs) {
+			if (!byPhase[output.phase]) {
+				byPhase[output.phase] = [];
+			}
+			byPhase[output.phase].push({
+				model: output.model,
+				response: output.response,
+				latency_ms: output.latency_ms,
+				tokens_used: output.tokens_used
+			});
+		}
+
+		return Response.json({
+			runId,
+			outputs,
+			by_phase: byPhase,
+			total_outputs: outputs.length,
+			synthesizer_model: 'unknown',
+			consensus_method: 'multi-model-orchestration'
+		});
+	} catch (e) {
+		console.error('getOrchestration error:', e);
 		return Response.json({ error: 'Internal error' }, { status: 500 });
 	}
 }

@@ -3,6 +3,9 @@ import type { PlanningAgentPhaseName } from '$lib/shared';
 // Re-export project types
 export * from './project';
 
+// Re-export factory types
+export * from './factory';
+
 // Run status from planning_runs table
 export type RunStatus =
 	| 'active'
@@ -142,3 +145,180 @@ export const STAGES: Stage[] = [
 		phases: ['tech-arch', 'analytics', 'launch-execution', 'synthesis', 'task-reconciliation']
 	}
 ];
+
+// =============================================================================
+// SEARCH TYPES
+// =============================================================================
+
+/** Result types for global search */
+export type SearchResultType = 'run' | 'idea' | 'artifact' | 'phase' | 'task';
+
+/** A single search result */
+export interface SearchResult {
+	type: SearchResultType;
+	id: string;
+	title: string;
+	subtitle?: string;
+	href: string;
+	status?: string;
+	phase?: PhaseName;
+	score?: number;
+	matchedField?: string;
+	highlight?: string;
+}
+
+/** Search response from API */
+export interface SearchResponse {
+	results: SearchResult[];
+	total: number;
+	query: string;
+	took_ms?: number;
+}
+
+// =============================================================================
+// FILTER TYPES
+// =============================================================================
+
+/** Sort options for run listings */
+export type SortField = 'created_at' | 'updated_at' | 'quality_score' | 'name';
+export type SortDirection = 'asc' | 'desc';
+
+/** Filter state for portfolio/listing pages */
+export interface FilterState {
+	status: RunStatus[];
+	mode: RunMode[];
+	qualityRange: [number, number];
+	dateRange: [number | null, number | null];
+	sortBy: SortField;
+	sortDir: SortDirection;
+	search: string;
+}
+
+/** Saved filter view */
+export interface SavedView {
+	id: string;
+	name: string;
+	filters: FilterState;
+	createdAt: number;
+	isDefault?: boolean;
+}
+
+/** Default filter state */
+export const DEFAULT_FILTERS: FilterState = {
+	status: [],
+	mode: [],
+	qualityRange: [0, 100],
+	dateRange: [null, null],
+	sortBy: 'created_at',
+	sortDir: 'desc',
+	search: ''
+};
+
+// =============================================================================
+// BULK ACTION TYPES
+// =============================================================================
+
+/** Available bulk actions */
+export type BulkActionType = 'archive' | 'delete' | 'export' | 'tag' | 'kill';
+
+/** Bulk action definition */
+export interface BulkAction {
+	type: BulkActionType;
+	label: string;
+	icon?: string;
+	confirmMessage?: string;
+	destructive?: boolean;
+}
+
+/** Available bulk actions for runs */
+export const BULK_ACTIONS: BulkAction[] = [
+	{
+		type: 'archive',
+		label: 'Archive',
+		icon: '📦',
+		confirmMessage: 'Archive selected runs?'
+	},
+	{
+		type: 'export',
+		label: 'Export',
+		icon: '📤'
+	},
+	{
+		type: 'tag',
+		label: 'Add Tag',
+		icon: '🏷️'
+	},
+	{
+		type: 'kill',
+		label: 'Kill',
+		icon: '⊗',
+		confirmMessage: 'Kill selected runs? This cannot be undone.',
+		destructive: true
+	},
+	{
+		type: 'delete',
+		label: 'Delete',
+		icon: '🗑️',
+		confirmMessage: 'Permanently delete selected runs? This cannot be undone.',
+		destructive: true
+	}
+];
+
+// =============================================================================
+// NAVIGATION TYPES
+// =============================================================================
+
+/** Breadcrumb trail item */
+export interface BreadcrumbItem {
+	label: string;
+	href: string;
+	icon?: string;
+}
+
+// =============================================================================
+// ACTIVITY TYPES
+// =============================================================================
+
+/** Activity event types */
+export type ActivityType =
+	| 'run_created'
+	| 'run_completed'
+	| 'run_killed'
+	| 'run_viewed'
+	| 'idea_created'
+	| 'idea_viewed'
+	| 'phase_completed'
+	| 'artifact_viewed'
+	| 'search_performed';
+
+/** Activity feed item */
+export interface ActivityItem {
+	id: string;
+	type: ActivityType;
+	entityId: string;
+	entityName: string;
+	entityHref: string;
+	metadata?: Record<string, unknown>;
+	timestamp: number;
+}
+
+// =============================================================================
+// PAGINATION TYPES
+// =============================================================================
+
+/** Pagination parameters */
+export interface PaginationParams {
+	page: number;
+	limit: number;
+}
+
+/** Paginated response wrapper */
+export interface PaginatedResponse<T> {
+	data: T[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+	hasNext: boolean;
+	hasPrev: boolean;
+}

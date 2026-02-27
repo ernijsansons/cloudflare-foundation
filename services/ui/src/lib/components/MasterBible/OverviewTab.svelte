@@ -256,7 +256,7 @@
 	}
 
 	.summary-card {
-		background: linear-gradient(135deg, var(--color-primary, #6366f1) 0%, #8b5cf6 100%);
+		background: var(--gradient-brand);
 		color: white;
 		padding: 1.5rem;
 		border-radius: 12px;

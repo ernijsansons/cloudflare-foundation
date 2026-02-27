@@ -1,11 +1,19 @@
 <script lang="ts">
   import { page } from "$app/stores";
+  import { mobileNavStore } from "$lib/stores";
 
   interface Props {
     collapsed?: boolean;
   }
 
   let { collapsed = false }: Props = $props();
+
+  // Close sidebar when navigating on mobile
+  function handleNavClick() {
+    if (mobileNavStore.isMobile) {
+      mobileNavStore.close();
+    }
+  }
 
   interface NavItem {
     href: string;
@@ -27,6 +35,16 @@
         { href: "/ai-labs/parked-ideas", label: "Parked Ideas" },
       ],
     },
+    {
+      href: "/factory",
+      icon: "cube",
+      label: "Factory",
+      children: [
+        { href: "/factory/templates", label: "Templates" },
+        { href: "/factory/capabilities", label: "Capabilities" },
+        { href: "/factory/build-specs", label: "Build Specs" },
+      ],
+    },
     { href: "/agents", icon: "robot", label: "Agents" },
     { href: "/portfolio", icon: "briefcase", label: "Portfolio" },
   ];
@@ -39,13 +57,14 @@
   }
 </script>
 
-<aside class="sidebar" class:collapsed>
+<aside class="sidebar" class:collapsed class:mobile-open={mobileNavStore.isOpen}>
   <nav class="nav">
     {#each navItems as item (item.href)}
       <a
         href={item.href}
         class="nav-item"
         class:active={isActive(item.href, $page.url.pathname)}
+        onclick={handleNavClick}
       >
         <span class="nav-icon">
           {#if item.icon === "home"}
@@ -65,6 +84,12 @@
               <circle cx="15" cy="14" r="2" />
               <path d="M12 2v4" />
               <circle cx="12" cy="2" r="1" />
+            </svg>
+          {:else if item.icon === "cube"}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <polyline points="3.27,6.96 12,12.01 20.73,6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" />
             </svg>
           {:else if item.icon === "briefcase"}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -212,5 +237,25 @@
     color: var(--color-primary);
     font-weight: 500;
     background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+
+  /* Mobile styles */
+  @media (max-width: 767px) {
+    .sidebar {
+      position: fixed;
+      top: var(--topbar-height);
+      left: 0;
+      bottom: 0;
+      width: 280px;
+      z-index: 50;
+      transform: translateX(-100%);
+      transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: none;
+    }
+
+    .sidebar.mobile-open {
+      transform: translateX(0);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+    }
   }
 </style>

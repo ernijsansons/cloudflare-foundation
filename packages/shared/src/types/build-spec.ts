@@ -140,7 +140,9 @@ export interface BuildSpec {
 	totalEstimatedMonthlyCost: CostEstimate;
 
 	// Metadata
-	status: 'draft' | 'approved' | 'rejected';
+	// 'fallback' indicates the BuildSpec was generated using fallback logic
+	// due to LLM failure (not a high-quality recommendation)
+	status: 'draft' | 'approved' | 'rejected' | 'fallback';
 	approvedBy?: string;
 	approvedAt?: string;
 	createdAt: string;

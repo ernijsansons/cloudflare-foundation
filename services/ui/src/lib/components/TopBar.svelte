@@ -1,13 +1,58 @@
 <script lang="ts">
+  import { searchStore, mobileNavStore } from '$lib/stores';
+  import { browser } from '$app/environment';
+
   interface Props {
     onCreateClick?: () => void;
   }
 
   let { onCreateClick }: Props = $props();
+
+  // Detect platform for keyboard shortcut display
+  const isMac = browser && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const shortcutKey = isMac ? '⌘K' : 'Ctrl+K';
+
+  // Handle global keyboard shortcut
+  function handleKeyDown(event: KeyboardEvent) {
+    // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+    if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+      event.preventDefault();
+      searchStore.open();
+    }
+  }
+
+  // Open search modal on click
+  function openSearch() {
+    searchStore.open();
+  }
 </script>
+
+<svelte:window onkeydown={handleKeyDown} />
 
 <header class="topbar">
   <div class="topbar-left">
+    <!-- Mobile hamburger menu button -->
+    <button
+      class="mobile-menu-btn"
+      type="button"
+      onclick={() => mobileNavStore.toggle()}
+      aria-label={mobileNavStore.isOpen ? 'Close menu' : 'Open menu'}
+      aria-expanded={mobileNavStore.isOpen}
+    >
+      {#if mobileNavStore.isOpen}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      {:else}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      {/if}
+    </button>
+
     <a href="/dashboard" class="logo">
       <!-- ERLV Inc Monogram - Geometric institutional mark -->
       <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
@@ -25,14 +70,14 @@
   </div>
 
   <div class="topbar-center">
-    <div class="search">
+    <button class="search" type="button" onclick={openSearch} aria-label="Open search">
       <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8" />
         <line x1="21" y1="21" x2="16.65" y2="16.65" />
       </svg>
-      <input type="text" placeholder="Search..." class="search-input" />
-      <kbd class="search-kbd">Ctrl+K</kbd>
-    </div>
+      <span class="search-placeholder">Search...</span>
+      <kbd class="search-kbd">{shortcutKey}</kbd>
+    </button>
   </div>
 
   <div class="topbar-right">
@@ -104,12 +149,31 @@
 
   .search {
     position: relative;
+    display: flex;
+    align-items: center;
     width: 100%;
-    transition: transform var(--transition-bounce);
+    padding: 0.5rem 0.875rem 0.5rem 2.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-secondary);
+    font-size: 0.875rem;
+    color: var(--color-text);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: all var(--transition-normal);
   }
 
-  .search:focus-within {
+  .search:hover {
+    background: var(--color-bg);
+    border-color: color-mix(in srgb, var(--color-border) 80%, var(--color-text-muted));
     transform: translateY(-1px);
+  }
+
+  .search:focus-visible {
+    outline: none;
+    background: var(--color-bg);
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
   }
 
   .search-icon {
@@ -122,36 +186,15 @@
     transition: color var(--transition-fast);
   }
 
-  .search:focus-within .search-icon {
+  .search:hover .search-icon,
+  .search:focus-visible .search-icon {
     color: var(--color-primary);
   }
 
-  .search-input {
-    width: 100%;
-    padding: 0.5rem 0.875rem 0.5rem 2.5rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-bg-secondary);
-    font-size: 0.875rem;
-    color: var(--color-text);
-    box-shadow: var(--shadow-sm);
-    transition: all var(--transition-normal);
-  }
-
-  .search-input::placeholder {
+  .search-placeholder {
+    flex: 1;
+    text-align: left;
     color: var(--color-text-muted);
-  }
-
-  .search-input:hover {
-    background: var(--color-bg);
-    border-color: color-mix(in srgb, var(--color-border) 80%, var(--color-text-muted));
-  }
-
-  .search-input:focus {
-    outline: none;
-    background: var(--color-bg);
-    border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
   }
 
   .search-kbd {
@@ -226,5 +269,83 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* Mobile hamburger button */
+  .mobile-menu-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin-right: 0.5rem;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .mobile-menu-btn:hover {
+    background: var(--color-bg-secondary);
+  }
+
+  /* Mobile styles */
+  @media (max-width: 767px) {
+    .topbar {
+      padding: 0 0.75rem;
+    }
+
+    .mobile-menu-btn {
+      display: flex;
+    }
+
+    .logo-text {
+      display: none;
+    }
+
+    .topbar-center {
+      flex: 0 0 auto;
+      margin: 0 0.5rem;
+    }
+
+    .search {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      justify-content: center;
+      border-radius: var(--radius-full);
+    }
+
+    .search-icon {
+      position: static;
+      transform: none;
+    }
+
+    .search-placeholder,
+    .search-kbd {
+      display: none;
+    }
+
+    .topbar-right {
+      gap: 0.5rem;
+    }
+
+    .create-btn {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      justify-content: center;
+      font-size: 0;
+      border-radius: var(--radius-full);
+    }
+  }
+
+  /* Small mobile */
+  @media (max-width: 480px) {
+    .topbar-center {
+      display: none;
+    }
   }
 </style>

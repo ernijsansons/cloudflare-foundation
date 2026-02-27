@@ -161,7 +161,7 @@
 	}
 
 	.expand-btn {
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: var(--gradient-brand);
 		color: white;
 		border: none;
 		padding: 0.75rem 1rem;
@@ -169,7 +169,7 @@
 		cursor: pointer;
 		font-size: 0.875rem;
 		font-weight: 500;
-		box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+		box-shadow: 0 4px 12px color-mix(in srgb, var(--color-gradient-start) 30%, transparent);
 		transition: transform 0.2s ease;
 	}
 

@@ -7,12 +7,13 @@ import { correlationMiddleware } from "./middleware/correlation";
 import { corsMiddleware } from "./middleware/cors";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { rateLimitDOMiddleware } from "./middleware/rate-limit-do";
+import { requestLoggerMiddleware } from "./middleware/request-logger";
 import { securityHeadersMiddleware } from "./middleware/security-headers";
 import { tenantMiddleware } from "./middleware/tenant";
 import adminRoutes from "./routes/admin";
-import cronRoutes from "./routes/cron";
 import agentsRoutes from "./routes/agents";
 import analyticsRoutes from "./routes/analytics";
+import cronRoutes from "./routes/cron";
 import dataRoutes from "./routes/data";
 import factoryRoutes from "./routes/factory";
 import filesRoutes from "./routes/files";
@@ -33,6 +34,7 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 // Global middleware - applied to all routes
 app.use("*", corsMiddleware());
 app.use("*", correlationMiddleware());
+app.use("*", requestLoggerMiddleware({ excludePaths: ["/health", "/api/health"] }));
 
 // Conditional rate limiting based on feature flag
 app.use("*", async (c, next) => {
