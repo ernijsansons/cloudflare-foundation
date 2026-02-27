@@ -35,23 +35,20 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use("*", corsMiddleware());
 app.use("*", correlationMiddleware());
 app.use("*", requestLoggerMiddleware({ excludePaths: ["/health", "/api/health"] }));
+app.use("*", securityHeadersMiddleware());
 
-// Conditional rate limiting based on feature flag
-app.use("*", async (c, next) => {
+// Health check endpoints - no auth required, no rate limiting
+app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
+app.get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
+
+// Public routes - light rate limiting (IP-based)
+app.use("/api/public/*", async (c, next) => {
   const useDoRateLimiting = c.env.USE_DO_RATE_LIMITING === "true";
   if (useDoRateLimiting) {
     return rateLimitDOMiddleware()(c, next);
   }
   return rateLimitMiddleware()(c, next);
 });
-
-app.use("*", securityHeadersMiddleware());
-
-// Health check endpoints - no auth required
-app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
-app.get("/api/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
-
-// Public routes - no auth required
 app.route("/api/public", publicRoutes);
 
 // MCP routes - no auth required (McpAgent handles its own session)
@@ -61,6 +58,15 @@ app.route("/mcp", mcpRoutes);
 app.use("/api/*", authMiddleware());
 app.use("/api/*", tenantMiddleware());
 app.use("/api/*", contextTokenMiddleware());
+
+// Rate limiting for authenticated routes - runs AFTER auth/tenant so tenantId is available
+app.use("/api/*", async (c, next) => {
+  const useDoRateLimiting = c.env.USE_DO_RATE_LIMITING === "true";
+  if (useDoRateLimiting) {
+    return rateLimitDOMiddleware()(c, next);
+  }
+  return rateLimitMiddleware()(c, next);
+});
 
 // Protected API routes
 app.route("/api/agents", agentsRoutes);

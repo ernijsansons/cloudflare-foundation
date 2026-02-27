@@ -31,7 +31,12 @@ export class TenantRateLimiter extends DurableObject<Env> {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === "/check") return this.checkLimit();
+    if (url.pathname === "/check") {
+      // Allow overriding maxRequests via query param for per-request limit control
+      const maxRequestsParam = url.searchParams.get("maxRequests");
+      const maxRequests = maxRequestsParam ? parseInt(maxRequestsParam, 10) : this.config.maxRequests;
+      return this.checkLimit(maxRequests);
+    }
     if (url.pathname === "/configure") {
       const body = (await request.json()) as Partial<RateLimitConfig>;
       if (body.windowMs) this.config.windowMs = body.windowMs;
@@ -46,7 +51,7 @@ export class TenantRateLimiter extends DurableObject<Env> {
     return new Response("Not found", { status: 404 });
   }
 
-  private async checkLimit(): Promise<Response> {
+  private async checkLimit(maxRequests: number): Promise<Response> {
     // Use blockConcurrencyWhile for atomic read-modify-write
     // This ensures only one request processes at a time, preventing race conditions
     return this.ctx.blockConcurrencyWhile(async () => {
@@ -61,8 +66,8 @@ export class TenantRateLimiter extends DurableObject<Env> {
         .filter((ts) => ts > windowStart)
         .slice(-MAX_HISTORY_SIZE);
 
-      // Check if rate limit exceeded
-      if (requests.length >= this.config.maxRequests) {
+      // Check if rate limit exceeded (use provided maxRequests)
+      if (requests.length >= maxRequests) {
         const oldestRequest = requests[0] ?? now;
         const retryAfter = Math.ceil(
           (oldestRequest + this.config.windowMs - now) / 1000
@@ -77,7 +82,7 @@ export class TenantRateLimiter extends DurableObject<Env> {
             status: 429,
             headers: {
               "Retry-After": String(retryAfter),
-              "X-RateLimit-Limit": String(this.config.maxRequests),
+              "X-RateLimit-Limit": String(maxRequests),
               "X-RateLimit-Remaining": "0",
             },
           }
@@ -90,10 +95,10 @@ export class TenantRateLimiter extends DurableObject<Env> {
       // Persist to durable storage
       await this.ctx.storage.put("requests", requests);
 
-      const remaining = this.config.maxRequests - requests.length;
+      const remaining = maxRequests - requests.length;
       return new Response(JSON.stringify({ allowed: true, remaining }), {
         headers: {
-          "X-RateLimit-Limit": String(this.config.maxRequests),
+          "X-RateLimit-Limit": String(maxRequests),
           "X-RateLimit-Remaining": String(remaining),
         },
       });

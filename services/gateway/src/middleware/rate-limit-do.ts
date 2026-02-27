@@ -1,4 +1,9 @@
 import type { Context, Next } from "hono";
+
+import {
+  RATE_LIMIT_DO_MAX_REQUESTS_AUTHENTICATED,
+  RATE_LIMIT_DO_MAX_REQUESTS_UNAUTHENTICATED,
+} from "../constants";
 import type { Env, Variables } from "../types";
 
 /**
@@ -11,12 +16,12 @@ import type { Env, Variables } from "../types";
  * Features:
  * - Tenant-based rate limiting for authenticated requests
  * - IP-based rate limiting for unauthenticated requests
- * - Fail-closed behavior: returns 429 on errors or timeouts
+ * - Fail-open behavior: allows request on errors or timeouts (availability > strict enforcement)
  * - 500ms timeout to prevent blocking
  *
  * Rate limit strategy:
- * - Authenticated: 100 requests/min per tenant
- * - Unauthenticated: 60 requests/min per IP
+ * - Authenticated: 500 requests/min per tenant
+ * - Unauthenticated: 200 requests/min per IP
  */
 export function rateLimitDOMiddleware() {
   return async (c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) => {
@@ -26,6 +31,9 @@ export function rateLimitDOMiddleware() {
     // Determine rate limit strategy
     const isAuthenticated = tenantId && tenantId !== "default";
     const limitId = isAuthenticated ? `tenant:${tenantId}` : `ip:${ip}`;
+    const limit = isAuthenticated
+      ? RATE_LIMIT_DO_MAX_REQUESTS_AUTHENTICATED
+      : RATE_LIMIT_DO_MAX_REQUESTS_UNAUTHENTICATED;
 
     try {
       // Call AGENT_SERVICE /rate-limit/check with timeout
@@ -33,7 +41,7 @@ export function rateLimitDOMiddleware() {
         c.env.AGENT_SERVICE.fetch("https://fake-host/rate-limit/check", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ limitId, increment: true }),
+          body: JSON.stringify({ limitId, increment: true, maxRequests: limit }),
         }),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("Timeout")), 500)
@@ -44,7 +52,7 @@ export function rateLimitDOMiddleware() {
         // Rate limit exceeded or error from DO
         const data = await checkResponse.json() as { retryAfter?: number };
         c.header("Retry-After", String(data.retryAfter ?? 60));
-        c.header("X-RateLimit-Limit", isAuthenticated ? "100" : "60");
+        c.header("X-RateLimit-Limit", String(limit));
         c.header("X-RateLimit-Remaining", "0");
         return c.json({ error: "Rate limit exceeded" }, 429);
       }
@@ -56,7 +64,6 @@ export function rateLimitDOMiddleware() {
       };
 
       // Set rate limit headers
-      const limit = isAuthenticated ? 100 : 60;
       c.header("X-RateLimit-Limit", String(limit));
       c.header("X-RateLimit-Remaining", String(result.remaining));
       if (result.resetAt) {
@@ -65,12 +72,9 @@ export function rateLimitDOMiddleware() {
 
       await next();
     } catch (error) {
-      // Fail closed on errors (timeout, network, etc.)
-      console.error("[RATE_LIMIT_DO] Error:", error);
-      c.header("Retry-After", "60");
-      c.header("X-RateLimit-Limit", isAuthenticated ? "100" : "60");
-      c.header("X-RateLimit-Remaining", "0");
-      return c.json({ error: "Rate limit service unavailable" }, 429);
+      // Fail open on errors (timeout, network, etc.) - availability over strict enforcement
+      console.error("[RATE_LIMIT_DO] Error (allowing request):", error);
+      await next();
     }
   };
 }

@@ -82,7 +82,7 @@ export default {
     // Rate limit check endpoint - proxy to TenantRateLimiter DO
     if (url.pathname === "/rate-limit/check" && request.method === "POST") {
       try {
-        const body = await request.json() as { limitId: string; increment?: boolean };
+        const body = await request.json() as { limitId: string; increment?: boolean; maxRequests?: number };
         if (!body.limitId) {
           return Response.json({ error: "limitId is required" }, { status: 400 });
         }
@@ -91,8 +91,12 @@ export default {
         const id = env.RATE_LIMITER.idFromName(body.limitId);
         const stub = env.RATE_LIMITER.get(id);
 
-        // Forward check request to DO
-        const doResponse = await stub.fetch("https://fake-host/check");
+        // Forward check request to DO with maxRequests if provided
+        const checkUrl = new URL("https://fake-host/check");
+        if (body.maxRequests) {
+          checkUrl.searchParams.set("maxRequests", String(body.maxRequests));
+        }
+        const doResponse = await stub.fetch(checkUrl.toString());
 
         // Parse response and add resetAt timestamp
         const data = await doResponse.json() as { allowed: boolean; remaining: number; retryAfter?: number };

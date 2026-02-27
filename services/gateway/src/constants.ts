@@ -10,14 +10,20 @@
 /** Rate limit window duration in seconds (KV-based limiter) */
 export const RATE_LIMIT_WINDOW_SECONDS = 60;
 
-/** Maximum requests allowed per window (KV-based limiter) */
-export const RATE_LIMIT_MAX_REQUESTS = 60;
+/** Maximum requests allowed per window (KV-based limiter, unauthenticated) */
+export const RATE_LIMIT_MAX_REQUESTS = 200;
 
 /** Rate limit window duration in milliseconds (Durable Object limiter) */
 export const RATE_LIMIT_DO_WINDOW_MS = 60_000;
 
-/** Maximum requests per window (Durable Object limiter) */
-export const RATE_LIMIT_DO_MAX_REQUESTS = 100;
+/** Maximum requests per window for authenticated users (Durable Object limiter) */
+export const RATE_LIMIT_DO_MAX_REQUESTS_AUTHENTICATED = 500;
+
+/** Maximum requests per window for unauthenticated users (Durable Object limiter) */
+export const RATE_LIMIT_DO_MAX_REQUESTS_UNAUTHENTICATED = 200;
+
+/** @deprecated Use RATE_LIMIT_DO_MAX_REQUESTS_AUTHENTICATED instead */
+export const RATE_LIMIT_DO_MAX_REQUESTS = 500;
 
 /** Maximum history entries to keep in rate limiter (prevents unbounded growth) */
 export const RATE_LIMIT_MAX_HISTORY = 1000;
