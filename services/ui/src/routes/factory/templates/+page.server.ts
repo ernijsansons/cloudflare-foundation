@@ -14,7 +14,7 @@ interface TemplatesResponse {
 export const load: PageServerLoad = async ({ platform, fetch, locals }) => {
 	try {
 		const gateway = createGatewayClient(platform, locals, fetch);
-		const response = await gateway.fetchJson<TemplatesResponse>('/api/factory/templates');
+		const response = await gateway.fetchJson<TemplatesResponse>('/api/public/factory/templates');
 
 		return {
 			templates: (response.items ?? []).map(transformTemplate),

@@ -10,7 +10,7 @@ import { transformBuildSpec } from '$lib/utils/build-spec-transformer';
 export const load: PageServerLoad = async ({ platform, fetch, locals, params }) => {
 	try {
 		const gateway = createGatewayClient(platform, locals, fetch);
-		const buildSpec = await gateway.fetchJson<SharedBuildSpec>(`/api/factory/build-specs/${params.runId}`);
+		const buildSpec = await gateway.fetchJson<SharedBuildSpec>(`/api/public/factory/build-specs/${params.runId}`);
 
 		if (!buildSpec) {
 			throw error(404, 'Build specification not found');

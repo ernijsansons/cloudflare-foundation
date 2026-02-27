@@ -14,7 +14,7 @@ interface CapabilitiesResponse {
 export const load: PageServerLoad = async ({ platform, fetch, locals }) => {
 	try {
 		const gateway = createGatewayClient(platform, locals, fetch);
-		const response = await gateway.fetchJson<CapabilitiesResponse>('/api/factory/capabilities');
+		const response = await gateway.fetchJson<CapabilitiesResponse>('/api/public/factory/capabilities');
 
 		return {
 			capabilities: (response.items ?? []).map(transformCapability),

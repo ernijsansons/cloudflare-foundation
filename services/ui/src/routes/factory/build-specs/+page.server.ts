@@ -14,7 +14,7 @@ interface BuildSpecsResponse {
 export const load: PageServerLoad = async ({ platform, fetch, locals }) => {
 	try {
 		const gateway = createGatewayClient(platform, locals, fetch);
-		const response = await gateway.fetchJson<BuildSpecsResponse>('/api/factory/build-specs');
+		const response = await gateway.fetchJson<BuildSpecsResponse>('/api/public/factory/build-specs');
 
 		return {
 			buildSpecs: (response.buildSpecs ?? []).map(transformBuildSpec),

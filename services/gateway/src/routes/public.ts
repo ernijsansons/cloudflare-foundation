@@ -652,4 +652,78 @@ app.all("/planning/ideas/:id/runs", async (c) => {
   return proxied;
 });
 
+// ============================================================================
+// PUBLIC FACTORY ENDPOINTS (Read-only reference data, no auth required)
+// ============================================================================
+
+/**
+ * GET /factory/templates - List all Cloudflare templates (public)
+ */
+app.get("/factory/templates", async (c) => {
+  const search = new URL(c.req.url).search;
+  const proxied = await proxyPlanning(c, `/api/factory/templates${search}`);
+  if (!proxied) {
+    return c.json({ error: "Planning service not configured" }, 503);
+  }
+  return proxied;
+});
+
+/**
+ * GET /factory/templates/:slug - Get single template (public)
+ */
+app.get("/factory/templates/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  const proxied = await proxyPlanning(c, `/api/factory/templates/${slug}`);
+  if (!proxied) {
+    return c.json({ error: "Planning service not configured" }, 503);
+  }
+  return proxied;
+});
+
+/**
+ * GET /factory/capabilities - List all CF capabilities (public)
+ */
+app.get("/factory/capabilities", async (c) => {
+  const proxied = await proxyPlanning(c, `/api/factory/capabilities`);
+  if (!proxied) {
+    return c.json({ error: "Planning service not configured" }, 503);
+  }
+  return proxied;
+});
+
+/**
+ * GET /factory/capabilities/free - List free-tier capabilities (public)
+ */
+app.get("/factory/capabilities/free", async (c) => {
+  const proxied = await proxyPlanning(c, `/api/factory/capabilities/free`);
+  if (!proxied) {
+    return c.json({ error: "Planning service not configured" }, 503);
+  }
+  return proxied;
+});
+
+/**
+ * GET /factory/build-specs - List build specs (public, read-only)
+ */
+app.get("/factory/build-specs", async (c) => {
+  const search = new URL(c.req.url).search;
+  const proxied = await proxyPlanning(c, `/api/factory/build-specs${search}`);
+  if (!proxied) {
+    return c.json({ error: "Planning service not configured" }, 503);
+  }
+  return proxied;
+});
+
+/**
+ * GET /factory/build-specs/:runId - Get build spec for a run (public)
+ */
+app.get("/factory/build-specs/:runId", async (c) => {
+  const runId = c.req.param("runId");
+  const proxied = await proxyPlanning(c, `/api/factory/build-specs/${runId}`);
+  if (!proxied) {
+    return c.json({ error: "Planning service not configured" }, 503);
+  }
+  return proxied;
+});
+
 export default app;

@@ -30,9 +30,9 @@ export const load: PageServerLoad = async ({ platform, fetch, locals }) => {
 		const gateway = createGatewayClient(platform, locals, fetch);
 
 		const [templatesRes, capabilitiesRes, buildSpecsRes] = await Promise.all([
-			gateway.fetchJson<TemplatesResponse>('/api/factory/templates'),
-			gateway.fetchJson<CapabilitiesResponse>('/api/factory/capabilities'),
-			gateway.fetchJson<BuildSpecsResponse>('/api/factory/build-specs?limit=5')
+			gateway.fetchJson<TemplatesResponse>('/api/public/factory/templates'),
+			gateway.fetchJson<CapabilitiesResponse>('/api/public/factory/capabilities'),
+			gateway.fetchJson<BuildSpecsResponse>('/api/public/factory/build-specs?limit=5')
 		]);
 
 		return {
