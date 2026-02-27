@@ -244,7 +244,12 @@ Plus: `base-agent.ts` (abstract base), `registry.ts` (phase→agent mapping)
 
 ```
 GET  /health                          — Health check (no auth)
-POST /api/public/*                    — Public routes (no auth)
+GET  /api/public/factory/templates    — List all CF templates (no auth)
+GET  /api/public/factory/templates/:slug — Get template detail (no auth)
+GET  /api/public/factory/capabilities — List all CF capabilities (no auth)
+GET  /api/public/factory/capabilities/free — List free-tier capabilities (no auth)
+GET  /api/public/factory/build-specs  — List build specs (no auth, query: limit, offset, status, tenant_id)
+GET  /api/public/factory/build-specs/:runId — Get build spec for run (no auth)
 GET  /mcp/*                           — MCP server (self-auth)
                                         ↓ (auth + tenant middleware below)
 GET/POST /api/planning/*              — Proxy to planning-machine service binding
