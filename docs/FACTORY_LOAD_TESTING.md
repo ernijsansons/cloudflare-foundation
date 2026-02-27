@@ -109,7 +109,11 @@ ab -n 1000 -c 50 -t 60 https://foundation-gateway-staging.ernijs-ansons.workers.
 **Target**: 500 requests over 30 seconds (16.7 RPS)
 
 ```bash
-wrk -t2 -c25 -d30s https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates/cloudflare-workers-api
+# First, resolve an actual template slug from the API:
+TEMPLATE_SLUG=$(curl -s "https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates?limit=1" | jq -r '.items[0].slug')
+
+# Then run the load test with the resolved slug:
+wrk -t2 -c25 -d30s "https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates/$TEMPLATE_SLUG"
 ```
 
 **Success Criteria**:
@@ -155,11 +159,23 @@ wrk -t4 -c50 -d60s -s build-specs-load.lua https://foundation-gateway-staging.er
 
 **Target**: Simulate real user behavior
 
+**Pre-requisite**: Fetch actual template slugs from the API before running the load test:
+
 ```bash
+# Fetch 3 template slugs to use in the load test
+SLUGS=$(curl -s "https://foundation-gateway-staging.ernijs-ansons.workers.dev/api/public/factory/templates?limit=3" | jq -r '.items[].slug' | tr '\n' ' ')
+echo "Using template slugs: $SLUGS"
+```
+
+Then create the load test script with the actual slugs:
+
+```bash
+# Replace SLUG1, SLUG2, SLUG3 with actual slugs from the command above
 cat > mixed-factory-load.lua << 'EOF'
 local counter = 1
--- Note: These are example slugs. Fetch actual slugs dynamically or replace with current templates.
-local templates = {"cloudflare-workers-api", "remix-on-workers", "hono-rest-api"}
+-- IMPORTANT: Replace these placeholder slugs with actual slugs from your database.
+-- Run: curl -s "$BASE_URL/api/public/factory/templates?limit=3" | jq -r '.items[].slug'
+local templates = {"SLUG1", "SLUG2", "SLUG3"}
 
 request = function()
   local paths = {

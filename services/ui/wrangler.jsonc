@@ -5,6 +5,15 @@
   "compatibility_flags": ["nodejs_compat"],
   "pages_build_output_dir": ".svelte-kit/cloudflare",
   "observability": { "enabled": true },
+  // ARCHITECTURE NOTE: Service binding targets production gateway for all deployments.
+  // This is intentional design:
+  // 1. Cloudflare Pages doesn't support environment-specific service bindings in wrangler.jsonc
+  // 2. Staging UI at staging.erlvinc-dashboard.pages.dev tests against production API
+  //    which validates UI changes against stable backend (integration testing pattern)
+  // 3. For isolated staging API testing, use GATEWAY_URL env var override in
+  //    services/ui/src/lib/server/config.ts
+  // 4. To change: Set GATEWAY_URL in Pages Dashboard → erlvinc-dashboard → Settings →
+  //    Environment Variables → Preview (or Production)
   "services": [
     { "binding": "GATEWAY", "service": "foundation-gateway-production" }
   ]

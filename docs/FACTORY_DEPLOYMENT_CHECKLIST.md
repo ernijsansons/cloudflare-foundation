@@ -75,6 +75,14 @@ npx wrangler pages deploy --branch staging --project-name erlvinc-dashboard
 - [ ] UI accessible: https://staging.erlvinc-dashboard.pages.dev
 - [ ] Factory pages load without errors
 
+**Note on UI Service Binding**:
+
+The UI wrangler.jsonc binds to `foundation-gateway-production` for all deployments (staging and production). This is intentional:
+
+- Staging UI tests against production API (integration testing pattern)
+- For isolated staging API testing, set `GATEWAY_URL` environment variable in Pages Dashboard
+- See `services/ui/wrangler.jsonc` for detailed architecture notes
+
 ## Post-Deployment Smoke Tests
 
 **Automated Test Suite**: Run `./scripts/smoke-test-factory.sh staging` to execute the full smoke test suite (45 tests across all endpoints, security, and performance checks).
@@ -287,11 +295,11 @@ Quick rollback:
 
 ## Sign-Off
 
-- [ ] Engineering Lead: ******\_\_\_******
-- [ ] DevOps: ******\_\_\_******
-- [ ] Product: ******\_\_\_******
-- [ ] QA: ******\_\_\_******
+- [ ] Engineering Lead: **\*\***\_\_\_**\*\***
+- [ ] DevOps: **\*\***\_\_\_**\*\***
+- [ ] Product: **\*\***\_\_\_**\*\***
+- [ ] QA: **\*\***\_\_\_**\*\***
 
-**Deployment Date**: ******\_\_******
-**Deployed By**: ******\_\_******
-**Deployment Notes**: ******\_\_******
+**Deployment Date**: **\*\***\_\_**\*\***
+**Deployed By**: **\*\***\_\_**\*\***
+**Deployment Notes**: **\*\***\_\_**\*\***
