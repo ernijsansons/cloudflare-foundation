@@ -5,6 +5,30 @@ import {
   RATE_LIMIT_MAX_REQUESTS,
 } from "../constants";
 
+function applyRateLimitHeaders(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  headers: Record<string, string>
+): void {
+  try {
+    for (const [name, value] of Object.entries(headers)) {
+      c.res.headers.set(name, value);
+    }
+    return;
+  } catch {
+    // Proxied responses can have immutable headers; clone to apply custom headers safely.
+  }
+
+  try {
+    const cloned = new Response(c.res.body, c.res);
+    for (const [name, value] of Object.entries(headers)) {
+      cloned.headers.set(name, value);
+    }
+    c.res = cloned;
+  } catch (error) {
+    console.error("Failed to apply rate limit headers:", error);
+  }
+}
+
 /**
  * Rate limiting middleware using KV storage.
  *
@@ -59,11 +83,7 @@ export function rateLimitMiddleware() {
       // Increment count
       record.count++;
 
-      // Set rate limit headers
       const remaining = Math.max(0, RATE_LIMIT_MAX_REQUESTS - record.count);
-      c.header("X-RateLimit-Limit", String(RATE_LIMIT_MAX_REQUESTS));
-      c.header("X-RateLimit-Remaining", String(remaining));
-      c.header("X-RateLimit-Reset", String(Math.ceil(record.resetAt / 1000)));
 
       // Update KV (fire and forget to reduce latency)
       // The TTL ensures cleanup even if this fails
@@ -74,6 +94,13 @@ export function rateLimitMiddleware() {
       );
 
       await next();
+
+      // Set response headers after downstream handlers (including proxied Response returns).
+      applyRateLimitHeaders(c, {
+        "X-RateLimit-Limit": String(RATE_LIMIT_MAX_REQUESTS),
+        "X-RateLimit-Remaining": String(remaining),
+        "X-RateLimit-Reset": String(Math.ceil(record.resetAt / 1000)),
+      });
     } catch (error) {
       // Log error but don't block request on rate limit failures
       console.error("Rate limit error:", error);

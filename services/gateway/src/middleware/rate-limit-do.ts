@@ -6,6 +6,30 @@ import {
 } from "../constants";
 import type { Env, Variables } from "../types";
 
+function applyRateLimitHeaders(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  headers: Record<string, string>
+): void {
+  try {
+    for (const [name, value] of Object.entries(headers)) {
+      c.res.headers.set(name, value);
+    }
+    return;
+  } catch {
+    // Proxied responses can have immutable headers; clone to apply custom headers safely.
+  }
+
+  try {
+    const cloned = new Response(c.res.body, c.res);
+    for (const [name, value] of Object.entries(headers)) {
+      cloned.headers.set(name, value);
+    }
+    c.res = cloned;
+  } catch (error) {
+    console.error("[RATE_LIMIT_DO] Failed to apply rate limit headers:", error);
+  }
+}
+
 /**
  * Durable Object-based rate limiting middleware.
  *
@@ -63,14 +87,18 @@ export function rateLimitDOMiddleware() {
         resetAt?: number;
       };
 
-      // Set rate limit headers
-      c.header("X-RateLimit-Limit", String(limit));
-      c.header("X-RateLimit-Remaining", String(result.remaining));
+      await next();
+
+      const responseHeaders: Record<string, string> = {
+        "X-RateLimit-Limit": String(limit),
+        "X-RateLimit-Remaining": String(result.remaining),
+      };
       if (result.resetAt) {
-        c.header("X-RateLimit-Reset", String(Math.floor(result.resetAt / 1000)));
+        responseHeaders["X-RateLimit-Reset"] = String(Math.floor(result.resetAt / 1000));
       }
 
-      await next();
+      // Set headers after downstream handlers (including proxied Response returns).
+      applyRateLimitHeaders(c, responseHeaders);
     } catch (error) {
       // Fail open on errors (timeout, network, etc.) - availability over strict enforcement
       console.error("[RATE_LIMIT_DO] Error (allowing request):", error);

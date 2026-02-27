@@ -29,7 +29,7 @@
     "staging": {
       "name": "foundation-planning-machine-staging",
       "d1_databases": [
-        { "binding": "DB", "database_name": "planning-primary-staging", "database_id": "STAGING_PLANNING_DB_ID", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "planning-primary-staging", "database_id": "fa8c8660-eed3-4611-bbbe-6e75f9074100", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [{ "binding": "FILES", "bucket_name": "planning-files-staging" }],
       "vectorize": [{ "binding": "VECTOR_INDEX", "index_name": "planning-embeddings-staging" }]
