@@ -24,5 +24,47 @@
     // Requires MINIMAX_API_KEY secret (synthesizer): wrangler secret put MINIMAX_API_KEY
     // Optionally set ANTHROPIC_API_KEY to use Claude instead of MiniMax for synthesis
     "ORCHESTRATION_ENABLED": "false"
+  },
+  "env": {
+    "staging": {
+      "name": "foundation-planning-machine-staging",
+      "workflows": [
+        { "binding": "PLANNING_WORKFLOW", "name": "planning-pipeline-staging", "class_name": "PlanningWorkflow" }
+      ],
+      "ai": { "binding": "AI" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "planning-primary", "database_id": "a5d92afd-7c3a-48b8-89ae-abf1a523f6ce", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [{ "binding": "FILES", "bucket_name": "planning-files-staging" }],
+      "vectorize": [{ "binding": "VECTOR_INDEX", "index_name": "planning-embeddings-staging" }],
+      "queues": {
+        "producers": [
+          { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks-staging" }
+        ]
+      },
+      "vars": {
+        "ORCHESTRATION_ENABLED": "false"
+      }
+    },
+    "production": {
+      "name": "foundation-planning-machine-production",
+      "workflows": [
+        { "binding": "PLANNING_WORKFLOW", "name": "planning-pipeline", "class_name": "PlanningWorkflow" }
+      ],
+      "ai": { "binding": "AI" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "planning-primary", "database_id": "a5d92afd-7c3a-48b8-89ae-abf1a523f6ce", "migrations_dir": "migrations" }
+      ],
+      "r2_buckets": [{ "binding": "FILES", "bucket_name": "planning-files" }],
+      "vectorize": [{ "binding": "VECTOR_INDEX", "index_name": "planning-embeddings" }],
+      "queues": {
+        "producers": [
+          { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks" }
+        ]
+      },
+      "vars": {
+        "ORCHESTRATION_ENABLED": "false"
+      }
+    }
   }
 }

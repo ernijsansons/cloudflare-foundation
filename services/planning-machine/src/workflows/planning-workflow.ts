@@ -662,37 +662,13 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 							}
 							break;
 						}
-
-        // Persist per-model outputs and wild ideas when orchestration was used
-        const orchData = orchestrationDataByPhase.get(phase);
-        if (orchData) {
-          await this.env.DB.prepare(
-            "UPDATE planning_artifacts SET model_outputs = ?, wild_ideas = ? WHERE id = ?"
-          )
-            .bind(
-              JSON.stringify(orchData.modelOutputs),
-              JSON.stringify(orchData.wildIdeas),
-              artifactId
-            )
-            .run();
-
-          if (orchData.wildIdeas.length > 0) {
-            console.log(
-              `[workflow] Wild ideas stored for phase ${phase}:`,
-              JSON.stringify(orchData.wildIdeas, null, 2)
-            );
-          }
-          orchestrationDataByPhase.delete(phase);
-        }
-
-        if (this.env.VECTOR_INDEX && this.env.AI) {
-          await embedAndStore(
-            this.env.AI,
-            this.env.VECTOR_INDEX,
-            this.env.DB,
-            { id: artifactId, runId, phase, content: contentStr }
-          );
-        }
+						// REVISE: Re-run agent with feedback
+						currentIteration++;
+						const revisedOutput = await runPhase(phase);
+						output = revisedOutput;
+						contentStr = JSON.stringify(output);
+					}
+				}
 
 				const automatedQuality = evaluateArtifactQuality(
 					phase,

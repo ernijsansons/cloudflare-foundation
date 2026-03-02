@@ -10,8 +10,8 @@ import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
 import type { OrchestrationResult } from "../lib/orchestrator";
 import { KillTestOutputSchema, type KillTestOutput } from "../schemas/kill-test";
-import type { OrchestrationResult } from "../lib/orchestrator";
-import { extractJSON } from "../lib/orchestrator";
+
+import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
 interface KillTestInput {
   idea: string;
