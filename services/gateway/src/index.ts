@@ -7,13 +7,10 @@ import { corsMiddleware } from "./middleware/cors";
 import { correlationMiddleware, createTracedHeaders } from "./middleware/correlation";
 import { tenantMiddleware } from "./middleware/tenant";
 import { contextTokenMiddleware } from "./middleware/context-token";
-import { correlationMiddleware } from "./middleware/correlation";
-import { corsMiddleware } from "./middleware/cors";
-import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { rateLimitDOMiddleware } from "./middleware/rate-limit-do";
 import { requestLoggerMiddleware } from "./middleware/request-logger";
 import { securityHeadersMiddleware } from "./middleware/security-headers";
-import { tenantMiddleware } from "./middleware/tenant";
+import { appendAuditEvent, verifyAuditChain } from "./lib/audit-chain";
 import adminRoutes from "./routes/admin";
 import agentsRoutes from "./routes/agents";
 import analyticsRoutes from "./routes/analytics";
@@ -32,6 +29,20 @@ import workflowsRoutes from "./routes/workflows";
 import type { Env, Variables } from "./types";
 
 export type { Env } from "./types";
+
+// File upload constants
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILENAME_LENGTH = 255;
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/json",
+] as const;
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -88,7 +99,6 @@ app.all("/api/agents/:agentType/:agentId/*", async (c) => {
     console.error("Agent service error:", e);
     return c.json({ error: "Agent service unavailable" }, 503);
   }
-  return rateLimitMiddleware()(c, next);
 });
 
 app.all("/api/planning/*", async (c) => {

@@ -35,4 +35,5 @@ export interface Variables {
   plan?: string;
   correlationId?: string;
   traceId?: string;
+  contextToken?: string;
 }

@@ -14,9 +14,9 @@ import type {
   QuickAction,
   ChecklistItem,
   SecurityControl,
-  ThreatModel,
+  ThreatModelItem,
   Milestone,
-} from "../types";
+} from "@foundation/shared";
 
 export function generateOverview(sections: Partial<ProjectDocumentation>): OverviewSection {
   const executiveSummary = generateExecutiveSummary(sections);
@@ -274,7 +274,7 @@ function calculateSecurityCoverage(sections: Partial<ProjectDocumentation>): num
 
   if (sections.J.threat_model) {
     totalControls += sections.J.threat_model.length;
-    implementedControls += sections.J.threat_model.filter((threat: ThreatModel) => threat.mitigation && threat.mitigation.length > 0).length;
+    implementedControls += sections.J.threat_model.filter((threat: ThreatModelItem) => threat.mitigation && threat.mitigation.length > 0).length;
   }
 
   if (totalControls === 0) {

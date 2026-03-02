@@ -6,9 +6,8 @@
  */
 
 import { Hono } from "hono";
+import type { Env, Variables } from "../types";
 import type {
-  Env,
-  Variables,
   ProjectDocumentation,
   ProjectDocumentationRow,
   ProjectDocumentationMetadataRow,
@@ -17,7 +16,7 @@ import type {
   UpdateSectionRequest,
   SectionId,
   OverviewSection,
-} from "../types";
+} from "@foundation/shared";
 import { generateOverview } from "../lib/doc-generator";
 
 const projectDocsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -63,7 +62,7 @@ projectDocsRouter.get("/:projectId/docs", async (c) => {
 
         if (row.subsection_key) {
           // Use type assertion to allow dynamic property access
-          (sections[sectionId] as Record<string, unknown>)[row.subsection_key] = content;
+          (sections[sectionId] as unknown as Record<string, unknown>)[row.subsection_key] = content;
         } else {
           sections[sectionId] = content as never;
         }
@@ -77,15 +76,13 @@ projectDocsRouter.get("/:projectId/docs", async (c) => {
       sections,
       metadata: metadataResult
         ? {
-            total_sections: metadataResult.total_sections,
             completeness: metadataResult.completeness_percentage,
             last_updated: metadataResult.last_updated,
             status: metadataResult.status,
           }
         : {
-            total_sections: 13,
             completeness: 0,
-            last_updated: String(Math.floor(Date.now() / 1000)),
+            last_updated: Math.floor(Date.now() / 1000),
             status: "incomplete",
           },
     };
@@ -259,7 +256,7 @@ projectDocsRouter.post("/:projectId/docs/generate-overview", async (c) => {
         }
 
         if (row.subsection_key) {
-          (sections[row.section_id as SectionId] as Record<string, unknown>)[row.subsection_key] = content;
+          (sections[row.section_id as SectionId] as unknown as Record<string, unknown>)[row.subsection_key] = content;
         } else {
           sections[row.section_id as SectionId] = content as never;
         }
@@ -342,7 +339,7 @@ projectDocsRouter.get("/:projectId/docs/export", async (c) => {
 
         if (row.subsection_key) {
           // Use type assertion to allow dynamic property access
-          (sections[sectionId] as Record<string, unknown>)[row.subsection_key] = content;
+          (sections[sectionId] as unknown as Record<string, unknown>)[row.subsection_key] = content;
         } else {
           sections[sectionId] = content as never;
         }
