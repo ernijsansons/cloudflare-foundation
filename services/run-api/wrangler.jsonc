@@ -1,0 +1,90 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "foundation-run-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Actor 2: Isolated Control Plane - Zero dependency on product gateway
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "agent-control-primary",
+      "database_id": "dab5a39a-74e3-4efc-9fe3-91c2c8c9f793",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "BUNDLES",
+      "bucket_name": "agent-control-bundles"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "RUN_CONTROLLER", "class_name": "RunController" }
+    ]
+  },
+
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RunController"] }
+  ],
+
+  "vars": {
+    "ENVIRONMENT": "development",
+    "SERVICE_NAME": "foundation-run-api"
+  },
+
+  "env": {
+    "staging": {
+      "name": "foundation-run-api-staging",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "SERVICE_NAME": "foundation-run-api-staging"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "agent-control-primary-staging",
+          "database_id": "AGENT_CONTROL_STAGING_DB_ID_PLACEHOLDER",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "BUNDLES",
+          "bucket_name": "agent-control-bundles-staging"
+        }
+      ]
+    },
+    "production": {
+      "name": "foundation-run-api-production",
+      "vars": {
+        "ENVIRONMENT": "production",
+        "SERVICE_NAME": "foundation-run-api-production"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "agent-control-primary",
+          "database_id": "dab5a39a-74e3-4efc-9fe3-91c2c8c9f793",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "BUNDLES",
+          "bucket_name": "agent-control-bundles"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "RUN_CONTROLLER", "class_name": "RunController" }
+        ]
+      }
+    }
+  }
+}
