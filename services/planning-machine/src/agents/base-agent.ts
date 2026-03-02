@@ -6,6 +6,8 @@
 import type { PlanningWorkflowPhaseName } from "@foundation/shared";
 
 import { getFoundationContext } from "../lib/foundation-context";
+import type { ReasoningState } from "../lib/reasoning-engine";
+import type { Env } from "../types";
 import type { OrchestrationResult, OrchestratorConfig } from "../lib/orchestrator";
 import { orchestrateModels } from "../lib/orchestrator";
 

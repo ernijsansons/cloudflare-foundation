@@ -11,4 +11,6 @@ export interface Env {
   ANTHROPIC_API_KEY?: string;
   MINIMAX_API_KEY?: string;
   ORCHESTRATION_ENABLED?: string; // "true" | "false" (wrangler vars are always strings)
+  // Inter-service auth (gateway context token validation)
+  CONTEXT_SIGNING_KEY?: string;
 }

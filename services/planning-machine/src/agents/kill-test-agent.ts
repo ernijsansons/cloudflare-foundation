@@ -10,6 +10,7 @@ import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
 import type { OrchestrationResult } from "../lib/orchestrator";
 import { KillTestOutputSchema, type KillTestOutput } from "../schemas/kill-test";
+import { webSearch, type SearchResult } from "../tools/web-search";
 
 import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
@@ -116,7 +117,7 @@ Produce valid JSON matching the schema. verdict must be one of: GO, PIVOT, KILL.
       JSON.stringify(
         searchResults.map((s) => ({
           query: s.query,
-          snippets: s.results.slice(0, 3).map((r) => ({
+          snippets: s.results.slice(0, 3).map((r: SearchResult) => ({
             title: r.title,
             url: r.url,
             content: r.content?.slice(0, 250),

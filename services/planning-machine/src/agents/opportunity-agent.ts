@@ -12,6 +12,7 @@ import { extractJSON } from "../lib/json-extractor";
 import { runModel } from "../lib/model-router";
 import type { OrchestrationResult } from "../lib/orchestrator";
 import { OpportunityOutputSchema, type OpportunityOutput } from "../schemas/opportunity";
+import { webSearch, type SearchResult } from "../tools/web-search";
 
 import { BaseAgent, type AgentContext, type AgentResult } from "./base-agent";
 
@@ -98,7 +99,7 @@ Output valid JSON matching the schema. Include agenticScore for each variant.`;
       JSON.stringify(
         searchResults.map((s) => ({
           query: s.query,
-          snippets: s.results.slice(0, 3).map((r) => ({
+          snippets: s.results.slice(0, 3).map((r: SearchResult) => ({
             title: r.title,
             url: r.url,
             content: r.content?.slice(0, 200),
