@@ -1,5 +1,6 @@
-import { cleanupOldData, logCleanupResults } from './jobs/cleanup';
+import { cleanupOldData, logCleanupResults, type CleanupResult } from './jobs/cleanup';
 import { runDocScanner, type DocUpdateReport } from './jobs/doc-scanner';
+import { withAuditTrail, type RunContext } from './lib/run-ledger';
 
 export interface Env {
 	DB: D1Database;
@@ -74,27 +75,46 @@ export default {
 
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
 		const cron = event.cron;
+
 		if (cron === '0 * * * *') {
-			// Hourly: Doc scanner
-			console.log('Hourly doc scan:', new Date().toISOString());
+			// Hourly: Doc scanner with audit trail
 			ctx.waitUntil(
-				runDocScanner(env.DB, env)
-					.then((report: DocUpdateReport) => {
-						console.log(`Doc scan complete: ${report.newItemCount} updates found`);
+				withAuditTrail(
+					env.DB,
+					'doc_scanner',
+					cron,
+					async (_runCtx: RunContext): Promise<DocUpdateReport> => {
+						return await runDocScanner(env.DB, env);
+					},
+					(report: DocUpdateReport) => ({
+						itemsFound: report.rawItemCount,
+						newItemCount: report.newItemCount,
+						sources: report.findings.map((f) => f.source)
 					})
-					.catch((err: unknown) => {
-						console.error('Doc scan failed:', err);
-					})
+				).catch((err: unknown) => {
+					console.error('Doc scan job failed after audit:', err);
+				})
 			);
 		} else if (cron === '0 0 * * *') {
-			// Daily cleanup job
-			console.log('Daily cleanup cron:', new Date().toISOString());
+			// Daily cleanup job with audit trail
 			ctx.waitUntil(
-				cleanupOldData(env.DB)
-					.then(logCleanupResults)
-					.catch((err: unknown) => {
-						console.error('Cleanup job failed:', err);
+				withAuditTrail(
+					env.DB,
+					'cleanup',
+					cron,
+					async (_runCtx: RunContext): Promise<CleanupResult[]> => {
+						const results = await cleanupOldData(env.DB);
+						logCleanupResults(results);
+						return results;
+					},
+					(results: CleanupResult[]) => ({
+						tablesCleanedUp: results.map((r) => r.table),
+						rowsDeleted: results.reduce((sum, r) => sum + r.deletedCount, 0),
+						errorsEncountered: results.filter((r) => r.error).length
 					})
+				).catch((err: unknown) => {
+					console.error('Cleanup job failed after audit:', err);
+				})
 			);
 		}
 	}
