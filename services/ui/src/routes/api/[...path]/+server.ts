@@ -8,7 +8,9 @@ function getSessionIdFromCookie(cookieHeader: string | null): string | null {
 }
 
 async function proxy(request: Request, path: string, gateway: Fetcher): Promise<Response> {
-  const url = `http://_/api/${path}${new URL(request.url).search}`;
+  // Strip "gateway/" prefix if present, as the gateway routes don't expect it
+  const targetPath = path.startsWith("gateway/") ? path.replace("gateway/", "") : path;
+  const url = `http://_/api/${targetPath}${new URL(request.url).search}`;
   const headers = new Headers(request.headers);
   const sessionId = getSessionIdFromCookie(request.headers.get("Cookie"));
   if (sessionId && !headers.has("Authorization")) {
@@ -22,15 +24,39 @@ async function proxy(request: Request, path: string, gateway: Fetcher): Promise<
 }
 
 async function proxyWithoutGateway(request: Request, path: string): Promise<Response> {
-  const target = path.startsWith("public/planning/")
-    ? `http://127.0.0.1:8787/api/planning/${path.replace("public/planning/", "")}${new URL(request.url).search}`
-    : `http://127.0.0.1:8788/api/${path}${new URL(request.url).search}`;
+  // Strip "gateway/" prefix if present, as the gateway routes don't expect it
+  const targetPath = path.startsWith("gateway/") ? path.replace("gateway/", "") : path;
 
-  return fetch(target, {
-    method: request.method,
-    headers: request.headers,
-    body: request.method !== "GET" ? request.body : undefined,
-  });
+  const target = targetPath.startsWith("public/planning/")
+    ? `http://127.0.0.1:8787/api/planning/${targetPath.replace("public/planning/", "")}${new URL(request.url).search}`
+    : `http://127.0.0.1:8788/api/${targetPath}${new URL(request.url).search}`;
+
+  // Copy headers and add Authorization from session cookie
+  const headers = new Headers(request.headers);
+  const sessionId = getSessionIdFromCookie(request.headers.get("Cookie"));
+  if (sessionId && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${sessionId}`);
+  }
+
+  try {
+    const res = await fetch(target, {
+      method: request.method,
+      headers,
+      body: request.method !== "GET" ? request.body : undefined,
+    });
+    // Clone the response to ensure it's a proper Response object for SvelteKit
+    return new Response(res.body, {
+      status: res.status,
+      statusText: res.statusText,
+      headers: res.headers,
+    });
+  } catch (e) {
+    console.error(`Proxy error to ${target}:`, e);
+    return new Response(JSON.stringify({ error: "Gateway unavailable" }), {
+      status: 502,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
 
 export const GET: RequestHandler = async ({ request, platform, params }) => {
