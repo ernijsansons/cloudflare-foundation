@@ -70,6 +70,7 @@
 	let selectedProjectName = $state<string>('');
 	let projectDocumentation = $state<Partial<ProjectDocumentation> | null>(null);
 	let documentationLoading = $state(false);
+	let documentationError = $state<{ status: number; message: string } | null>(null);
 
 	const formResult = $derived($page.form as { success?: boolean; error?: string } | undefined);
 
@@ -98,16 +99,30 @@
 
 	async function fetchProjectDocumentation(projectId: string) {
 		documentationLoading = true;
+		documentationError = null;
 		try {
-			const res = await fetch(`/api/gateway/projects/${projectId}/docs`);
+			// Use public endpoint - no auth required for read-only docs
+			const res = await fetch(`/api/gateway/public/projects/${projectId}/docs?tenant_id=erlvinc`);
 			if (res.ok) {
 				const data = (await res.json()) as { sections: Partial<ProjectDocumentation> };
 				projectDocumentation = data.sections;
+				// Check if sections are empty
+				if (!data.sections || Object.keys(data.sections).length === 0) {
+					documentationError = { status: 204, message: 'Documentation exists but has no content' };
+				}
+			} else if (res.status === 401) {
+				documentationError = { status: 401, message: 'Authentication required to view docs' };
+				projectDocumentation = null;
+			} else if (res.status === 404) {
+				documentationError = { status: 404, message: 'Documentation not found for this project' };
+				projectDocumentation = null;
 			} else {
+				documentationError = { status: res.status, message: `Failed to load documentation (${res.status})` };
 				projectDocumentation = null;
 			}
 		} catch (e) {
 			console.error('Failed to fetch documentation:', e);
+			documentationError = { status: 0, message: 'Network error - unable to reach server' };
 			projectDocumentation = null;
 		} finally {
 			documentationLoading = false;
@@ -128,6 +143,7 @@
 		selectedProjectId = null;
 		selectedProjectName = '';
 		projectDocumentation = null;
+		documentationError = null;
 	}
 
 	function handleDocumentationBackdropClick(event: MouseEvent) {
@@ -277,6 +293,7 @@
 				projectName={selectedProjectName}
 				documentation={projectDocumentation}
 				loading={documentationLoading}
+				documentationError={documentationError}
 			/>
 		</div>
 	</div>
