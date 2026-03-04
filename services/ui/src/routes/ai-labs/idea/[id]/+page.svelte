@@ -1,8 +1,15 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { enhance } from "$app/forms";
+  import { invalidateAll } from "$app/navigation";
   import { formatDate } from "$lib/utils/format-date";
-  import type { Idea, Run } from "./+page.server";
+  import type { Idea, Run, Attachment, Constraint, Note } from "./+page.server";
+  import DealSidebar from "$lib/components/DealCard/DealSidebar.svelte";
+  import DealConstraints from "$lib/components/DealCard/DealConstraints.svelte";
+  import DealNotes from "$lib/components/DealCard/DealNotes.svelte";
+  import DealDocuments from "$lib/components/DealCard/DealDocuments.svelte";
+  import DealWorkflow from "$lib/components/DealCard/DealWorkflow.svelte";
+  import DealLifecycleBar from "$lib/components/DealCard/DealLifecycleBar.svelte";
 
   interface PageData {
     idea: Idea;
@@ -12,11 +19,22 @@
 
   const data = $derived($page.data as PageData);
 
+  let activeTab = $state("overview");
   let isEditing = $state(false);
   let editName = $state("");
   let editContent = $state("");
+  let editDescription = $state("");
   let isSubmitting = $state(false);
   let showDeleteConfirm = $state(false);
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: "📋" },
+    { id: "notes", label: "Notes", icon: "📝" },
+    { id: "docs", label: "Documents", icon: "📎" },
+    { id: "constraints", label: "Constraints", icon: "🔒" },
+    { id: "timeline", label: "Timeline", icon: "🕐" },
+    { id: "workflow", label: "Workflow", icon: "🗺️" },
+  ];
 
   function closeDeleteConfirm() {
     showDeleteConfirm = false;
@@ -29,7 +47,7 @@
   }
 
   function handleDeleteBackdropKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+    if (event.key === "Escape") {
       event.preventDefault();
       closeDeleteConfirm();
     }
@@ -38,41 +56,12 @@
   function startEditing() {
     editName = data.idea.name;
     editContent = data.idea.content;
+    editDescription = data.idea.description;
     isEditing = true;
   }
 
   function cancelEditing() {
     isEditing = false;
-  }
-
-  function getStatusColor(status: string): string {
-    switch (status) {
-      case "draft":
-        return "#6b7280";
-      case "ready":
-        return "#3b82f6";
-      case "researching":
-        return "#f59e0b";
-      case "completed":
-        return "#10b981";
-      default:
-        return "#6b7280";
-    }
-  }
-
-  function getStatusLabel(status: string): string {
-    switch (status) {
-      case "draft":
-        return "Draft";
-      case "ready":
-        return "Ready";
-      case "researching":
-        return "Researching";
-      case "completed":
-        return "Completed";
-      default:
-        return status;
-    }
   }
 
   function getRunStatusColor(status: string): string {
@@ -90,14 +79,49 @@
         return "#6b7280";
     }
   }
+
+  async function handleFieldUpdate(field: string, value: string) {
+    const formData = new FormData();
+    formData.append('field', field);
+    formData.append('value', value);
+    await fetch('?/updateField', {
+      method: 'POST',
+      body: formData,
+    });
+    invalidateAll();
+  }
+
+  async function handleConstraintsUpdate(constraints: Constraint[]) {
+    try {
+      await handleFieldUpdate("constraints", JSON.stringify(constraints));
+    } catch (e) {
+      console.error('Failed to update constraints:', e);
+      alert('Failed to save constraints. Please try again.');
+      invalidateAll();
+    }
+  }
+
+  async function handleNotesUpdate(notes: Note[]) {
+    try {
+      await handleFieldUpdate("notes", JSON.stringify(notes));
+    } catch (e) {
+      console.error('Failed to update notes:', e);
+      alert('Failed to save notes. Please try again.');
+      invalidateAll();
+    }
+  }
+
+  function handleRefresh() {
+    invalidateAll();
+  }
 </script>
 
 <svelte:head>
   <title>{data.idea.name} | Idea Cards | AI Labs</title>
 </svelte:head>
 
-<div class="page-container">
-  <div class="page-header">
+<div class="deal-page">
+  <header class="deal-header">
     <div class="breadcrumb">
       <a href="/ai-labs/idea">Ideas</a>
       <span class="separator">/</span>
@@ -112,7 +136,7 @@
           </svg>
           Edit
         </button>
-        {#if data.idea.status !== "researching"}
+        {#if data.idea.status !== "researching" && data.idea.deal_stage !== "researching"}
           <form method="POST" action="?/startResearch" use:enhance>
             <button type="submit" class="research-btn">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -129,105 +153,144 @@
         </button>
       {/if}
     </div>
-  </div>
+  </header>
 
-  <div class="content-area">
-    {#if isEditing}
-      <form
-        method="POST"
-        action="?/update"
-        use:enhance={() => {
-          isSubmitting = true;
-          return async ({ update, result }) => {
-            await update();
-            isSubmitting = false;
-            if (result.type === "success") {
-              isEditing = false;
-            }
-          };
-        }}
-      >
-        <div class="edit-form">
-          <div class="form-group">
-            <label for="name">Name</label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              bind:value={editName}
-              required
-            />
+  <div class="deal-body">
+    <DealSidebar idea={data.idea} onUpdate={handleFieldUpdate} />
+
+    <main class="deal-content">
+      {#if isEditing}
+        <form
+          method="POST"
+          action="?/update"
+          class="edit-form-container"
+          use:enhance={() => {
+            isSubmitting = true;
+            return async ({ update, result }) => {
+              await update();
+              isSubmitting = false;
+              if (result.type === "success") {
+                isEditing = false;
+              }
+            };
+          }}
+        >
+          <div class="edit-form">
+            <div class="form-group">
+              <label for="name">Name</label>
+              <input type="text" id="name" name="name" bind:value={editName} required />
+            </div>
+            <div class="form-group">
+              <label for="description">Description</label>
+              <textarea id="description" name="description" bind:value={editDescription} rows="3" placeholder="Brief description of this idea..."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="content">Content</label>
+              <textarea id="content" name="content" bind:value={editContent} rows="20" required></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="cancel-btn" onclick={cancelEditing}>Cancel</button>
+              <button type="submit" class="save-btn" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="content">Content</label>
-            <textarea
-              id="content"
-              name="content"
-              bind:value={editContent}
-              rows="20"
-              required
-            ></textarea>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="cancel-btn" onclick={cancelEditing}>
-              Cancel
+        </form>
+      {:else}
+        <nav class="tabs-nav">
+          {#each tabs as tab}
+            <button
+              class="tab-btn"
+              class:active={activeTab === tab.id}
+              onclick={() => (activeTab = tab.id)}
+            >
+              <span class="tab-icon">{tab.icon}</span>
+              {tab.label}
             </button>
-            <button type="submit" class="save-btn" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </div>
-      </form>
-    {:else}
-      <div class="idea-header">
-        <div class="idea-meta">
-          <span class="status-badge" style="--status-color: {getStatusColor(data.idea.status)}">
-            {getStatusLabel(data.idea.status)}
-          </span>
-          <span class="meta-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <path d="M16 2v4M8 2v4M3 10h18" />
-            </svg>
-            Created {formatDate(data.idea.created_at)}
-          </span>
-          <span class="meta-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
-            </svg>
-            Updated {formatDate(data.idea.updated_at)}
-          </span>
-          <span class="meta-item">
-            {data.idea.content.length.toLocaleString()} characters
-          </span>
-        </div>
-      </div>
+          {/each}
+        </nav>
 
-      <div class="idea-content">
-        <pre class="content-display">{data.idea.content}</pre>
-      </div>
+        <div class="tab-panel">
+          {#if activeTab === "overview"}
+            <div class="overview-panel">
+              <div class="overview-header">
+                <h1>{data.idea.name}</h1>
+                {#if data.idea.description}
+                  <p class="overview-description">{data.idea.description}</p>
+                {/if}
+              </div>
 
-      {#if data.runs.length > 0}
-        <div class="runs-section">
-          <h3>Research Runs</h3>
-          <div class="runs-list">
-            {#each data.runs as run (run.id)}
-              <a href="/ai-labs/research/runs/{run.id}" class="run-item">
-                <div class="run-info">
-                  <span class="run-status" style="--status-color: {getRunStatusColor(run.status)}">
-                    {run.status}
-                  </span>
-                  <span class="run-phase">{run.current_phase ?? "Starting"}</span>
+              <div class="overview-content">
+                <h3>Idea Content</h3>
+                <pre class="content-display">{data.idea.content}</pre>
+              </div>
+
+              {#if data.runs.length > 0}
+                <div class="runs-section">
+                  <h3>Research Runs</h3>
+                  <div class="runs-list">
+                    {#each data.runs as run (run.id)}
+                      <a href="/ai-labs/research/runs/{run.id}" class="run-item">
+                        <div class="run-info">
+                          <span class="run-status" style="--status-color: {getRunStatusColor(run.status)}">
+                            {run.status}
+                          </span>
+                          <span class="run-phase">{run.current_phase ?? "Starting"}</span>
+                        </div>
+                        <span class="run-date">{formatDate(run.created_at)}</span>
+                      </a>
+                    {/each}
+                  </div>
                 </div>
-                <span class="run-date">{formatDate(run.created_at)}</span>
-              </a>
-            {/each}
-          </div>
+              {/if}
+            </div>
+          {:else if activeTab === "notes"}
+            <DealNotes notes={data.idea.notes} onUpdate={handleNotesUpdate} />
+          {:else if activeTab === "docs"}
+            <DealDocuments attachments={data.idea.attachments} ideaId={data.idea.id} onRefresh={handleRefresh} />
+          {:else if activeTab === "constraints"}
+            <DealConstraints constraints={data.idea.constraints} onUpdate={handleConstraintsUpdate} dealStage={data.idea.deal_stage} />
+          {:else if activeTab === "timeline"}
+            <div class="timeline-panel">
+              <div class="panel-header">
+                <h3>Timeline</h3>
+                <p class="panel-hint">Activity history for this idea.</p>
+              </div>
+              <div class="timeline-list">
+                <div class="timeline-item">
+                  <div class="timeline-dot"></div>
+                  <div class="timeline-content">
+                    <span class="timeline-label">Created</span>
+                    <span class="timeline-date">{formatDate(data.idea.created_at)}</span>
+                  </div>
+                </div>
+                {#each data.runs as run (run.id)}
+                  <div class="timeline-item">
+                    <div class="timeline-dot run"></div>
+                    <div class="timeline-content">
+                      <span class="timeline-label">Research run started</span>
+                      <span class="timeline-date">{formatDate(run.created_at)}</span>
+                    </div>
+                  </div>
+                {/each}
+                <div class="timeline-item">
+                  <div class="timeline-dot updated"></div>
+                  <div class="timeline-content">
+                    <span class="timeline-label">Last updated</span>
+                    <span class="timeline-date">{formatDate(data.idea.updated_at)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {:else if activeTab === "workflow"}
+            <DealWorkflow stage={data.idea.deal_stage} />
+          {/if}
         </div>
       {/if}
-    {/if}
+    </main>
   </div>
+
+  <DealLifecycleBar stage={data.idea.deal_stage} />
 </div>
 
 {#if showDeleteConfirm}
@@ -248,13 +311,9 @@
         <p class="warning">This action cannot be undone.</p>
       </div>
       <div class="modal-footer">
-        <button type="button" class="cancel-btn" onclick={closeDeleteConfirm}>
-          Cancel
-        </button>
+        <button type="button" class="cancel-btn" onclick={closeDeleteConfirm}>Cancel</button>
         <form method="POST" action="?/delete" use:enhance>
-          <button type="submit" class="confirm-delete-btn">
-            Delete Idea
-          </button>
+          <button type="submit" class="confirm-delete-btn">Delete Idea</button>
         </form>
       </div>
     </div>
@@ -262,13 +321,13 @@
 {/if}
 
 <style>
-  .page-container {
+  .deal-page {
     display: flex;
     flex-direction: column;
     height: 100%;
   }
 
-  .page-header {
+  .deal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -353,64 +412,104 @@
     color: #ef4444;
   }
 
-  .content-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1.5rem;
-  }
-
-  .idea-header {
-    margin-bottom: 1.5rem;
-  }
-
-  .idea-meta {
+  .deal-body {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem;
+    flex: 1;
+    overflow: hidden;
   }
 
-  .status-badge {
-    padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-    border-radius: 9999px;
-    background: color-mix(in srgb, var(--status-color) 15%, transparent);
-    color: var(--status-color);
+  .deal-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
-  .meta-item {
+  .tabs-nav {
+    display: flex;
+    gap: 0;
+    padding: 0 1rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .tab-btn {
     display: flex;
     align-items: center;
     gap: 0.375rem;
+    padding: 0.75rem 1rem;
     font-size: 0.8125rem;
+    font-weight: 500;
     color: var(--color-text-muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
   }
 
-  .idea-content {
+  .tab-btn:hover {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  }
+
+  .tab-btn.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+  }
+
+  .tab-icon {
+    font-size: 1rem;
+  }
+
+  .tab-panel {
+    flex: 1;
+    overflow-y: auto;
     background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 1.25rem;
-    overflow-x: auto;
+  }
+
+  /* Overview panel */
+  .overview-panel {
+    padding: 1.5rem;
+  }
+
+  .overview-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .overview-header h1 {
+    margin: 0 0 0.5rem;
+    font-size: 1.5rem;
+  }
+
+  .overview-description {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9375rem;
+  }
+
+  .overview-content {
+    margin-bottom: 2rem;
+  }
+
+  .overview-content h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1rem;
+    font-weight: 600;
   }
 
   .content-display {
     margin: 0;
+    padding: 1.25rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
     font-family: inherit;
     font-size: 0.875rem;
     line-height: 1.6;
     white-space: pre-wrap;
     word-wrap: break-word;
     color: var(--color-text);
-  }
-
-  .runs-section {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--color-border);
   }
 
   .runs-section h3 {
@@ -440,7 +539,6 @@
 
   .run-item:hover {
     border-color: var(--color-border-focus);
-    text-decoration: none;
   }
 
   .run-info {
@@ -469,7 +567,84 @@
     color: var(--color-text-muted);
   }
 
-  /* Edit form styles */
+  /* Timeline panel */
+  .timeline-panel {
+    padding: 1.5rem;
+  }
+
+  .panel-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .panel-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+  }
+
+  .panel-hint {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  .timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-left: 2px solid var(--color-border);
+    margin-left: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+
+  .timeline-dot {
+    position: absolute;
+    left: -6px;
+    top: 1.125rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-border);
+  }
+
+  .timeline-dot.run {
+    background: var(--color-primary);
+  }
+
+  .timeline-dot.updated {
+    background: var(--color-success);
+  }
+
+  .timeline-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .timeline-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .timeline-date {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+  }
+
+  /* Edit form */
+  .edit-form-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+  }
+
   .edit-form {
     max-width: 800px;
   }
@@ -489,7 +664,7 @@
   .form-group textarea {
     width: 100%;
     padding: 0.75rem;
-    background: var(--color-bg-secondary);
+    background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.875rem;

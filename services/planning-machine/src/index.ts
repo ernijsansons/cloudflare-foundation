@@ -322,6 +322,21 @@ async function handleIdeas(request: Request, env: Env, url: URL): Promise<Respon
 		return createRunFromIdea(request, ideaId, env);
 	}
 
+	// POST /api/planning/ideas/:id/attachments - upload file
+	if (request.method === 'POST' && subPath[0] === 'attachments' && subPath.length === 1) {
+		return uploadAttachment(request, ideaId, env);
+	}
+
+	// DELETE /api/planning/ideas/:id/attachments/:name - delete file
+	if (request.method === 'DELETE' && subPath[0] === 'attachments' && subPath.length === 2) {
+		return deleteAttachment(ideaId, subPath[1], env);
+	}
+
+	// GET /api/planning/ideas/:id/attachments/:name - download file
+	if (request.method === 'GET' && subPath[0] === 'attachments' && subPath.length === 2) {
+		return downloadAttachment(ideaId, subPath[1], env);
+	}
+
 	return Response.json({ error: 'Not found' }, { status: 404 });
 }
 
@@ -687,7 +702,7 @@ async function listIdeas(request: Request, env: Env): Promise<Response> {
 
 		if (status) {
 			query = `
-        SELECT id, name, content, status, created_at, updated_at
+        SELECT id, name, content, status, description, priority, tags, deal_stage, attachments, constraints, notes, created_at, updated_at
         FROM ideas
         WHERE status = ?
         ORDER BY updated_at DESC
@@ -698,7 +713,7 @@ async function listIdeas(request: Request, env: Env): Promise<Response> {
 			countParams.push(status);
 		} else {
 			query = `
-        SELECT id, name, content, status, created_at, updated_at
+        SELECT id, name, content, status, description, priority, tags, deal_stage, attachments, constraints, notes, created_at, updated_at
         FROM ideas
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?
@@ -725,6 +740,13 @@ async function listIdeas(request: Request, env: Env): Promise<Response> {
 				content: typeof row.content === 'string' ? row.content.slice(0, 500) : row.content,
 				contentLength: typeof row.content === 'string' ? row.content.length : 0,
 				status: row.status,
+				description: row.description ?? '',
+				priority: row.priority ?? 'normal',
+				tags: row.tags ?? '[]',
+				deal_stage: row.deal_stage ?? 'idea',
+				attachments: row.attachments ?? '[]',
+				constraints: row.constraints ?? '[]',
+				notes: row.notes ?? '[]',
 				created_at: row.created_at,
 				updated_at: row.updated_at
 			};
@@ -751,7 +773,16 @@ async function listIdeas(request: Request, env: Env): Promise<Response> {
 
 async function createIdea(request: Request, env: Env): Promise<Response> {
 	try {
-		const body = (await request.json()) as { name: string; content: string; status?: string };
+		const body = (await request.json()) as {
+			name: string;
+			content: string;
+			status?: string;
+			description?: string;
+			constraints?: string;
+			notes?: string;
+			priority?: string;
+			tags?: string;
+		};
 		const name = body.name;
 		const content = body.content;
 
@@ -765,12 +796,17 @@ async function createIdea(request: Request, env: Env): Promise<Response> {
 		const id = crypto.randomUUID();
 		const now = Math.floor(Date.now() / 1000);
 		const status = body.status ?? 'draft';
+		const description = body.description ?? '';
+		const constraints = body.constraints ?? '[]';
+		const notes = body.notes ?? '[]';
+		const priority = body.priority ?? 'normal';
+		const tags = body.tags ?? '[]';
 
 		await env.DB.prepare(
-			`INSERT INTO ideas (id, name, content, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
+			`INSERT INTO ideas (id, name, content, status, description, constraints, notes, attachments, priority, tags, deal_stage, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, 'idea', ?, ?)`
 		)
-			.bind(id, name.trim(), content, status, now, now)
+			.bind(id, name.trim(), content, status, description, constraints, notes, priority, tags, now, now)
 			.run();
 
 		return Response.json({
@@ -778,6 +814,13 @@ async function createIdea(request: Request, env: Env): Promise<Response> {
 			name: name.trim(),
 			content,
 			status,
+			description,
+			constraints,
+			notes,
+			attachments: '[]',
+			priority,
+			tags,
+			deal_stage: 'idea',
 			created_at: now,
 			updated_at: now
 		});
@@ -790,7 +833,7 @@ async function createIdea(request: Request, env: Env): Promise<Response> {
 async function getIdea(ideaId: string, env: Env): Promise<Response> {
 	try {
 		const row = await env.DB.prepare(
-			'SELECT id, name, content, status, created_at, updated_at FROM ideas WHERE id = ?'
+			'SELECT id, name, content, status, description, constraints, notes, attachments, priority, tags, deal_stage, created_at, updated_at FROM ideas WHERE id = ?'
 		)
 			.bind(ideaId)
 			.first();
@@ -804,6 +847,13 @@ async function getIdea(ideaId: string, env: Env): Promise<Response> {
 			name: row.name,
 			content: row.content,
 			status: row.status,
+			description: row.description ?? '',
+			constraints: row.constraints ?? '[]',
+			notes: row.notes ?? '[]',
+			attachments: row.attachments ?? '[]',
+			priority: row.priority ?? 'normal',
+			tags: row.tags ?? '[]',
+			deal_stage: row.deal_stage ?? 'idea',
 			created_at: row.created_at,
 			updated_at: row.updated_at
 		});
@@ -821,7 +871,18 @@ async function updateIdea(request: Request, ideaId: string, env: Env): Promise<R
 			return Response.json({ error: 'Idea not found' }, { status: 404 });
 		}
 
-		const body = (await request.json()) as { name?: string; content?: string; status?: string };
+		const body = (await request.json()) as {
+			name?: string;
+			content?: string;
+			status?: string;
+			description?: string;
+			constraints?: string;
+			notes?: string;
+			attachments?: string;
+			priority?: string;
+			tags?: string;
+			deal_stage?: string;
+		};
 		const updates: string[] = [];
 		const values: (string | number)[] = [];
 
@@ -836,6 +897,34 @@ async function updateIdea(request: Request, ideaId: string, env: Env): Promise<R
 		if (body.status !== undefined) {
 			updates.push('status = ?');
 			values.push(body.status);
+		}
+		if (body.description !== undefined) {
+			updates.push('description = ?');
+			values.push(body.description);
+		}
+		if (body.constraints !== undefined) {
+			updates.push('constraints = ?');
+			values.push(body.constraints);
+		}
+		if (body.notes !== undefined) {
+			updates.push('notes = ?');
+			values.push(body.notes);
+		}
+		if (body.attachments !== undefined) {
+			updates.push('attachments = ?');
+			values.push(body.attachments);
+		}
+		if (body.priority !== undefined) {
+			updates.push('priority = ?');
+			values.push(body.priority);
+		}
+		if (body.tags !== undefined) {
+			updates.push('tags = ?');
+			values.push(body.tags);
+		}
+		if (body.deal_stage !== undefined) {
+			updates.push('deal_stage = ?');
+			values.push(body.deal_stage);
 		}
 
 		if (updates.length === 0) {
@@ -855,6 +944,120 @@ async function updateIdea(request: Request, ideaId: string, env: Env): Promise<R
 	} catch (e) {
 		console.error('updateIdea error:', e);
 		return Response.json({ error: 'Internal error' }, { status: 500 });
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Idea Attachments (R2 file storage)
+// ---------------------------------------------------------------------------
+
+async function uploadAttachment(request: Request, ideaId: string, env: Env): Promise<Response> {
+	try {
+		const idea = await env.DB.prepare('SELECT id, attachments FROM ideas WHERE id = ?')
+			.bind(ideaId)
+			.first();
+		if (!idea) {
+			return Response.json({ error: 'Idea not found' }, { status: 404 });
+		}
+		if (!env.FILES) {
+			return Response.json({ error: 'File storage not configured' }, { status: 500 });
+		}
+
+		const formData = await request.formData();
+		const file = formData.get('file') as File | null;
+		if (!file) {
+			return Response.json({ error: 'No file provided' }, { status: 400 });
+		}
+
+		// Sanitize filename
+		const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+		const key = `idea-attachments/${ideaId}/${sanitizedName}`;
+
+		await env.FILES.put(key, file.stream(), {
+			httpMetadata: { contentType: file.type },
+			customMetadata: { ideaId, originalName: file.name }
+		});
+
+		const existingAttachments = JSON.parse((idea.attachments as string) || '[]');
+		// Remove existing attachment with same name if exists
+		const filtered = existingAttachments.filter(
+			(a: { name: string }) => a.name !== sanitizedName
+		);
+		filtered.push({
+			name: sanitizedName,
+			key,
+			type: file.type,
+			size: file.size,
+			uploaded_at: Math.floor(Date.now() / 1000)
+		});
+
+		const now = Math.floor(Date.now() / 1000);
+		await env.DB.prepare('UPDATE ideas SET attachments = ?, updated_at = ? WHERE id = ?')
+			.bind(JSON.stringify(filtered), now, ideaId)
+			.run();
+
+		return Response.json({ success: true, attachment: filtered[filtered.length - 1] });
+	} catch (e) {
+		console.error('uploadAttachment error:', e);
+		return Response.json({ error: 'Upload failed' }, { status: 500 });
+	}
+}
+
+async function deleteAttachment(ideaId: string, fileName: string, env: Env): Promise<Response> {
+	try {
+		const idea = await env.DB.prepare('SELECT id, attachments FROM ideas WHERE id = ?')
+			.bind(ideaId)
+			.first();
+		if (!idea) {
+			return Response.json({ error: 'Idea not found' }, { status: 404 });
+		}
+		if (!env.FILES) {
+			return Response.json({ error: 'File storage not configured' }, { status: 500 });
+		}
+
+		const decodedName = decodeURIComponent(fileName);
+		const key = `idea-attachments/${ideaId}/${decodedName}`;
+		await env.FILES.delete(key);
+
+		const existingAttachments = JSON.parse((idea.attachments as string) || '[]');
+		const filtered = existingAttachments.filter(
+			(a: { name: string }) => a.name !== decodedName
+		);
+
+		const now = Math.floor(Date.now() / 1000);
+		await env.DB.prepare('UPDATE ideas SET attachments = ?, updated_at = ? WHERE id = ?')
+			.bind(JSON.stringify(filtered), now, ideaId)
+			.run();
+
+		return Response.json({ success: true });
+	} catch (e) {
+		console.error('deleteAttachment error:', e);
+		return Response.json({ error: 'Delete failed' }, { status: 500 });
+	}
+}
+
+async function downloadAttachment(ideaId: string, fileName: string, env: Env): Promise<Response> {
+	try {
+		if (!env.FILES) {
+			return Response.json({ error: 'File storage not configured' }, { status: 500 });
+		}
+
+		const decodedName = decodeURIComponent(fileName);
+		const key = `idea-attachments/${ideaId}/${decodedName}`;
+		const object = await env.FILES.get(key);
+
+		if (!object) {
+			return Response.json({ error: 'File not found' }, { status: 404 });
+		}
+
+		const headers = new Headers();
+		headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+		headers.set('Content-Disposition', `attachment; filename="${decodedName}"`);
+
+		return new Response(object.body, { headers });
+	} catch (e) {
+		console.error('downloadAttachment error:', e);
+		return Response.json({ error: 'Download failed' }, { status: 500 });
 	}
 }
 
@@ -973,9 +1176,9 @@ async function createRunFromIdea(request: Request, ideaId: string, env: Env): Pr
 			.bind(id, ideaText.trim(), mode, config, ideaId, now, now)
 			.run();
 
-		// Update idea status to 'researching'
-		await env.DB.prepare('UPDATE ideas SET status = ?, updated_at = ? WHERE id = ?')
-			.bind('researching', now, ideaId)
+		// Update idea status and deal_stage to 'researching'
+		await env.DB.prepare('UPDATE ideas SET status = ?, deal_stage = ?, updated_at = ? WHERE id = ?')
+			.bind('researching', 'researching', now, ideaId)
 			.run();
 
 		let workflowInstanceId: string | null = null;

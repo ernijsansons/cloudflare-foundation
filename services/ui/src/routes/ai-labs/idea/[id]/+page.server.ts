@@ -2,11 +2,39 @@ import type { PageServerLoad, Actions } from "./$types";
 import { dev } from "$app/environment";
 import { fail, redirect, error } from "@sveltejs/kit";
 
+export interface Attachment {
+  name: string;
+  key: string;
+  type: string;
+  size: number;
+  uploaded_at: number;
+}
+
+export interface Constraint {
+  id: string;
+  text: string;
+  created_at: number;
+}
+
+export interface Note {
+  id: string;
+  text: string;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface Idea {
   id: string;
   name: string;
   content: string;
   status: string;
+  description: string;
+  priority: string;
+  tags: string[];
+  deal_stage: string;
+  attachments: Attachment[];
+  constraints: Constraint[];
+  notes: Note[];
   created_at: number;
   updated_at: number;
 }
@@ -50,7 +78,22 @@ export const load: PageServerLoad = async ({ params, platform }) => {
       error(500, "Failed to fetch idea");
     }
 
-    const idea = (await ideaRes.json()) as Idea;
+    const rawIdea = (await ideaRes.json()) as Record<string, unknown>;
+    const idea: Idea = {
+      id: rawIdea.id as string,
+      name: rawIdea.name as string,
+      content: rawIdea.content as string,
+      status: rawIdea.status as string,
+      description: (rawIdea.description as string) ?? '',
+      priority: (rawIdea.priority as string) ?? 'normal',
+      tags: typeof rawIdea.tags === 'string' ? JSON.parse(rawIdea.tags || '[]') : (rawIdea.tags ?? []) as string[],
+      deal_stage: (rawIdea.deal_stage as string) ?? 'idea',
+      attachments: typeof rawIdea.attachments === 'string' ? JSON.parse(rawIdea.attachments || '[]') : (rawIdea.attachments ?? []) as Attachment[],
+      constraints: typeof rawIdea.constraints === 'string' ? JSON.parse(rawIdea.constraints || '[]') : (rawIdea.constraints ?? []) as Constraint[],
+      notes: typeof rawIdea.notes === 'string' ? JSON.parse(rawIdea.notes || '[]') : (rawIdea.notes ?? []) as Note[],
+      created_at: rawIdea.created_at as number,
+      updated_at: rawIdea.updated_at as number,
+    };
     const runsData = runsRes.ok ? ((await runsRes.json()) as { items?: Run[] }) : { items: [] };
 
     return {
@@ -73,11 +116,13 @@ export const actions: Actions = {
     const name = formData.get("name")?.toString().trim();
     const content = formData.get("content")?.toString();
     const status = formData.get("status")?.toString();
+    const description = formData.get("description")?.toString();
 
     const updates: Record<string, string> = {};
     if (name) updates.name = name;
     if (content !== undefined) updates.content = content;
     if (status) updates.status = status;
+    if (description !== undefined) updates.description = description;
 
     if (Object.keys(updates).length === 0) {
       return fail(400, { error: "No fields to update" });
@@ -146,6 +191,35 @@ export const actions: Actions = {
       }
       console.error("start research error:", e);
       return fail(500, { error: "Failed to start research" });
+    }
+  },
+
+  updateField: async ({ request, params, platform }) => {
+    const formData = await request.formData();
+    const field = formData.get("field")?.toString();
+    const value = formData.get("value")?.toString();
+
+    if (!field || value === undefined) {
+      return fail(400, { error: "Field and value required" });
+    }
+
+    try {
+      const res = await fetchAPI(platform, `/api/planning/ideas/${params.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Failed to update field:", res.status, text);
+        return fail(500, { error: "Failed to update" });
+      }
+
+      return { success: true };
+    } catch (e) {
+      console.error("updateField error:", e);
+      return fail(500, { error: "Failed to update" });
     }
   },
 };

@@ -2,12 +2,40 @@ import type { PageServerLoad, Actions } from "./$types";
 import { dev } from "$app/environment";
 import { fail, redirect } from "@sveltejs/kit";
 
+export interface Attachment {
+  name: string;
+  key: string;
+  type: string;
+  size: number;
+  uploaded_at: number;
+}
+
+export interface Constraint {
+  id: string;
+  text: string;
+  created_at: number;
+}
+
+export interface Note {
+  id: string;
+  text: string;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface Idea {
   id: string;
   name: string;
   content: string;
   contentLength?: number;
   status: string;
+  description: string;
+  priority: string;
+  tags: string[];
+  deal_stage: string;
+  attachments: Attachment[];
+  constraints: Constraint[];
+  notes: Note[];
   created_at: number;
   updated_at: number;
 }
@@ -35,8 +63,24 @@ export const load: PageServerLoad = async ({ platform }) => {
       console.error("Failed to fetch ideas:", res.status, text);
       return { ideas: [], error: "Failed to fetch ideas" };
     }
-    const data = (await res.json()) as { items?: Idea[] };
-    return { ideas: data.items ?? [], error: null };
+    const data = (await res.json()) as { items?: Record<string, unknown>[] };
+    const ideas: Idea[] = (data.items ?? []).map((item) => ({
+      id: item.id as string,
+      name: item.name as string,
+      content: item.content as string,
+      contentLength: item.contentLength as number | undefined,
+      status: item.status as string,
+      description: (item.description as string) ?? '',
+      priority: (item.priority as string) ?? 'normal',
+      tags: typeof item.tags === 'string' ? JSON.parse(item.tags || '[]') : (item.tags ?? []) as string[],
+      deal_stage: (item.deal_stage as string) ?? 'idea',
+      attachments: typeof item.attachments === 'string' ? JSON.parse(item.attachments || '[]') : (item.attachments ?? []) as Attachment[],
+      constraints: typeof item.constraints === 'string' ? JSON.parse(item.constraints || '[]') : (item.constraints ?? []) as Constraint[],
+      notes: typeof item.notes === 'string' ? JSON.parse(item.notes || '[]') : (item.notes ?? []) as Note[],
+      created_at: item.created_at as number,
+      updated_at: item.updated_at as number,
+    }));
+    return { ideas, error: null };
   } catch (e) {
     console.error("ideas load error:", e);
     return { ideas: [], error: "Failed to fetch ideas" };
@@ -48,6 +92,11 @@ export const actions: Actions = {
     const formData = await request.formData();
     const name = formData.get("name")?.toString().trim();
     const content = formData.get("content")?.toString().trim();
+    const description = formData.get("description")?.toString() ?? '';
+    const priority = formData.get("priority")?.toString() ?? 'normal';
+    const tags = formData.get("tags")?.toString() ?? '[]';
+    const constraints = formData.get("constraints")?.toString() ?? '[]';
+    const notes = formData.get("notes")?.toString() ?? '[]';
 
     if (!name) {
       return fail(400, { error: "Name is required", name, content });
@@ -60,7 +109,16 @@ export const actions: Actions = {
       const res = await fetchAPI(platform, "/api/planning/ideas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, content, status: "draft" }),
+        body: JSON.stringify({
+          name,
+          content,
+          status: "draft",
+          description,
+          priority,
+          tags,
+          constraints,
+          notes,
+        }),
       });
 
       if (!res.ok) {

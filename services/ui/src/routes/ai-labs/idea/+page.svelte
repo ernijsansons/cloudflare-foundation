@@ -25,7 +25,7 @@
   }
 
   function handleModalBackdropKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+    if (event.key === "Escape") {
       event.preventDefault();
       closeCreateModal();
     }
@@ -60,16 +60,65 @@
         return status;
     }
   }
+
+  function getPriorityColor(priority: string): string {
+    switch (priority) {
+      case "critical":
+        return "#ef4444";
+      case "high":
+        return "#f59e0b";
+      case "normal":
+        return "#6b7280";
+      case "low":
+        return "#9ca3af";
+      default:
+        return "#6b7280";
+    }
+  }
+
+  function getDealStageLabel(stage: string): string {
+    switch (stage) {
+      case "idea":
+        return "Idea";
+      case "researching":
+        return "Researching";
+      case "production":
+        return "Production";
+      case "parked":
+        return "Parked";
+      case "killed":
+        return "Killed";
+      default:
+        return stage;
+    }
+  }
+
+  function getDealStageIcon(stage: string): string {
+    switch (stage) {
+      case "idea":
+        return "💡";
+      case "researching":
+        return "🔬";
+      case "production":
+        return "🚀";
+      case "parked":
+        return "⏸️";
+      case "killed":
+        return "❌";
+      default:
+        return "📋";
+    }
+  }
 </script>
 
 <svelte:head>
-  <title>Idea Cards | AI Labs</title>
+  <title>Ideas | AI Labs</title>
 </svelte:head>
 
 <div class="page-header">
   <div class="header-content">
     <div>
-      <h1>Idea Cards</h1>
+      <h1>Ideas</h1>
       <p class="subtitle">Document your ideas in detail, then launch research</p>
     </div>
     <button class="create-btn" onclick={() => (showCreateModal = true)}>
@@ -101,19 +150,41 @@
 {:else}
   <div class="ideas-grid">
     {#each data.ideas as idea (idea.id)}
-      <a href="/ai-labs/idea/{idea.id}" class="idea-card">
-        <div class="card-header">
-          <h3 class="card-title">{idea.name}</h3>
-          <span class="status-badge" style="--status-color: {getStatusColor(idea.status)}">
-            {getStatusLabel(idea.status)}
-          </span>
-        </div>
-        <p class="card-preview">
-          {idea.content.slice(0, 150)}{idea.content.length > 150 ? "..." : ""}
-        </p>
-        <div class="card-footer">
-          <span class="content-length">{idea.contentLength ?? idea.content.length} chars</span>
-          <span class="card-date">{formatDate(idea.updated_at)}</span>
+      <a href="/ai-labs/idea/{idea.id}" class="idea-card" style="--priority-color: {getPriorityColor(idea.priority || 'normal')}">
+        <div class="priority-accent"></div>
+        <div class="card-content">
+          <div class="card-header">
+            <h3 class="card-title">{idea.name}</h3>
+            <div class="card-badges">
+              <span class="stage-badge">
+                {getDealStageIcon(idea.deal_stage || 'idea')} {getDealStageLabel(idea.deal_stage || 'idea')}
+              </span>
+              <span class="status-badge" style="--status-color: {getStatusColor(idea.status)}">
+                {getStatusLabel(idea.status)}
+              </span>
+            </div>
+          </div>
+          <p class="card-preview">
+            {idea.content.slice(0, 150)}{idea.content.length > 150 ? "..." : ""}
+          </p>
+          {#if idea.tags && idea.tags.length > 0}
+            <div class="tags-row">
+              {#each idea.tags.slice(0, 4) as tag}
+                <span class="tag-pill">{tag}</span>
+              {/each}
+              {#if idea.tags.length > 4}
+                <span class="tag-more">+{idea.tags.length - 4}</span>
+              {/if}
+            </div>
+          {/if}
+          <div class="card-footer">
+            <div class="card-stats">
+              <span class="stat" title="Attachments">📎 {idea.attachments?.length ?? 0}</span>
+              <span class="stat" title="Constraints">🔒 {idea.constraints?.length ?? 0}</span>
+              <span class="stat" title="Notes">📝 {idea.notes?.length ?? 0}</span>
+            </div>
+            <span class="card-date">{formatDate(idea.updated_at)}</span>
+          </div>
         </div>
       </a>
     {/each}
@@ -160,15 +231,35 @@
           />
         </div>
         <div class="form-group">
+          <label for="description">Description</label>
+          <textarea
+            id="description"
+            name="description"
+            placeholder="Brief summary of this idea..."
+            rows="2"
+          ></textarea>
+        </div>
+        <div class="form-group">
           <label for="content">Content</label>
           <textarea
             id="content"
             name="content"
             placeholder="Paste your PRD, business plan, or detailed idea description here..."
-            rows="12"
+            rows="10"
             required
           ></textarea>
           <p class="field-hint">Paste as much detail as you have - full PRD, business plan, market research, etc.</p>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex: 1;">
+            <label for="priority">Priority</label>
+            <select id="priority" name="priority">
+              <option value="normal" selected>Normal</option>
+              <option value="low">Low</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="cancel-btn" onclick={closeCreateModal}>
@@ -280,27 +371,40 @@
 
   .ideas-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 1rem;
     padding: 1.5rem;
   }
 
   .idea-card {
     display: flex;
-    flex-direction: column;
-    padding: 1.25rem;
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: 8px;
     text-decoration: none;
     color: inherit;
     transition: border-color 0.15s, box-shadow 0.15s;
+    overflow: hidden;
   }
 
   .idea-card:hover {
     border-color: var(--color-border-focus);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     text-decoration: none;
+  }
+
+  .priority-accent {
+    width: 4px;
+    flex-shrink: 0;
+    background: var(--priority-color);
+  }
+
+  .card-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem;
+    min-width: 0;
   }
 
   .card-header {
@@ -316,6 +420,26 @@
     font-size: 1rem;
     font-weight: 600;
     line-height: 1.3;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .card-badges {
+    display: flex;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  .stage-badge {
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-muted);
+    white-space: nowrap;
   }
 
   .status-badge {
@@ -338,8 +462,33 @@
     line-height: 1.5;
     overflow: hidden;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+  }
+
+  .tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: 0.75rem;
+  }
+
+  .tag-pill {
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    color: var(--color-primary);
+  }
+
+  .tag-more {
+    padding: 0.125rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    border-radius: 9999px;
+    background: var(--color-bg-secondary);
+    color: var(--color-text-muted);
   }
 
   .card-footer {
@@ -353,10 +502,15 @@
     color: var(--color-text-muted);
   }
 
-  .content-length {
-    background: var(--color-bg-secondary);
-    padding: 0.125rem 0.375rem;
-    border-radius: 4px;
+  .card-stats {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
   }
 
   /* Modal styles */
@@ -426,8 +580,14 @@
     font-weight: 500;
   }
 
+  .form-row {
+    display: flex;
+    gap: 1rem;
+  }
+
   .form-group input,
-  .form-group textarea {
+  .form-group textarea,
+  .form-group select {
     width: 100%;
     padding: 0.625rem 0.75rem;
     background: var(--color-bg-secondary);
@@ -437,10 +597,12 @@
     font-family: inherit;
     color: var(--color-text);
     resize: vertical;
+    box-sizing: border-box;
   }
 
   .form-group input:focus,
-  .form-group textarea:focus {
+  .form-group textarea:focus,
+  .form-group select:focus {
     outline: none;
     border-color: var(--color-primary);
   }
