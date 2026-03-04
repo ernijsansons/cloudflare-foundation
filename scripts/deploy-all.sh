@@ -10,32 +10,44 @@ set -euo pipefail
 #   ./scripts/deploy-all.sh [environment]
 #
 # Arguments:
-#   environment  - Target environment: "staging" | "production" (default: production)
+#   environment  - Target environment: "staging" | "production" | "top-level" (default: top-level)
 #
 # Examples:
-#   ./scripts/deploy-all.sh staging      # Deploy to staging
-#   ./scripts/deploy-all.sh production   # Deploy to production
-#   ./scripts/deploy-all.sh              # Deploy to production (default)
+#   ./scripts/deploy-all.sh top-level    # Deploy to top-level (RECOMMENDED - avoids binding loss)
+#   ./scripts/deploy-all.sh staging      # Deploy to staging env
+#   ./scripts/deploy-all.sh production   # Deploy to production env (WARNING: may lose DO/Queue bindings)
+#   ./scripts/deploy-all.sh              # Deploy to top-level (default)
+#
+# IMPORTANT: Using "top-level" (default) deploys without --env flag, which ensures
+# all Durable Object and Queue bindings are included. The "production" and "staging"
+# options use --env which may drop bindings not duplicated in those env sections.
 # =============================================================================
-
-# Parse environment argument
-ENV=${1:-production}
-
-# Validate environment
-if [ "$ENV" != "staging" ] && [ "$ENV" != "production" ]; then
-    echo "ERROR: Invalid environment '$ENV'. Must be 'staging' or 'production'."
-    exit 1
-fi
-
-echo "=== Cloudflare Foundation v2.5 — Full Deployment ==="
-echo "Environment: $ENV"
-echo ""
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+# Parse environment argument
+ENV=${1:-top-level}
+
+# Validate environment
+if [ "$ENV" != "staging" ] && [ "$ENV" != "production" ] && [ "$ENV" != "top-level" ]; then
+    echo "ERROR: Invalid environment '$ENV'. Must be 'staging', 'production', or 'top-level'."
+    exit 1
+fi
+
+# Warn about env nesting trap
+if [ "$ENV" = "production" ]; then
+    echo -e "${YELLOW}WARNING: Using --env production may drop DO/Queue bindings not in env.production section.${NC}"
+    echo -e "${YELLOW}Consider using 'top-level' mode instead: ./scripts/deploy-all.sh top-level${NC}"
+    echo ""
+fi
+
+echo "=== Cloudflare Foundation v2.5 — Full Deployment ==="
+echo "Environment: $ENV"
+echo ""
 
 # Track deployment status
 FAILED_SERVICES=""
@@ -55,8 +67,24 @@ deploy_service() {
 
     cd "$dir"
 
-    # Deploy with environment flag
-    if ! npx wrangler deploy --env "$ENV"; then
+    # Deploy: top-level mode uses no --env flag to preserve all bindings
+    local deploy_result
+    if [ "$ENV" = "top-level" ]; then
+        echo "  (Using top-level config to preserve DO/Queue bindings)"
+        if ! npx wrangler deploy; then
+            deploy_result=1
+        else
+            deploy_result=0
+        fi
+    else
+        if ! npx wrangler deploy --env "$ENV"; then
+            deploy_result=1
+        else
+            deploy_result=0
+        fi
+    fi
+
+    if [ "$deploy_result" -ne 0 ]; then
         echo -e "${RED}ERROR: Failed to deploy $service${NC}"
         FAILED_SERVICES="$FAILED_SERVICES $service"
         cd - > /dev/null
@@ -90,7 +118,11 @@ deploy_ui() {
     fi
 
     echo "  Deploying UI to $ENV..."
-    if ! npx wrangler pages deploy .svelte-kit/cloudflare --project-name "foundation-ui-$ENV"; then
+    local ui_project="foundation-ui"
+    if [ "$ENV" != "top-level" ]; then
+        ui_project="foundation-ui-$ENV"
+    fi
+    if ! npx wrangler pages deploy .svelte-kit/cloudflare --project-name "$ui_project"; then
         echo -e "${RED}ERROR: Failed to deploy UI${NC}"
         FAILED_SERVICES="$FAILED_SERVICES ui"
         cd - > /dev/null
@@ -109,9 +141,9 @@ deploy_ui() {
 
 echo "Running pre-flight checks..."
 
-# Check if wrangler is available
-if ! command -v wrangler &> /dev/null; then
-    echo -e "${RED}ERROR: wrangler CLI not found. Install with: npm install -g wrangler${NC}"
+# Check if wrangler is available via npx (uses local devDependency)
+if ! npx wrangler --version &> /dev/null; then
+    echo -e "${RED}ERROR: wrangler not available. Run 'pnpm install' first.${NC}"
     exit 1
 fi
 
@@ -234,11 +266,14 @@ fi
 echo ""
 echo -e "${GREEN}All services deployed successfully!${NC}"
 echo ""
-echo "Service URLs:"
-echo "  UI:       https://foundation-ui.<account>.workers.dev"
-echo "  Gateway:  https://foundation-gateway.<account>.workers.dev"
-echo "  Agents:   https://foundation-agents.<account>.workers.dev"
+echo "Service URLs (replace <account> with your Cloudflare account subdomain):"
+echo "  UI:               https://foundation-ui.<account>.workers.dev"
+echo "  Gateway:          https://foundation-gateway.<account>.workers.dev"
+echo "  Agents:           https://foundation-agents.<account>.workers.dev"
+echo "  Planning Machine: https://foundation-planning-machine.<account>.workers.dev"
 echo ""
 echo "To verify deployment, run health checks:"
 echo "  curl https://foundation-gateway.<account>.workers.dev/health"
+echo "  curl https://foundation-agents.<account>.workers.dev/health"
+echo "  curl https://foundation-planning-machine.<account>.workers.dev/api/planning/health"
 echo ""
