@@ -53,7 +53,7 @@
 								<td>{milestone.milestone}</td>
 								<td>
 									<span
-										class="status-badge status-{milestone.status.toLowerCase().replace(' ', '-')}"
+										class="status-badge status-{milestone.status?.toLowerCase().replace(' ', '-') || 'pending'}"
 									>
 										{milestone.status}
 									</span>

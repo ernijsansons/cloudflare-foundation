@@ -87,6 +87,13 @@
   --color-error: hsl(0, 84%, 55%);
   --color-info: hsl(220, 84%, 55%);
 
+  /* Utility Color Aliases (for components using shorthand names) */
+  --color-blue: hsl(var(--hue-primary), var(--sat-primary), var(--lit-primary));
+  --color-green: hsl(150, 84%, 35%);
+  --color-red: hsl(0, 84%, 55%);
+  --color-amber: hsl(35, 92%, 48%);
+  --color-purple: hsl(270, 50%, 55%);
+
   /* Brand Gradients */
   --color-gradient-start: #667eea;
   --color-gradient-end: #764ba2;
@@ -168,6 +175,13 @@
 
     --color-primary: hsl(var(--hue-primary), var(--sat-primary), 55%);
     --color-primary-hover: hsl(var(--hue-primary), var(--sat-primary), 65%);
+
+    /* Utility Color Aliases (dark mode) */
+    --color-blue: hsl(var(--hue-primary), var(--sat-primary), 55%);
+    --color-green: hsl(150, 84%, 45%);
+    --color-red: hsl(0, 84%, 60%);
+    --color-amber: hsl(35, 92%, 55%);
+    --color-purple: hsl(270, 50%, 60%);
 
     /* Brand colors (dark mode) */
     --color-brand-primary: hsl(var(--hue-primary), var(--sat-primary), 55%);

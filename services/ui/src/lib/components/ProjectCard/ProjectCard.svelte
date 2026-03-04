@@ -17,15 +17,23 @@
 	import SectionL from './SectionL.svelte';
 	import SectionM from './SectionM.svelte';
 	import LoadingSkeleton from './LoadingSkeleton.svelte';
+	let {
+		projectId,
+		projectName,
+		documentation = null,
+		loading = false,
+		onClose = undefined,
+		documentationError = null
+	}: {
+		projectId: string;
+		projectName: string;
+		documentation?: Partial<ProjectDocumentation> | null;
+		loading?: boolean;
+		onClose?: () => void;
+		documentationError?: { status: number; message: string } | null;
+	} = $props();
 
-	export let projectId: string;
-	export let projectName: string;
-	export let documentation: Partial<ProjectDocumentation> | null = null;
-	export let loading = false;
-	export let onClose: (() => void) | undefined = undefined;
-	export let documentationError: { status: number; message: string } | null = null;
-
-	let activeSection: string = 'overview';
+	let activeSection = $state('overview');
 
 	const sections = [
 		{ id: 'overview', label: 'Overview', icon: '📊' },

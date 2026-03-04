@@ -100,7 +100,7 @@
 								<td><strong>{operation.operation_name}</strong></td>
 								<td>
 									<span
-										class="automation-badge automation-{operation.automation_level.toLowerCase()}"
+										class="automation-badge automation-{operation.automation_level?.toLowerCase() || 'manual'}"
 									>
 										{operation.automation_level}
 									</span>

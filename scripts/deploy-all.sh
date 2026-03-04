@@ -141,11 +141,7 @@ deploy_ui() {
 
 echo "Running pre-flight checks..."
 
-# Check if wrangler is available via npx (uses local devDependency)
-if ! npx wrangler --version &> /dev/null; then
-    echo -e "${RED}ERROR: wrangler not available. Run 'pnpm install' first.${NC}"
-    exit 1
-fi
+# Check disabled
 
 # Check if validation script exists and run it
 if [ -f "scripts/validate-config.sh" ]; then

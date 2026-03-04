@@ -1,24 +1,47 @@
 import type { PageServerLoad } from './$types';
 import { createGatewayClient } from '$lib/server/gateway';
 
+interface NaomiTask {
+	id: string;
+	run_id: string;
+	repo_url: string;
+	agent: string;
+	status: string;
+	phase?: string;
+	vm_id?: string;
+	claimed_at?: number;
+	started_at?: number;
+	completed_at?: number;
+	retry_count?: number;
+	error?: string;
+	created_at: number;
+	updated_at?: number;
+	// Extended fields (may not exist in DB yet)
+	title?: string;
+	progress_pct?: number;
+}
+
 export const load: PageServerLoad = async ({ platform, fetch, locals }) => {
 	try {
 		const gateway = createGatewayClient(platform, locals, fetch);
 
-		// No need to hardcode tenant_id - gateway client handles it
-		const data = await gateway.fetchJson<{ roadmaps: unknown[] }>(
-			'/public/dashboard/roadmaps?business_id=naomi&status=active'
+		// Fetch all tasks (not just roadmaps) - use naomi tasks endpoint
+		const data = await gateway.fetchJson<{ tasks?: NaomiTask[]; roadmaps?: NaomiTask[] }>(
+			'/public/dashboard/roadmaps'
 		);
 
+		// Handle both old (roadmaps) and new (tasks) response shapes
+		const tasks = data.tasks || data.roadmaps || [];
+
 		return {
-			roadmaps: data.roadmaps || [],
+			tasks,
 			error: null
 		};
 	} catch (error) {
 		console.error('Error fetching tasks:', error);
 		return {
-			roadmaps: [],
-			error: error instanceof Error ? error.message : 'Unknown error'
+			tasks: [],
+			error: error instanceof Error ? error.message : 'Failed to load tasks'
 		};
 	}
 };
