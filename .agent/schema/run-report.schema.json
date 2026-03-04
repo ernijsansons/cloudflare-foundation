@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://erlvinc.com/schemas/run-report.json",
+  "title": "Run Report",
+  "description": "Structured output from a Ralph Loop execution",
+  "type": "object",
+  "required": [
+    "run_id",
+    "project_id",
+    "status",
+    "branch",
+    "task_type",
+    "objective",
+    "files_changed",
+    "checks",
+    "acceptance_criteria_results"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Run identifier"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "Project identifier"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["COMPLETE", "BLOCKED", "REQUEST_APPROVAL"],
+      "description": "Final run status"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Git branch used"
+    },
+    "task_type": {
+      "type": "string",
+      "description": "Type of task executed"
+    },
+    "objective": {
+      "type": "string",
+      "description": "Task objective"
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of files modified"
+    },
+    "checks": {
+      "type": "object",
+      "properties": {
+        "lint": {
+          "type": "string",
+          "enum": ["pass", "fail", "skip"]
+        },
+        "typecheck": {
+          "type": "string",
+          "enum": ["pass", "fail", "skip"]
+        },
+        "test": {
+          "type": "string",
+          "enum": ["pass", "fail", "skip"]
+        },
+        "smoke": {
+          "type": "string",
+          "enum": ["pass", "fail", "skip"]
+        }
+      },
+      "description": "Quality gate results"
+    },
+    "docs_updated": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Documentation files updated"
+    },
+    "repair_attempts": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "description": "Number of repair attempts made"
+    },
+    "stop_conditions_hit": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Stop conditions that were triggered"
+    },
+    "open_risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Identified risks or issues"
+    },
+    "suggested_next_run": {
+      "type": "string",
+      "description": "Suggested follow-up task"
+    },
+    "acceptance_criteria_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criterion", "status"],
+        "properties": {
+          "criterion": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "skip"]
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Results for each acceptance criterion"
+    },
+    "blocked_reason": {
+      "type": "string",
+      "description": "Reason for BLOCKED status (if applicable)"
+    },
+    "approval_request": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "context": {
+          "type": "object"
+        }
+      },
+      "description": "Details for REQUEST_APPROVAL status"
+    }
+  },
+  "additionalProperties": false
+}

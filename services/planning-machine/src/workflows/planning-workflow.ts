@@ -4,10 +4,13 @@
 
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import type { Env } from "../types";
-import { PHASE_ORDER, getAgentForPhase, type PhaseName } from "../agents/registry";
+import { PHASE_ORDER, getAgentForPhase, getPostPipelineAgent, type PhaseName } from "../agents/registry";
 import { embedAndStore, getContextForPhase } from "../lib/rag";
 import { reviewArtifact, tiebreakerReview } from "../lib/reviewer";
 import type { OrchestrationResult } from "../lib/orchestrator";
+import { populateDocumentation, generateOverviewSection } from "../lib/doc-populator";
+import { validatePhaseOutput } from "../lib/schema-validator";
+import { scoreArtifact, type QualityScore } from "../lib/quality-scorer";
 
 /** Emit webhook event for external reporting (e.g., to erlvinc.com) */
 async function emitWebhookEvent(
@@ -134,6 +137,8 @@ export type PlanningParams = {
 	config?: { requireApproval?: boolean; requireReview?: boolean; generateBuildSpec?: boolean };
 };
 
+import { LivingPRDSchema, type LivingPRDType } from "../schemas/living-prd";
+
 export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
   async run(event: WorkflowEvent<PlanningParams>, step: WorkflowStep) {
     const { runId, idea, config } = event.payload;
@@ -143,14 +148,62 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
     let killVerdict: string | null = null;
     // Stores orchestration results keyed by phase — populated by runPhase when a model council ran
     const orchestrationDataByPhase = new Map<string, OrchestrationResult>();
+    // Stores quality scores keyed by phase for aggregate calculation
+    const qualityScoreByPhase = new Map<string, number>();
 
-		// Load pivotCount from DB for workflow resumption support
-		let pivotCount = await step.do('load-pivot-count', async () => {
-			const row = await this.env.DB.prepare('SELECT pivot_count FROM planning_runs WHERE id = ?')
+		// Load pivotCount, tenantId, and livingPrd state from DB for workflow resumption support
+		const runMetadataRaw = await step.do('load-run-metadata', async () => {
+			const row = await this.env.DB.prepare('SELECT pivot_count, tenant_id, living_prd_state FROM planning_runs WHERE id = ?')
 				.bind(runId)
 				.first();
-			return ((row as Record<string, unknown>)?.pivot_count as number) ?? 0;
+				
+			let livingPrdState: any = null;
+			if (row && (row as Record<string, unknown>).living_prd_state) {
+				try {
+					livingPrdState = JSON.parse((row as Record<string, unknown>).living_prd_state as string);
+				} catch (e) {
+					console.error("Failed to parse living_prd_state", e);
+				}
+			}
+
+			// Initialize LivingPRD if it doesn't exist
+			if (!livingPrdState) {
+			  livingPrdState = {
+			    id: runId,
+			    status: "draft",
+			    coreContext: {
+			      rawIdea: idea,
+			      identifiedProblems: []
+			    },
+			    research: {},
+			    validation: { verdict: "PENDING" },
+			    requirements: { features: [] },
+			    createdAt: new Date().toISOString(),
+			    updatedAt: new Date().toISOString(),
+			    version: 1,
+			    pivotHistory: []
+			  };
+			}
+
+			return {
+				pivotCount: ((row as Record<string, unknown>)?.pivot_count as number) ?? 0,
+				tenantId: ((row as Record<string, unknown>)?.tenant_id as string) ?? 'default',
+				livingPrdState
+			};
 		});
+		let pivotCount = (runMetadataRaw as any)?.pivotCount ?? 0;
+		const tenantId = (runMetadataRaw as any)?.tenantId ?? 'default';
+		let livingPrd = (runMetadataRaw as any)?.livingPrdState as LivingPRDType;
+
+		// Persist LivingPRD helper
+		const persistLivingPRD = async (state: LivingPRDType) => {
+		  state.updatedAt = new Date().toISOString();
+		  state.version += 1;
+		  await this.env.DB.prepare('UPDATE planning_runs SET living_prd_state = ?, updated_at = ? WHERE id = ?')
+		    .bind(JSON.stringify(state), Math.floor(Date.now() / 1000), runId)
+		    .run();
+		  return state;
+		};
 
 		// Emit run_started webhook (must be in step)
 		await step.do('emit-run-started-webhook', async () => {
@@ -186,10 +239,15 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 
       // Capture orchestration data (per-model outputs + wild ideas) for DB persistence
       if (result.orchestration) {
-        orchestrationDataByPhase.set(phaseName, result.orchestration);
+        orchestrationDataByPhase.set('phase-0-intake', result.orchestration);
       }
 
-      priorOutputs[phaseName] = result.output;
+      priorOutputs['phase-0-intake'] = result.output;
+      
+      // Update Living PRD State
+      livingPrd.status = "researching";
+      livingPrd.coreContext.identifiedProblems = (result.output as any).problemStatements || [];
+      await persistLivingPRD(livingPrd);
 
 			// Save intake to database
 			const artifactId = crypto.randomUUID();
@@ -219,6 +277,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 			// Populate Section A documentation
 			await populateDocumentation({
 				db: this.env.DB,
+				tenantId,
 				projectId: runId,
 				phase: 'phase-0-intake',
 				phaseOutput: result.output
@@ -274,6 +333,22 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 			}
 
 			priorOutputs[phaseName] = validatedOutput;
+			
+			// Reflect state into LivingPRD
+			if (phaseName === 'market-research') livingPrd.research.market = validatedOutput as any;
+			if (phaseName === 'opportunity') livingPrd.research.opportunity = validatedOutput as any;
+			if (phaseName === 'customer-intel') livingPrd.research.customer = validatedOutput as any;
+			if (phaseName === 'competitive-intel') livingPrd.research.competitive = validatedOutput as any;
+			if (phaseName === 'business-model') livingPrd.research.businessModel = validatedOutput as any;
+			if (phaseName === 'revenue-expansion') livingPrd.research.revenueExpansion = validatedOutput as any;
+			if (phaseName === 'kill-test') {
+			  livingPrd.validation.killTestOutput = validatedOutput as any;
+			  livingPrd.validation.verdict = (validatedOutput as any).verdict || "PENDING";
+			}
+			if (phaseName === 'tech-arch') {
+			   livingPrd.requirements.architectureNotes = JSON.stringify(validatedOutput);
+			}
+			await persistLivingPRD(livingPrd);
 
 			if (
 				phaseName === 'kill-test' &&
@@ -281,7 +356,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 				typeof validatedOutput === 'object' &&
 				'verdict' in validatedOutput
 			) {
-				_killVerdict = String((validatedOutput as { verdict: string }).verdict);
+				killVerdict = String((validatedOutput as { verdict: string }).verdict);
 			}
 
 			if (
@@ -298,6 +373,8 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 				const chosen = opp.refinedOpportunities?.[idx];
 				if (chosen?.idea) {
 					refinedIdea = chosen.idea;
+					livingPrd.coreContext.refinedIdea = refinedIdea;
+					await persistLivingPRD(livingPrd);
 					// Persist refined_idea to database
 					await this.env.DB.prepare(
 						'UPDATE planning_runs SET refined_idea = ?, updated_at = ? WHERE id = ?'
@@ -339,6 +416,9 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 				};
 
 				if (output?.verdict === 'KILL') {
+				  livingPrd.status = "killed";
+				  livingPrd.validation.verdict = "KILL";
+				  await persistLivingPRD(livingPrd);
 					await step.do('save-kill', async () => {
 						await this.env.DB.prepare(
 							'UPDATE planning_runs SET status = ?, kill_verdict = ?, current_phase = ?, updated_at = ? WHERE id = ?'
@@ -396,6 +476,17 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 				if (output?.verdict === 'PIVOT' && pivotCount < 3) {
 					pivotCount++;
 
+					// Update Living PRD History
+					livingPrd.pivotHistory.push({
+					  timestamp: new Date().toISOString(),
+					  reason: output?.parkedForFuture?.reason || "Pivot triggered by Kill Agent",
+					  previousVerdict: "PIVOT",
+					  agentsRerun: ["opportunity", "customer-intel", "market-research", "competitive-intel", "kill-test"]
+					});
+					livingPrd.status = "researching";
+					livingPrd.validation.verdict = "PENDING";
+					await persistLivingPRD(livingPrd);
+
 					// Persist pivot count to database for workflow resumption
 					await step.do(`persist-pivot-${pivotCount}`, async () => {
 						await this.env.DB.prepare(
@@ -420,6 +511,14 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 						return { emitted: true };
 					});
 
+					// Reset state
+					livingPrd.research.opportunity = undefined;
+					livingPrd.research.customer = undefined;
+					livingPrd.research.market = undefined;
+					livingPrd.research.competitive = undefined;
+					livingPrd.validation.killTestOutput = undefined;
+					await persistLivingPRD(livingPrd);
+					
 					priorOutputs.opportunity = undefined;
 					priorOutputs['customer-intel'] = undefined;
 					priorOutputs['market-research'] = undefined;
@@ -431,6 +530,11 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 
 				// Handle PIVOT exhausted - when 3 pivots have been used and another PIVOT is requested
 				if (output?.verdict === 'PIVOT' && pivotCount >= 3) {
+				  
+					livingPrd.status = "parked";
+					livingPrd.validation.verdict = "PIVOT";
+					await persistLivingPRD(livingPrd);
+					
 					await step.do('save-pivot-exhausted', async () => {
 						await this.env.DB.prepare(
 							'UPDATE planning_runs SET status = ?, kill_verdict = ?, current_phase = ?, updated_at = ? WHERE id = ?'
@@ -488,6 +592,10 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 				}
 
 				// Kill-test phase complete with GO verdict - save artifact and continue
+				livingPrd.status = "planning";
+				livingPrd.validation.verdict = "GO";
+				await persistLivingPRD(livingPrd);
+				
 				await step.do('save-kill-test-artifact', async () => {
 					const artifactId = crypto.randomUUID();
 					const contentStr = JSON.stringify(output);
@@ -569,6 +677,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 				await step.do(`populate-docs-${phase}-${pivotCount + 1}`, async () => {
 					return await populateDocumentation({
 						db: this.env.DB,
+						tenantId,
 						projectId: runId,
 						phase,
 						phaseOutput: output
@@ -762,6 +871,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 			await step.do(`populate-docs-${phase}`, async () => {
 				return await populateDocumentation({
 					db: this.env.DB,
+					tenantId,
 					projectId: runId,
 					phase,
 					phaseOutput
@@ -772,7 +882,7 @@ export class PlanningWorkflow extends WorkflowEntrypoint<Env, PlanningParams> {
 		// ── Generate Overview Documentation ────────────────────────────────────────
 		// After all planning phases complete, generate the Overview section
 		await step.do('generate-overview-section', async () => {
-			return await generateOverviewSection(this.env.DB, runId);
+			return await generateOverviewSection(this.env.DB, tenantId, runId);
 		});
 		// ── End Overview Generation ────────────────────────────────────────────────
 

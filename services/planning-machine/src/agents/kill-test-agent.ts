@@ -105,11 +105,15 @@ Produce valid JSON matching the schema. verdict must be one of: GO, PIVOT, KILL.
     const idea = input.refinedIdea ?? input.idea;
     const searchQueries = this.getSearchQueries(idea);
 
-    const searchResults: Array<{ query: string; results: Awaited<ReturnType<typeof webSearch>> }> = [];
-    for (const q of searchQueries) {
+    const searchPromises = searchQueries.map(async (q) => {
       const results = await webSearch(q, this.env, { maxResults: 5, deduplicate: true });
-      searchResults.push({ query: q, results });
-    }
+      return { query: q, results };
+    });
+
+    const searchResultsSettled = await Promise.allSettled(searchPromises);
+    const searchResults = searchResultsSettled
+      .filter((result): result is PromiseFulfilledResult<{ query: string; results: Awaited<ReturnType<typeof webSearch>> }> => result.status === 'fulfilled')
+      .map(result => result.value);
 
     const context = [
       this.buildContextPrompt(ctx),
@@ -170,13 +174,16 @@ Produce valid JSON matching the schema. verdict must be one of: GO, PIVOT, KILL.
     ];
 
     try {
-      const response = await runModel(this.env.AI, "generator", messages, {
-        temperature: 0.3,
-        maxTokens: this.config.maxTokens ?? 2048,
-      });
-
-      const parsed = extractJSON(response);
-      const output = KillTestOutputSchema.parse(parsed);
+      const output = await this.runWithRetries(
+        messages,
+        KillTestOutputSchema,
+        async (msgs) => {
+          return await runModel(this.env.AI, "generator", msgs, {
+            temperature: 0.3,
+            maxTokens: this.config.maxTokens ?? 2048,
+          });
+        }
+      );
 
       return { success: true, output };
     } catch (e) {

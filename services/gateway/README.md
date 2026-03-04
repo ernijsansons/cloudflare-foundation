@@ -59,6 +59,13 @@ Request
 - `GET /api/health` - API health check
 - `POST /api/public/signup` - User signup (Turnstile protected)
 - `POST /api/public/contact` - Contact form (Turnstile protected)
+- `GET /api/public/projects/:projectId/docs` - Read-only project documentation (no auth required)
+- `GET /api/public/planning/runs` - List planning runs (no auth required)
+- `GET /api/public/planning/runs/:id` - Get planning run detail (no auth required)
+- `GET /api/public/projects` - List projects (no auth required)
+- `GET /api/public/projects/:id` - Get project detail (no auth required)
+- `GET /api/public/factory/templates` - List Cloudflare templates (no auth required)
+- `GET /api/public/factory/capabilities` - List CF capabilities (no auth required)
 
 ### Authenticated Routes
 - `GET /api/webhooks` - List webhook destinations
@@ -165,7 +172,9 @@ app.get("/api/my-resource", async (c) => {
 
 ## Security Notes
 
-- All `/api/*` routes require authentication
+- All `/api/*` routes require authentication **except** `/api/public/*` which are read-only
+- Public read endpoints (`/api/public/*`) allow unauthenticated access for read-only data (project docs, planning runs, templates)
+- Protected write endpoints remain at `/api/projects/*` (requires authentication)
 - Turnstile protects public form submissions
 - Context tokens are signed JWTs for service-to-service auth
 - Audit chain provides tamper-evident logging

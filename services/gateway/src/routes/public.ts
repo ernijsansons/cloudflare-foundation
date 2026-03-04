@@ -781,4 +781,107 @@ app.get("/factory/build-specs/:runId", async (c) => {
   return proxied;
 });
 
+// ============================================================================
+// PUBLIC PROJECT DOCUMENTATION ENDPOINTS (Read-only, no auth required)
+// ============================================================================
+
+interface ProjectDocumentationRow {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  section_id: string;
+  subsection_key: string | null;
+  content: string;
+  status: string;
+  populated_by: string;
+  last_updated: number;
+  created_at: number;
+}
+
+interface ProjectDocumentationMetadataRow {
+  tenant_id: string;
+  project_id: string;
+  completeness_percentage: number;
+  total_sections: number;
+  populated_sections: number;
+  required_unknowns_resolved: number;
+  status: string;
+  last_updated: number;
+}
+
+type SectionId = 'overview' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M';
+
+/**
+ * GET /projects/:projectId/docs - Public read-only project documentation
+ * Returns documentation sections for display in the UI without requiring authentication.
+ */
+app.get("/projects/:projectId/docs", async (c) => {
+  try {
+    const projectId = c.req.param("projectId");
+    const tenantId = c.req.query("tenant_id") || "default";
+
+    // Fetch all documentation rows for this project
+    const docsResult = await c.env.DB.prepare(
+      `SELECT * FROM project_documentation WHERE tenant_id = ? AND project_id = ? ORDER BY section_id, subsection_key`
+    ).bind(tenantId, projectId).all<ProjectDocumentationRow>();
+
+    if (!docsResult.results) {
+      return c.json({ error: "Failed to fetch documentation" }, 500);
+    }
+
+    // If no docs found, return 404
+    if (docsResult.results.length === 0) {
+      return c.json({ error: "Documentation not found for this project" }, 404);
+    }
+
+    // Fetch metadata
+    const metadataResult = await c.env.DB.prepare(
+      `SELECT * FROM project_documentation_metadata WHERE tenant_id = ? AND project_id = ?`
+    ).bind(tenantId, projectId).first<ProjectDocumentationMetadataRow>();
+
+    // Group documentation by section
+    const sections: Record<string, unknown> = {};
+
+    for (const row of docsResult.results) {
+      try {
+        const content = JSON.parse(row.content);
+        const sectionId = row.section_id as SectionId;
+
+        if (!sections[sectionId]) {
+          sections[sectionId] = {};
+        }
+
+        if (row.subsection_key) {
+          (sections[sectionId] as Record<string, unknown>)[row.subsection_key] = content;
+        } else {
+          sections[sectionId] = content;
+        }
+      } catch (e) {
+        console.error(`Failed to parse content for section ${row.section_id}:`, e);
+      }
+    }
+
+    const response = {
+      project_id: projectId,
+      sections,
+      metadata: metadataResult
+        ? {
+            completeness: metadataResult.completeness_percentage,
+            last_updated: metadataResult.last_updated,
+            status: metadataResult.status,
+          }
+        : {
+            completeness: 0,
+            last_updated: Math.floor(Date.now() / 1000),
+            status: "incomplete",
+          },
+    };
+
+    return c.json(response);
+  } catch (e) {
+    console.error("Get public project docs error:", e);
+    return c.json({ error: "Internal error" }, 500);
+  }
+});
+
 export default app;

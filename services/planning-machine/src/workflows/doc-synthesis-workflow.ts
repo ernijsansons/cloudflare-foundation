@@ -26,6 +26,7 @@ import type { Env } from "../types";
 export interface DocSynthesisParams {
 	projectId: string;
 	projectName: string;
+	tenantId?: string;
 }
 
 export interface DocSynthesisResult {
@@ -43,9 +44,21 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
 	async run(event: WorkflowEvent<DocSynthesisParams>, step: WorkflowStep) {
 		const { projectId, projectName } = event.payload;
 
+		// Load tenantId from params or fetch from run record
+		const tenantId = await step.do("load-tenant-id", async () => {
+			if (event.payload.tenantId) {
+				return event.payload.tenantId;
+			}
+			// Fetch from planning_runs if not provided
+			const row = await this.env.DB.prepare('SELECT tenant_id FROM planning_runs WHERE id = ?')
+				.bind(projectId)
+				.first();
+			return ((row as Record<string, unknown>)?.tenant_id as string) ?? 'default';
+		});
+
 		// Step 1: Validate documentation completeness
 		const validation = await step.do("validate-completeness", async () => {
-			return await validateDocumentationCompleteness(this.env.DB, projectId);
+			return await validateDocumentationCompleteness(this.env.DB, tenantId, projectId);
 		});
 
 		// Step 2: Fetch all documentation sections
@@ -53,10 +66,10 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
 			const docsResult = await this.env.DB.prepare(
 				`SELECT section_id, subsection_key, content, status, populated_by
          FROM project_documentation
-         WHERE project_id = ?
+         WHERE tenant_id = ? AND project_id = ?
          ORDER BY section_id, subsection_key`
 			)
-				.bind(projectId)
+				.bind(tenantId, projectId)
 				.all();
 
 			const sections: Record<string, unknown> = {};
@@ -192,7 +205,7 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
 
 		// Step 5: Generate/update Overview section
 		await step.do("generate-overview", async () => {
-			const result = await generateOverviewSection(this.env.DB, projectId);
+			const result = await generateOverviewSection(this.env.DB, tenantId, projectId);
 			if (!result.success) {
 				throw new Error(result.error ?? "Failed to generate overview section");
 			}
@@ -208,8 +221,8 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
 				agenticReadiness.blockers.length === 0 && validation.complete ? "complete" : "incomplete";
 
 			await this.env.DB.prepare(
-				`INSERT INTO project_documentation_metadata (project_id, completeness_percentage, total_sections, populated_sections, required_unknowns_resolved, status, last_updated)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+				`INSERT INTO project_documentation_metadata (tenant_id, project_id, completeness_percentage, total_sections, populated_sections, required_unknowns_resolved, status, last_updated)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(project_id)
          DO UPDATE SET
            completeness_percentage = ?,
@@ -219,6 +232,7 @@ export class DocSynthesisWorkflow extends WorkflowEntrypoint<Env, DocSynthesisPa
            last_updated = ?`
 			)
 				.bind(
+					tenantId,
 					projectId,
 					completenessPercentage,
 					13,

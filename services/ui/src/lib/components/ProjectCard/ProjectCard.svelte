@@ -23,6 +23,7 @@
 	export let documentation: Partial<ProjectDocumentation> | null = null;
 	export let loading = false;
 	export let onClose: (() => void) | undefined = undefined;
+	export let documentationError: { status: number; message: string } | null = null;
 
 	let activeSection: string = 'overview';
 
@@ -140,7 +141,7 @@
 					<LoadingSkeleton type="table" rows={5} />
 				</div>
 			{:else if activeSection === 'overview'}
-				<OverviewTab overview={documentation?.overview} />
+				<OverviewTab overview={documentation?.overview} error={documentationError} />
 			{:else if activeSection === 'A'}
 				<SectionA data={documentation?.A} />
 			{:else if activeSection === 'B'}

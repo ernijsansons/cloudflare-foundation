@@ -2,10 +2,35 @@
 	import type { OverviewSection } from '$lib/shared';
 
 	export let overview: OverviewSection | undefined;
+	export let error: { status: number; message: string } | null = null;
 </script>
 
 <div class="overview-tab">
-	{#if !overview}
+	{#if error}
+		<div class="empty-state error-state">
+			{#if error.status === 401}
+				<div class="empty-icon">🔒</div>
+				<h3>Authentication Required</h3>
+				<p>{error.message}</p>
+			{:else if error.status === 404}
+				<div class="empty-icon">📭</div>
+				<h3>Documentation Not Found</h3>
+				<p>{error.message}</p>
+			{:else if error.status === 204}
+				<div class="empty-icon">📋</div>
+				<h3>No Content Yet</h3>
+				<p>{error.message}</p>
+			{:else if error.status === 0}
+				<div class="empty-icon">🌐</div>
+				<h3>Network Error</h3>
+				<p>{error.message}</p>
+			{:else}
+				<div class="empty-icon">⚠️</div>
+				<h3>Error Loading Documentation</h3>
+				<p>{error.message}</p>
+			{/if}
+		</div>
+	{:else if !overview}
 		<div class="empty-state">
 			<div class="empty-icon">📊</div>
 			<h3>No Overview Available</h3>
@@ -147,6 +172,14 @@
 		margin: 0 0 0.5rem 0;
 		font-size: 1.5rem;
 		color: #111827;
+	}
+
+	.error-state h3 {
+		color: #dc2626;
+	}
+
+	.error-state p {
+		color: #6b7280;
 	}
 
 	.overview-section {

@@ -593,6 +593,7 @@ function mapValidationToSectionM(output: PhaseOutput, phase: PlanningWorkflowPha
  */
 export async function batchUpdateSections(
   db: D1Database,
+  tenantId: string,
   projectId: string,
   updates: SectionUpdate[]
 ): Promise<{ success: boolean; error?: string }> {
@@ -604,13 +605,14 @@ export async function batchUpdateSections(
 
       return db
         .prepare(
-          `INSERT INTO project_documentation (id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO project_documentation (id, tenant_id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(project_id, section_id, subsection_key)
            DO UPDATE SET content = ?, populated_by = ?, last_updated = ?`
         )
         .bind(
           id,
+          tenantId,
           projectId,
           update.sectionId,
           update.subsectionKey ?? null,
@@ -626,7 +628,7 @@ export async function batchUpdateSections(
     });
 
     await db.batch(statements);
-    await updateDocumentationMetadata(db, projectId);
+    await updateDocumentationMetadata(db, tenantId, projectId);
     return { success: true };
   } catch (error) {
     console.error("Failed to batch update sections:", error);
@@ -637,14 +639,14 @@ export async function batchUpdateSections(
   }
 }
 
-async function updateDocumentationMetadata(db: D1Database, projectId: string): Promise<void> {
+async function updateDocumentationMetadata(db: D1Database, tenantId: string, projectId: string): Promise<void> {
   const countResult = await db
     .prepare(
       `SELECT COUNT(DISTINCT section_id) as populated_sections
        FROM project_documentation
-       WHERE project_id = ? AND section_id != 'overview'`
+       WHERE tenant_id = ? AND project_id = ? AND section_id != 'overview'`
     )
-    .bind(projectId)
+    .bind(tenantId, projectId)
     .first<{ populated_sections: number }>();
 
   const populatedSections = countResult?.populated_sections ?? 0;
@@ -654,9 +656,9 @@ async function updateDocumentationMetadata(db: D1Database, projectId: string): P
   const unknownsResult = await db
     .prepare(
       `SELECT content FROM project_documentation
-       WHERE project_id = ? AND section_id = 'A' AND subsection_key = 'A1_unknowns'`
+       WHERE tenant_id = ? AND project_id = ? AND section_id = 'A' AND subsection_key = 'A1_unknowns'`
     )
-    .bind(projectId)
+    .bind(tenantId, projectId)
     .first<{ content: string }>();
 
   let unknownsResolved = 0;
@@ -676,12 +678,13 @@ async function updateDocumentationMetadata(db: D1Database, projectId: string): P
 
   await db
     .prepare(
-      `INSERT INTO project_documentation_metadata (project_id, completeness_percentage, total_sections, populated_sections, required_unknowns_resolved, status, last_updated)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO project_documentation_metadata (tenant_id, project_id, completeness_percentage, total_sections, populated_sections, required_unknowns_resolved, status, last_updated)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(project_id)
        DO UPDATE SET completeness_percentage = ?, populated_sections = ?, required_unknowns_resolved = ?, status = ?, last_updated = ?`
     )
     .bind(
+      tenantId,
       projectId,
       completeness,
       totalSections,

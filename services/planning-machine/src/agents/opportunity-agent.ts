@@ -87,11 +87,15 @@ Output valid JSON matching the schema. Include agenticScore for each variant.`;
       `${idea} adjacent market opportunity`,
     ];
 
-    const searchResults: Array<{ query: string; results: Awaited<ReturnType<typeof webSearch>> }> = [];
-    for (const q of searchQueries) {
+    const searchPromises = searchQueries.map(async (q) => {
       const results = await webSearch(q, this.env);
-      searchResults.push({ query: q, results });
-    }
+      return { query: q, results };
+    });
+
+    const searchResultsSettled = await Promise.allSettled(searchPromises);
+    const searchResults = searchResultsSettled
+      .filter((result): result is PromiseFulfilledResult<{ query: string; results: Awaited<ReturnType<typeof webSearch>> }> => result.status === 'fulfilled')
+      .map(result => result.value);
 
     const context = [
       `Idea: ${idea}`,
@@ -172,13 +176,16 @@ Output valid JSON matching the schema. Include agenticScore for each variant.`;
     ];
 
     try {
-      const response = await runModel(this.env.AI, "generator", messages, {
-        temperature: 0.5,
-        maxTokens: 2048,
-      });
-
-      const parsed = extractJSON(response);
-      const output = OpportunityOutputSchema.parse(parsed);
+      const output = await this.runWithRetries(
+        messages,
+        OpportunityOutputSchema,
+        async (msgs) => {
+          return await runModel(this.env.AI, "generator", msgs, {
+            temperature: 0.5,
+            maxTokens: 2048,
+          });
+        }
+      );
 
       return { success: true, output };
     } catch (e) {

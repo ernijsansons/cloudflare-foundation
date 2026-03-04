@@ -13,4 +13,5 @@ export interface Env {
   ORCHESTRATION_ENABLED?: string; // "true" | "false" (wrangler vars are always strings)
   // Inter-service auth (gateway context token validation)
   CONTEXT_SIGNING_KEY?: string;
+  AGENTS_SERVICE_URL?: string;
 }

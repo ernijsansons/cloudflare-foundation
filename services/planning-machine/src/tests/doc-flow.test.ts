@@ -101,6 +101,7 @@ import type { Env } from "../types";
 // Mock D1 Database for testing
 let mockDB: D1Database;
 let testProjectId: string;
+let testTenantId: string;
 let mockEnv: Env;
 
 function createMockDB(): D1Database {
@@ -147,6 +148,7 @@ function createMockDB(): D1Database {
 
 beforeAll(async () => {
 	testProjectId = crypto.randomUUID();
+	testTenantId = 'test-tenant';
 	mockDB = createMockDB();
 
 	// Create mock environment
@@ -351,7 +353,7 @@ describe("Phase-to-Section Mapping", () => {
 describe("Documentation Completeness Validation", () => {
 	test("should identify missing sections", async () => {
 		// Mock scenario: Only Section A is populated
-		const validation = await validateDocumentationCompleteness(mockDB, testProjectId);
+		const validation = await validateDocumentationCompleteness(mockDB, testTenantId, testProjectId);
 
 		expect(validation).toBeDefined();
 		expect(validation.missingSections).toBeDefined();
@@ -359,7 +361,7 @@ describe("Documentation Completeness Validation", () => {
 	});
 
 	test("should track unresolved unknowns", async () => {
-		const validation = await validateDocumentationCompleteness(mockDB, testProjectId);
+		const validation = await validateDocumentationCompleteness(mockDB, testTenantId, testProjectId);
 
 		expect(validation.unresolvedUnknowns).toBeDefined();
 		expect(Array.isArray(validation.unresolvedUnknowns)).toBe(true);
@@ -368,7 +370,7 @@ describe("Documentation Completeness Validation", () => {
 	test("should mark complete when all sections populated and unknowns resolved", async () => {
 		// This would require populating all sections in the test DB
 		// For now, we validate the structure
-		const validation = await validateDocumentationCompleteness(mockDB, testProjectId);
+		const validation = await validateDocumentationCompleteness(mockDB, testTenantId, testProjectId);
 
 		expect(validation.complete).toBeDefined();
 		expect(typeof validation.complete).toBe("boolean");

@@ -5,8 +5,13 @@ import { TenantAgent } from "./agents/tenant-agent";
 import { SessionAgent } from "./agents/session-agent";
 import { TenantRateLimiter } from "./agents/rate-limit-do";
 import { FoundationMcpServer } from "./mcp/server";
+import { SupportAgent } from "./agents/support-agent";
 
-export { ChatAgent, TaskAgent, TenantAgent, SessionAgent, TenantRateLimiter, FoundationMcpServer };
+export { ChatAgent, TaskAgent, TenantAgent, SessionAgent, TenantRateLimiter, FoundationMcpServer, SupportAgent };
+
+export class RunController {
+  async fetch() { return new Response("Deprecated", { status: 410 }); }
+}
 
 export interface Env {
   CHAT_AGENT: DurableObjectNamespace;
@@ -15,6 +20,7 @@ export interface Env {
   SESSION_AGENT: DurableObjectNamespace;
   RATE_LIMITER: DurableObjectNamespace;
   MCP_SERVER: DurableObjectNamespace;
+  SUPPORT_AGENT: DurableObjectNamespace;
   DB: D1Database;
   AI: Ai;
   FILES?: R2Bucket;

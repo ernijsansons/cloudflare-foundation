@@ -136,6 +136,20 @@ export default {
 			return promoteParkedIdea(parkedIdeaId, env);
 		}
 
+    // Proxy support emails to the agents service
+    if (url.pathname.startsWith('/api/support/submit')) {
+       // Ideally we'd have a binding to AGENTS.
+       // Since the AGENTS service runs on its own URL in production, we'll proxy it.
+       // For local dev, we might need a different base URL
+       const AGENTS_URL = env.AGENTS_SERVICE_URL || "http://localhost:8788";
+       const targetUrl = new URL(AGENTS_URL + "/submit");
+       return fetch(targetUrl.toString(), {
+          method: request.method,
+          headers: request.headers,
+          body: request.body
+       });
+    }
+
 		for (const { path, handler } of AGENT_ROUTES) {
 			if (url.pathname === path && request.method === 'POST') {
 				return handler(request, env);

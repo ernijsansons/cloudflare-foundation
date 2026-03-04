@@ -7,6 +7,8 @@ import type { PlanningWorkflowPhaseName } from "@foundation/shared";
 
 import { getFoundationContext } from "../lib/foundation-context";
 import type { ReasoningState } from "../lib/reasoning-engine";
+import { ZodSchema } from "zod";
+import { extractJSON } from "../lib/json-extractor";
 import type { Env } from "../types";
 import type { OrchestrationResult, OrchestratorConfig } from "../lib/orchestrator";
 import { orchestrateModels } from "../lib/orchestrator";
@@ -144,5 +146,44 @@ export abstract class BaseAgent<TInput = unknown, TOutput = unknown> {
       );
     }
     return parts.filter(Boolean).join("\n");
+  }
+
+  /**
+   * Helper method to execute the LLM call with built-in self-correction loops.
+   * Extracts JSON from the response and parses it using the provided Zod schema.
+   * If parsing fails, it appends the exact error to the messages and retries
+   * up to maxSelfIterations times.
+   */
+  protected async runWithRetries<T>(
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+    parseSchema: { parse: (data: unknown) => T },
+    runLlm: (msgs: typeof messages) => Promise<string>
+  ): Promise<T> {
+    const maxRetries = this.config.maxSelfIterations ?? 3;
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const responseText = await runLlm(messages);
+        
+        // Add the assistant's response to the message history for context on failure
+        messages.push({ role: "assistant", content: responseText });
+        
+        const extracted = extractJSON(responseText);
+        return parseSchema.parse(extracted);
+      } catch (err) {
+        lastError = err as Error;
+        console.warn(`[Agent ${this.config.phase}] Attempt ${attempt} failed JSON extraction/validation. Error: ${lastError.message}`);
+        
+        if (attempt < maxRetries) {
+          messages.push({
+            role: "user",
+            content: `Your previous response failed JSON schema validation with this error:\n${lastError.message}\n\nPlease correct your JSON and try again. Ensure ALL expected keys are present and types match exactly.`
+          });
+        }
+      }
+    }
+
+    throw new Error(`Failed to generate valid output after ${maxRetries} attempts. Last error: ${lastError?.message}`);
   }
 }

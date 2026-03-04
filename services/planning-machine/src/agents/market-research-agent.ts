@@ -90,11 +90,16 @@ Produce valid JSON matching the schema.`;
     const idea = input.refinedIdea ?? input.idea;
     const searchQueries = this.getSearchQueries(idea);
 
-    const searchResults: Array<{ query: string; results: Awaited<ReturnType<typeof webSearch>> }> = [];
-    for (const q of searchQueries) {
+    // Parallelize search queries using Promise.allSettled to eliminate 10-20s of sequential latency
+    const searchPromises = searchQueries.map(async (q) => {
       const results = await webSearch(q, this.env, { maxResults: 6, deduplicate: true });
-      searchResults.push({ query: q, results });
-    }
+      return { query: q, results };
+    });
+
+    const searchResultsSettled = await Promise.allSettled(searchPromises);
+    const searchResults = searchResultsSettled
+      .filter((result): result is PromiseFulfilledResult<{ query: string; results: Awaited<ReturnType<typeof webSearch>> }> => result.status === 'fulfilled')
+      .map(result => result.value);
 
     const context = [
       this.buildContextPrompt(ctx),
@@ -122,13 +127,16 @@ Produce valid JSON matching the schema.`;
     ];
 
     try {
-      const response = await runModel(this.env.AI, "generator", messages, {
-        temperature: 0.5,
-        maxTokens: this.config.maxTokens ?? 4096,
-      });
-
-      const parsed = extractJSON(response);
-      const output = MarketResearchOutputSchema.parse(parsed);
+      const output = await this.runWithRetries(
+        messages,
+        MarketResearchOutputSchema,
+        async (msgs) => {
+          return await runModel(this.env.AI, "generator", msgs, {
+            temperature: 0.5,
+            maxTokens: this.config.maxTokens ?? 4096,
+          });
+        }
+      );
 
       return {
         success: true,

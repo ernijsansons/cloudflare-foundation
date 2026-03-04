@@ -9,6 +9,7 @@ import { mapPhaseToSections, batchUpdateSections } from "./phase-to-section-mapp
 
 interface PopulateDocumentationParams {
   db: D1Database;
+  tenantId: string;
   projectId: string;
   phase: string;
   phaseOutput: unknown;
@@ -27,7 +28,7 @@ interface PopulateDocumentationResult {
  * It maps the phase output to documentation sections and updates the database.
  */
 export async function populateDocumentation(params: PopulateDocumentationParams): Promise<PopulateDocumentationResult> {
-  const { db, projectId, phase, phaseOutput } = params;
+  const { db, tenantId, projectId, phase, phaseOutput } = params;
 
   try {
     console.log(`Populating documentation for project ${projectId}, phase ${phase}`);
@@ -50,7 +51,7 @@ export async function populateDocumentation(params: PopulateDocumentationParams)
     console.log(`Generated ${sectionUpdates.length} section updates for phase ${phase}`);
 
     // Batch update sections in database
-    const result = await batchUpdateSections(db, projectId, sectionUpdates);
+    const result = await batchUpdateSections(db, tenantId, projectId, sectionUpdates);
 
     if (!result.success) {
       return {
@@ -80,16 +81,16 @@ export async function populateDocumentation(params: PopulateDocumentationParams)
  * This should be called after Phase 15 (Synthesis) completes.
  * It aggregates all sections and generates the auto-summary Overview.
  */
-export async function generateOverviewSection(db: D1Database, projectId: string): Promise<PopulateDocumentationResult> {
+export async function generateOverviewSection(db: D1Database, tenantId: string, projectId: string): Promise<PopulateDocumentationResult> {
   try {
-    console.log(`Generating overview section for project ${projectId}`);
+    console.log(`Generating overview section for project ${projectId}, tenant ${tenantId}`);
 
-    // Fetch all documentation sections
+    // Fetch all documentation sections for this tenant and project
     const docsResult = await db
       .prepare(
-        `SELECT * FROM project_documentation WHERE project_id = ? ORDER BY section_id, subsection_key`
+        `SELECT * FROM project_documentation WHERE tenant_id = ? AND project_id = ? ORDER BY section_id, subsection_key`
       )
-      .bind(projectId)
+      .bind(tenantId, projectId)
       .all();
 
     if (!docsResult.results) {
@@ -158,13 +159,14 @@ export async function generateOverviewSection(db: D1Database, projectId: string)
 
     await db
       .prepare(
-        `INSERT INTO project_documentation (id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO project_documentation (id, tenant_id, project_id, section_id, subsection_key, content, status, populated_by, last_updated, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(project_id, section_id, subsection_key)
          DO UPDATE SET content = ?, last_updated = ?`
       )
       .bind(
         id,
+        tenantId,
         projectId,
         "overview",
         null,
@@ -207,13 +209,14 @@ function calculateCompleteness(sections: Record<string, unknown>): number {
  */
 export async function validateDocumentationCompleteness(
   db: D1Database,
+  tenantId: string,
   projectId: string
 ): Promise<{ complete: boolean; missingSections: string[]; unresolvedUnknowns: string[] }> {
   try {
     // Fetch metadata
     const metadataResult = await db
-      .prepare(`SELECT * FROM project_documentation_metadata WHERE project_id = ?`)
-      .bind(projectId)
+      .prepare(`SELECT * FROM project_documentation_metadata WHERE tenant_id = ? AND project_id = ?`)
+      .bind(tenantId, projectId)
       .first<{
         completeness_percentage: number;
         required_unknowns_resolved: number;
@@ -231,9 +234,9 @@ export async function validateDocumentationCompleteness(
     // Check which sections are missing
     const docsResult = await db
       .prepare(
-        `SELECT DISTINCT section_id FROM project_documentation WHERE project_id = ? AND section_id != 'overview'`
+        `SELECT DISTINCT section_id FROM project_documentation WHERE tenant_id = ? AND project_id = ? AND section_id != 'overview'`
       )
-      .bind(projectId)
+      .bind(tenantId, projectId)
       .all<{ section_id: string }>();
 
     const populatedSections = new Set((docsResult.results ?? []).map((r) => r.section_id));
@@ -243,9 +246,9 @@ export async function validateDocumentationCompleteness(
     // Check unknowns
     const unknownsResult = await db
       .prepare(
-        `SELECT content FROM project_documentation WHERE project_id = ? AND section_id = 'A' AND subsection_key = 'A1_unknowns'`
+        `SELECT content FROM project_documentation WHERE tenant_id = ? AND project_id = ? AND section_id = 'A' AND subsection_key = 'A1_unknowns'`
       )
-      .bind(projectId)
+      .bind(tenantId, projectId)
       .first<{ content: string }>();
 
     const unresolvedUnknowns: string[] = [];
