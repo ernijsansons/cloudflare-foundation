@@ -100,6 +100,8 @@ SKIP_PATTERNS = [
     r"secret-scanner\.py$",  # Don't scan ourselves
     r"\.example$",
     r"\.template$",
+    r"wrangler\.jsonc$",  # Contains account IDs (public) not secrets
+    r"wrangler\.toml$",   # Same - account IDs are not secrets
 ]
 
 # Known safe patterns (false positives)
@@ -115,6 +117,13 @@ SAFE_PATTERNS = [
     r"process\.env\.",  # Environment variable references
     r"\$\{\{",  # GitHub Actions secrets
     r"secrets\.",  # Secret references
+    r"test-.*-token",  # Test fixture tokens (unit tests)
+    r"mock-.*-token",  # Mock tokens in tests
+    r"test-secret",    # Common test fixture value (without quotes for flexibility)
+    r"mock-secret",    # Mock secrets in tests
+    r"fake-secret",    # Fake secrets in tests
+    r"dummy-secret",   # Dummy secrets in tests
+    r"ATHENA_ADMIN_SECRET.*undefined",  # Unset secret checks in tests
 ]
 
 # ============================================================================

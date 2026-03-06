@@ -8,8 +8,14 @@
   "placement": { "mode": "smart" },
   "services": [
     { "binding": "AGENT_SERVICE", "service": "foundation-agents" },
-    { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine" }
+    { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine" },
+    { "binding": "NAOMI_SERVICE", "service": "naomi-oracle-cloudflare" },
+    { "binding": "ATHENA_SERVICE", "service": "athena-core" }
   ],
+  "vars": {
+    "AGENTS_NAOMI_ENABLED": "true",
+    "AGENTS_ATHENA_ENABLED": "false"
+  },
   "workflows": [
     { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows" },
     { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows" },
@@ -47,8 +53,30 @@
       "name": "foundation-gateway-staging",
       "services": [
         { "binding": "AGENT_SERVICE", "service": "foundation-agents-staging" },
-        { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine-staging" }
+        { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine-staging" },
+        { "binding": "NAOMI_SERVICE", "service": "naomi-oracle-cloudflare" },
+        { "binding": "ATHENA_SERVICE", "service": "athena-core" }
       ],
+      "vars": {
+        "AGENTS_NAOMI_ENABLED": "true",
+        "AGENTS_ATHENA_ENABLED": "true"
+      },
+      "workflows": [
+        { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding-staging", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows-staging" },
+        { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline-staging", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows-staging" },
+        { "binding": "REPORT_WORKFLOW", "name": "report-generation-staging", "class_name": "ReportGenerationWorkflow", "script_name": "foundation-workflows-staging" },
+        { "binding": "EMAIL_WORKFLOW", "name": "email-sequence-staging", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows-staging" }
+      ],
+      "queues": {
+        "producers": [
+          { "binding": "AUDIT_QUEUE", "queue": "foundation-audit-staging" },
+          { "binding": "NOTIFICATION_QUEUE", "queue": "foundation-notifications-staging" },
+          { "binding": "ANALYTICS_QUEUE", "queue": "foundation-analytics-staging" },
+          { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks-staging" }
+        ]
+      },
+      "ai": { "binding": "AI" },
+      "images": { "binding": "IMAGES" },
       "kv_namespaces": [
         { "binding": "RATE_LIMIT_KV", "id": "7fa65ae86f2f47ceb4b2239a07b31eb8" },
         { "binding": "SESSION_KV", "id": "ec3eaf67adec4b0db41b7d5daf5ad8f3" }
@@ -70,8 +98,30 @@
       "name": "foundation-gateway-production",
       "services": [
         { "binding": "AGENT_SERVICE", "service": "foundation-agents-production" },
-        { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine-production" }
+        { "binding": "PLANNING_SERVICE", "service": "foundation-planning-machine-production" },
+        { "binding": "NAOMI_SERVICE", "service": "naomi-oracle-cloudflare" },
+        { "binding": "ATHENA_SERVICE", "service": "athena-core" }
       ],
+      "vars": {
+        "AGENTS_NAOMI_ENABLED": "true",
+        "AGENTS_ATHENA_ENABLED": "true"
+      },
+      "workflows": [
+        { "binding": "ONBOARDING_WORKFLOW", "name": "tenant-onboarding", "class_name": "TenantOnboardingWorkflow", "script_name": "foundation-workflows-production" },
+        { "binding": "DATA_PIPELINE_WORKFLOW", "name": "data-pipeline", "class_name": "DataPipelineWorkflow", "script_name": "foundation-workflows-production" },
+        { "binding": "REPORT_WORKFLOW", "name": "report-generation", "class_name": "ReportGenerationWorkflow", "script_name": "foundation-workflows-production" },
+        { "binding": "EMAIL_WORKFLOW", "name": "email-sequence", "class_name": "EmailSequenceWorkflow", "script_name": "foundation-workflows-production" }
+      ],
+      "queues": {
+        "producers": [
+          { "binding": "AUDIT_QUEUE", "queue": "foundation-audit" },
+          { "binding": "NOTIFICATION_QUEUE", "queue": "foundation-notifications" },
+          { "binding": "ANALYTICS_QUEUE", "queue": "foundation-analytics" },
+          { "binding": "WEBHOOK_QUEUE", "queue": "foundation-webhooks" }
+        ]
+      },
+      "ai": { "binding": "AI" },
+      "images": { "binding": "IMAGES" },
       "kv_namespaces": [
         { "binding": "RATE_LIMIT_KV", "id": "1e179df285ba4817b905633ce55d6d98" },
         { "binding": "SESSION_KV", "id": "c53d7df2c22c43f590f960a913113737" }

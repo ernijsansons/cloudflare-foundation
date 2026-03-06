@@ -3,6 +3,9 @@ import type { Context } from "hono";
 import { turnstileMiddleware } from "../middleware/turnstile";
 import { appendAuditEvent } from "../lib/audit-chain";
 import type { Env, Variables } from "../types";
+import { fetchAllAgents, buildAgentListResponse, type AgentSourceFilter, type AgentTenantContext } from "../lib/agent-aggregator";
+import { fetchNaomiAgentById } from "../lib/naomi-client";
+import { fetchAthenaAgentById } from "../lib/athena-client";
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -118,46 +121,94 @@ app.post("/contact", turnstileMiddleware(), async (c) => {
 });
 
 // Public dashboard endpoints (no auth required)
+// Aggregates agents from Naomi and Athena via Service Bindings
 app.get("/dashboard/agents", async (c) => {
   try {
-    const tenantId = c.req.query("tenant_id") || "erlvinc";
-    const businessId = c.req.query("business_id") || "naomi";
+    const source = (c.req.query("source") || "all") as AgentSourceFilter;
 
-    return c.json({
-      agents: [
-        {
-          id: "chief_of_staff",
-          name: "Chief of Staff",
-          type: "orchestrator",
-          description: "Top-level AI agent coordinating all other agents",
-          children: [
-            {
-              id: "planning_agent",
-              name: "Planning Agent",
-              type: "planner",
-              description: "Creates execution plans and roadmaps",
-            },
-            {
-              id: "execution_agent",
-              name: "Execution Agent",
-              type: "executor",
-              description: "Executes tasks and generates code",
-            },
-            {
-              id: "qa_agent",
-              name: "QA Agent",
-              type: "validator",
-              description: "Validates and tests implementations",
-            },
-          ],
-        },
-      ],
-      tenant_id: tenantId,
-      business_id: businessId,
-    });
+    // Validate source filter
+    if (!["all", "naomi", "athena"].includes(source)) {
+      return c.json({ error: "Invalid source. Must be 'all', 'naomi', or 'athena'" }, 400);
+    }
+
+    // Extract tenant context from query params (for multi-tenant queries)
+    // Falls back to env vars, then defaults if not provided
+    const tenantContext: AgentTenantContext = {
+      tenant_id: c.req.query("tenant_id") || undefined,
+      business_id: c.req.query("business_id") || undefined,
+    };
+
+    const result = await fetchAllAgents(c.env, source, tenantContext);
+    const response = buildAgentListResponse(result);
+
+    // Log any errors for monitoring
+    if (result.errors.length > 0) {
+      console.warn("Agent fetch warnings:", result.errors);
+    }
+
+    return c.json(response);
   } catch (error) {
     console.error("Error fetching agents:", error);
-    return c.json({ error: "Internal error", agents: [] }, 500);
+    return c.json({
+      error: "Internal error",
+      agents: [],
+      sources: {
+        naomi: { enabled: false, healthy: false, count: 0 },
+        athena: { enabled: false, healthy: false, count: 0 },
+      },
+    }, 500);
+  }
+});
+
+// Get Naomi agent by ID
+app.get("/dashboard/agents/naomi/:id", async (c) => {
+  try {
+    const agentId = c.req.param("id");
+    // Extract tenant context from query params
+    const tenantContext = {
+      tenant_id: c.req.query("tenant_id") || undefined,
+      business_id: c.req.query("business_id") || undefined,
+    };
+    const result = await fetchNaomiAgentById(c.env, agentId, tenantContext);
+
+    if (!result.success) {
+      // Use structured errorCode for HTTP status mapping
+      const status = result.errorCode === 'NOT_FOUND' ? 404 :
+                     result.errorCode === 'DISABLED' ? 503 : 500;
+      return c.json({ error: result.error, code: result.errorCode }, status);
+    }
+
+    return c.json({
+      agent: result.agent,
+      raw: result.raw,
+    });
+  } catch (error) {
+    console.error("Error fetching Naomi agent:", error);
+    return c.json({ error: "Internal error", code: 'INTERNAL_ERROR' }, 500);
+  }
+});
+
+// Get Athena agent by ID
+app.get("/dashboard/agents/athena/:id", async (c) => {
+  try {
+    const agentId = c.req.param("id");
+    const result = await fetchAthenaAgentById(c.env, agentId);
+
+    if (!result.success) {
+      // Use structured errorCode for HTTP status mapping
+      const status = result.errorCode === 'NOT_FOUND' ? 404 :
+                     result.errorCode === 'DISABLED' ? 503 :
+                     result.errorCode === 'UNAUTHORIZED' ? 401 : 500;
+      return c.json({ error: result.error, code: result.errorCode }, status);
+    }
+
+    return c.json({
+      agent: result.agent,
+      raw: result.raw,
+    });
+  } catch (error) {
+    console.error("Error fetching Athena agent:", error);
+    return c.json({ error: "Internal error", code: 'INTERNAL_ERROR' }, 500);
   }
 });
 

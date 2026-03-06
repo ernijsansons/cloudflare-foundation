@@ -3,6 +3,9 @@ import type { SectionA } from "@foundation/shared";
 export interface Env {
   AGENT_SERVICE: Fetcher;
   PLANNING_SERVICE?: Fetcher;
+  // External agent services (Naomi + Athena)
+  NAOMI_SERVICE: Fetcher;
+  ATHENA_SERVICE: Fetcher;
   DB: D1Database;
   RATE_LIMIT_KV: KVNamespace;
   SESSION_KV: KVNamespace;
@@ -27,6 +30,14 @@ export interface Env {
   USE_DO_RATE_LIMITING?: string;
   ENVIRONMENT?: string;
   ALLOWED_ORIGINS?: string;
+  // Feature flags for agent integrations
+  AGENTS_NAOMI_ENABLED: string;
+  AGENTS_ATHENA_ENABLED: string;
+  // Naomi API configuration
+  NAOMI_TENANT_ID?: string;
+  NAOMI_BUSINESS_ID?: string;
+  // Athena API configuration
+  ATHENA_ADMIN_SECRET?: string;
 }
 
 export interface Variables {
