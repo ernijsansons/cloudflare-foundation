@@ -191,15 +191,18 @@ if (naomiResult.success) {
 echo "global" | wrangler secret put NAOMI_TENANT_ID
 echo "naomi" | wrangler secret put NAOMI_BUSINESS_ID
 
-# Athena configuration (required)
+# Athena configuration (required SECRET)
 echo "$ATHENA_ADMIN_SECRET" | wrangler secret put ATHENA_ADMIN_SECRET
-
-# Feature flags
-echo "true" | wrangler secret put AGENTS_NAOMI_ENABLED
-echo "true" | wrangler secret put AGENTS_ATHENA_ENABLED
 ```
 
-**Note**: Use `echo "value" | wrangler secret put NAME` syntax for non-interactive secret setting.
+**IMPORTANT**: `AGENTS_NAOMI_ENABLED` and `AGENTS_ATHENA_ENABLED` are **environment variables** (not secrets).
+They are defined in `wrangler.jsonc` under `env.production.vars`. To change them:
+
+1. Edit `services/gateway/wrangler.jsonc`
+2. Modify `env.production.vars.AGENTS_NAOMI_ENABLED` or `AGENTS_ATHENA_ENABLED`
+3. Redeploy: `npx wrangler deploy --env production`
+
+**Note**: Use `echo "value" | wrangler secret put NAME` syntax for actual secrets only.
 
 ---
 
@@ -256,8 +259,13 @@ URL: https://foundation-gateway-production.ernijs-ansons.workers.dev
 
 1. **Enable Athena Integration** (when ready)
    ```bash
+   # AGENTS_ATHENA_ENABLED is an env VAR, not a secret.
+   # Edit wrangler.jsonc env.production.vars.AGENTS_ATHENA_ENABLED = "true"
+   # Then redeploy:
    cd services/gateway
-   echo "true" | wrangler secret put AGENTS_ATHENA_ENABLED --env production
+   npx wrangler deploy --env production
+
+   # ATHENA_ADMIN_SECRET is a real secret (set once):
    echo "$ATHENA_ADMIN_SECRET" | wrangler secret put ATHENA_ADMIN_SECRET --env production
    ```
 
@@ -270,11 +278,15 @@ URL: https://foundation-gateway-production.ernijs-ansons.workers.dev
 ## Rollback Plan
 
 ```bash
-# Quick disable via feature flags
-echo "false" | wrangler secret put AGENTS_NAOMI_ENABLED
-echo "false" | wrangler secret put AGENTS_ATHENA_ENABLED
+# AGENTS_* are env VARS (not secrets). To disable:
+# 1. Edit wrangler.jsonc env.production.vars:
+#    AGENTS_NAOMI_ENABLED = "false"
+#    AGENTS_ATHENA_ENABLED = "false"
+# 2. Redeploy:
+cd services/gateway
+npx wrangler deploy --env production
 
-# Full gateway rollback
+# OR: Full gateway rollback (reverts code + config)
 wrangler rollback --version <previous-version-id>
 
 # UI rollback
@@ -375,6 +387,71 @@ wrangler pages deployment rollback <previous-deployment-id>
 ### Integration Complete
 
 - Naomi agent source: **LIVE** (enabled, healthy, connected)
-- Athena agent source: **STAGED** (disabled, ready for enable via feature flag)
+- Athena agent source: **LIVE** (enabled 2026-03-06, 4 agents, version bb006456)
 - Graceful degradation: **VERIFIED** (23 regression tests)
 - Service Bindings: **WORKING** (zero-latency RPC confirmed)
+
+---
+
+## MAX-RIGOR Audit (2026-03-06)
+
+### Audit Scope
+
+10-phase comprehensive verification across 3 repositories:
+- `cloudflare-foundation-dev` (Dashboard monorepo)
+- `Athena` (athena-v2/athena-core)
+- `Naomi` (naomi-oracle-cloudflare)
+
+### Phase Results
+
+| Phase | Description | Status | Evidence |
+|-------|-------------|--------|----------|
+| PHASE 0 | Baseline + Safety | ✅ PASS | Git status captured, secrets list retrieved |
+| PHASE 1 | Athena Auth/Secret Integrity | ✅ PASS | Bearer token auth verified on `/api/v2/agents` |
+| PHASE 2 | Naomi Contract Integrity | ✅ PASS | tenant_id + business_id required, 400 if missing |
+| PHASE 3 | Data Mapping + Error Semantics | ✅ PASS | NOT_FOUND→404, role/autonomy mappers correct |
+| PHASE 4 | Feature Flags + Config Drift | ✅ PASS | Fixed config drift (workflows/queues/ai/images) |
+| PHASE 5 | Build/Test Gates | ✅ PASS | 247 tests, typecheck clean, UI build 35.78s |
+| PHASE 6 | Deploy + Smoke (Wrangler) | ✅ PASS | All endpoints responding correctly |
+| PHASE 7 | Security and Secrets Hygiene | ✅ PASS | No committed secrets, placeholders only |
+| PHASE 8 | Documentation + Runbook | ✅ PASS | Runbook uses correct stdin syntax |
+| PHASE 9 | Final Sign-off | ✅ PASS | See below |
+
+### Config Drift Fix Applied
+
+Added missing bindings to `wrangler.jsonc` env.staging and env.production:
+- `workflows`: 4 bindings (ONBOARDING, DATA_PIPELINE, REPORT, EMAIL)
+- `queues`: 4 producer bindings (AUDIT, NOTIFICATION, ANALYTICS, WEBHOOK)
+- `ai`: AI binding
+- `images`: Images binding
+
+### Smoke Test Evidence (2026-03-06)
+
+| Endpoint | Response | Status |
+|----------|----------|--------|
+| Production `/health` | `{"status":"ok","timestamp":1772804313448}` | ✅ |
+| Naomi Direct | `{"ok":true,"agents":[]}` | ✅ |
+| Athena `/health` | `{"status":"healthy","service":"athena-core"}` | ✅ |
+| Gateway `/api/public/dashboard/agents` | 4 Athena agents, both sources enabled | ✅ |
+| Naomi detail 404 | HTTP 404 for nonexistent agent | ✅ |
+| Staging `/health` | `{"status":"ok"}` | ✅ |
+
+### Security Scan Results
+
+| Check | Result |
+|-------|--------|
+| .env files committed | NONE |
+| .dev.vars files committed | NONE |
+| Real API keys (sk-ant-*) | NONE |
+| Placeholder secrets only | CONFIRMED |
+| Test mocks only | CONFIRMED |
+
+### Final Sign-off
+
+**GO/NO-GO Decision**: **GO** ✅
+
+All 10 phases passed. Integration is stable and production-ready.
+
+**Auditor**: Claude Opus 4.5 (Automated MAX-RIGOR)
+**Audit Date**: 2026-03-06
+**Test Count**: 247 (gateway)

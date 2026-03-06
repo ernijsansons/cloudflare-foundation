@@ -103,8 +103,15 @@ curl "https://gateway.erlvinc.com/api/public/dashboard/agents?source=all"
 After verifying Naomi integration works:
 
 ```bash
-# Enable Athena in production (use stdin for non-interactive)
-echo "true" | wrangler secret put AGENTS_ATHENA_ENABLED --env production
+# AGENTS_* flags are environment VARIABLES, not secrets.
+# To change them, edit wrangler.jsonc and redeploy:
+
+# 1. Edit services/gateway/wrangler.jsonc
+#    Change env.production.vars.AGENTS_ATHENA_ENABLED from "false" to "true"
+
+# 2. Redeploy
+cd services/gateway
+npx wrangler deploy --env production
 ```
 
 ---
@@ -123,15 +130,22 @@ open https://dashboard.erlvinc.com/agents
 
 ## Rollback Procedures
 
-### Quick Disable (No Redeploy)
+### Quick Disable (Requires Redeploy)
+
+**Note**: `AGENTS_*` are environment variables defined in `wrangler.jsonc`, NOT secrets.
+To disable them, you must edit the config and redeploy.
 
 ```bash
-# Disable Naomi (use stdin for non-interactive)
-echo "false" | wrangler secret put AGENTS_NAOMI_ENABLED --env production
+# 1. Edit services/gateway/wrangler.jsonc
+#    Set env.production.vars.AGENTS_NAOMI_ENABLED = "false"
+#    Set env.production.vars.AGENTS_ATHENA_ENABLED = "false"
 
-# Disable Athena (use stdin for non-interactive)
-echo "false" | wrangler secret put AGENTS_ATHENA_ENABLED --env production
+# 2. Redeploy
+cd services/gateway
+npx wrangler deploy --env production
 ```
+
+**Alternative: Full code rollback** (see below) reverts to previous deployment including config.
 
 ### Full Gateway Rollback
 

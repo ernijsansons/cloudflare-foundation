@@ -460,7 +460,7 @@ This file IS the evidence ledger being actively maintained throughout the 20-pha
 | Version Registry | 364 | Gateway Production `f02f11c3-774c-40ee-b7e2-189600075af7` | ✅ CURRENT |
 | Gateway Tests | 365 | **247 total** (114 agent-specific) | ✅ CORRECT |
 | Test Evolution | 371-373 | 133→242→247 progression | ✅ DOCUMENTED |
-| Integration Complete | 377-380 | Naomi LIVE, Athena STAGED | ✅ ACCURATE |
+| Integration Complete | 377-380 | Naomi LIVE, Athena LIVE (updated 2026-03-06) | ✅ ACCURATE |
 
 **Verdict**: File is already correct and consistent. No edits required.
 
@@ -473,17 +473,19 @@ This file IS the evidence ledger being actively maintained throughout the 20-pha
 
 ### Wrangler Secret Commands (Verified)
 
-| Line | Command | Syntax |
-|------|---------|--------|
-| 34 | `echo "$ATHENA_ADMIN_SECRET" \| wrangler secret put ATHENA_ADMIN_SECRET --env production` | ✅ stdin |
-| 37 | `echo "global" \| wrangler secret put NAOMI_TENANT_ID --env production` | ✅ stdin |
-| 38 | `echo "naomi" \| wrangler secret put NAOMI_BUSINESS_ID --env production` | ✅ stdin |
-| 107 | `echo "true" \| wrangler secret put AGENTS_ATHENA_ENABLED --env production` | ✅ stdin |
-| 130 | `echo "false" \| wrangler secret put AGENTS_NAOMI_ENABLED --env production` | ✅ stdin |
-| 133 | `echo "false" \| wrangler secret put AGENTS_ATHENA_ENABLED --env production` | ✅ stdin |
-| 193 | `echo "$ATHENA_ADMIN_SECRET" \| wrangler secret put ATHENA_ADMIN_SECRET --env production` | ✅ stdin |
+| Line | Command | Syntax | Notes |
+|------|---------|--------|-------|
+| 34 | `echo "$ATHENA_ADMIN_SECRET" \| wrangler secret put ATHENA_ADMIN_SECRET --env production` | ✅ stdin | Real secret |
+| 37 | `echo "global" \| wrangler secret put NAOMI_TENANT_ID --env production` | ✅ stdin | Real secret |
+| 38 | `echo "naomi" \| wrangler secret put NAOMI_BUSINESS_ID --env production` | ✅ stdin | Real secret |
+| 193 | `echo "$ATHENA_ADMIN_SECRET" \| wrangler secret put ATHENA_ADMIN_SECRET --env production` | ✅ stdin | Real secret |
 
-**Verdict**: All 7 secret commands use correct stdin syntax. No invalid `--value` syntax found.
+**CORRECTED (2026-03-06)**: `AGENTS_NAOMI_ENABLED` and `AGENTS_ATHENA_ENABLED` are **environment variables** (not secrets).
+They are defined in `wrangler.jsonc` under `vars`. To change them:
+1. Edit `services/gateway/wrangler.jsonc` → `env.production.vars`
+2. Redeploy: `npx wrangler deploy --env production`
+
+**Verdict**: 4 actual secret commands use correct stdin syntax. AGENTS_* flags removed from secret commands (they're vars).
 
 ---
 
@@ -563,20 +565,25 @@ grep -ri "console.log|console.error" services/gateway/src/lib/naomi-client.ts
 | `AGENTS_NAOMI_ENABLED` | `"true"` | `"true"` | Strict `=== 'true'` |
 | `AGENTS_ATHENA_ENABLED` | `"false"` | `"false"` | Strict `=== 'true'` |
 
-### Quick Disable Commands (Verified)
+### Quick Disable Commands (CORRECTED 2026-03-06)
+
+**NOTE**: `AGENTS_*` are environment VARIABLES, not secrets. Changing them requires editing `wrangler.jsonc` and redeploying.
 
 ```bash
-# Disable Naomi
-echo "false" | wrangler secret put AGENTS_NAOMI_ENABLED --env production
+# To disable Naomi/Athena:
+# 1. Edit services/gateway/wrangler.jsonc
+#    Set env.production.vars.AGENTS_NAOMI_ENABLED = "false"
+#    Set env.production.vars.AGENTS_ATHENA_ENABLED = "false"
 
-# Disable Athena
-echo "false" | wrangler secret put AGENTS_ATHENA_ENABLED --env production
+# 2. Redeploy
+cd services/gateway
+npx wrangler deploy --env production
 ```
 
 ### Full Rollback Commands (Verified)
 
 ```bash
-# Gateway rollback
+# Gateway rollback (reverts code + config including vars)
 wrangler rollback --version <previous-version-id> --env production
 
 # UI rollback
@@ -585,9 +592,9 @@ wrangler pages deployment rollback <previous-deployment-id>
 
 ### Emergency Runbook Order
 
-1. **Quick disable** → Set feature flags to `"false"` (instant, no redeploy)
-2. **Full rollback** → Use `wrangler rollback --version` if disable insufficient
-3. **Verify** → Test `/api/public/dashboard/agents` returns empty with no errors
+1. **Full rollback** → Use `wrangler rollback --version` to instantly revert (includes vars)
+2. **OR: Edit + redeploy** → Modify `wrangler.jsonc` vars, then `npx wrangler deploy --env production`
+3. **Verify** → Test `/api/public/dashboard/agents` returns expected response
 
 ---
 
@@ -741,6 +748,186 @@ wrangler pages deployment rollback <previous-deployment-id>
 **Mode**: MAX-RIGOR EXECUTION
 **20 Phases**: ALL COMPLETE
 **Verdict**: **PRODUCTION GO**
+
+---
+
+# ATHENA PRODUCTION ENABLEMENT
+
+**Date**: 2026-03-06
+**Status**: ✅ COMPLETE — ATHENA NOW LIVE
+
+---
+
+## PHASE 1 — Preflight Checks
+
+**Status**: ✅ COMPLETE
+**Timestamp**: 2026-03-06 06:30:00 CST
+
+### Wrangler Authentication
+```bash
+wrangler whoami
+```
+**Result**: ✅ Authenticated as `ernijs-ansons`
+
+### Baseline Secrets
+```bash
+wrangler secret list --env production
+```
+**Result**:
+- `CONTEXT_SIGNING_KEY` ✅ Present
+- `ATHENA_ADMIN_SECRET` ❌ MISSING (required manual provision)
+
+### Baseline Endpoints
+| Endpoint | Status | Response |
+|----------|--------|----------|
+| `source=athena` | 200 | `athena.enabled: false` |
+| `source=all` | 200 | Naomi enabled, Athena disabled |
+
+---
+
+## PHASE 2 — Secret Provision
+
+**Status**: ✅ COMPLETE (USER MANUAL)
+**Timestamp**: 2026-03-06 06:35:00 CST
+
+User manually synced secrets:
+1. Updated `ADMIN_SECRET` on Athena Core
+2. Updated `ATHENA_ADMIN_SECRET` on Gateway Production
+
+---
+
+## PHASE 3 — Athena Enable
+
+**Status**: ✅ COMPLETE (USER MANUAL)
+**Timestamp**: 2026-03-06 06:40:00 CST
+
+### Changes Applied
+1. Set `AGENTS_ATHENA_ENABLED=true` in `env.production`
+2. Deployed gateway production
+
+### Deployment
+- **Worker**: `foundation-gateway-production`
+- **Version**: `bb006456-463c-418d-8b9b-a5888d6402be`
+
+---
+
+## PHASE 4 — Post-Enable Validation
+
+**Status**: ✅ COMPLETE
+**Timestamp**: 2026-03-06 06:43:00 CST
+
+### Endpoint Tests
+
+| Test | Status | Result |
+|------|--------|--------|
+| `source=athena` | 200 | `enabled: true, healthy: true, count: 4` |
+| `source=all` | 200 | Both Naomi + Athena enabled and healthy |
+| Non-existent detail | 404 | `{"error":"Agent not found","code":"NOT_FOUND"}` |
+| `athena-chief` detail | 200 | Agent data returned |
+
+### Full Response Evidence
+
+**source=athena**:
+```json
+{
+  "agents": [...], // 4 agents
+  "sources": {
+    "naomi": {"enabled": true, "healthy": false, "count": 0},
+    "athena": {"enabled": true, "healthy": true, "count": 4}
+  }
+}
+```
+
+**source=all**:
+```json
+{
+  "agents": [...], // 4 agents
+  "sources": {
+    "naomi": {"enabled": true, "healthy": true, "count": 0},
+    "athena": {"enabled": true, "healthy": true, "count": 4}
+  }
+}
+```
+
+### Upstream Verification
+
+| Endpoint | Status | Response |
+|----------|--------|----------|
+| Athena `/health` | 200 | `{"status":"healthy","service":"athena-core"}` |
+| Athena `/api/v2/agents` (no auth) | 401 | Auth enforcement working |
+
+---
+
+## PHASE 5 — Rollback Decision
+
+**Status**: ✅ COMPLETE
+**Timestamp**: 2026-03-06 06:45:00 CST
+
+### Verdict: **NO ROLLBACK REQUIRED**
+
+All validation gates passed:
+- ✅ `source=athena` returns 200 with 4 agents
+- ✅ `source=all` returns both sources enabled and healthy
+- ✅ Error semantics correct (404 for not-found)
+- ✅ Upstream Athena healthy
+- ✅ Auth enforcement working
+
+---
+
+## PHASE 6 — Final Report
+
+**Status**: ✅ COMPLETE
+**Timestamp**: 2026-03-06 06:50:00 CST
+
+### What Changed
+
+| Component | Before | After |
+|-----------|--------|-------|
+| `AGENTS_ATHENA_ENABLED` | `"false"` | `"true"` |
+| `ATHENA_ADMIN_SECRET` | Missing | Configured |
+| Gateway Version | `f02f11c3-774c-40ee-b7e2-189600075af7` | `bb006456-463c-418d-8b9b-a5888d6402be` |
+| Athena Status | Disabled | **LIVE** |
+
+### Commands Run (Evidence)
+
+```bash
+# Preflight
+wrangler whoami
+wrangler secret list --env production
+
+# Validation (curl)
+curl "https://dashboard.erlvinc.com/api/public/dashboard/agents?source=athena"
+curl "https://dashboard.erlvinc.com/api/public/dashboard/agents?source=all"
+curl "https://dashboard.erlvinc.com/api/public/dashboard/agents/athena/non-existent"
+curl "https://dashboard.erlvinc.com/api/public/dashboard/agents/athena/athena-chief"
+curl "https://athena-core.ernijs-ansons.workers.dev/health"
+curl "https://athena-core.ernijs-ansons.workers.dev/api/v2/agents"
+```
+
+### Production Status (Final)
+
+| Component | Version | Status |
+|-----------|---------|--------|
+| Gateway | `bb006456-463c-418d-8b9b-a5888d6402be` | ✅ DEPLOYED |
+| Naomi Integration | N/A | ✅ LIVE (enabled, 0 agents seeded) |
+| Athena Integration | N/A | ✅ **LIVE** (enabled, 4 agents) |
+
+### Agents Available
+
+| Source | Count | Status |
+|--------|-------|--------|
+| Naomi | 0 | Data not seeded (expected) |
+| Athena | 4 | `athena-chief`, etc. |
+
+---
+
+## ATHENA ENABLEMENT SIGN-OFF
+
+**Auditor**: Claude Opus 4.5
+**Date**: 2026-03-06
+**Verdict**: **ATHENA PRODUCTION GO — NOW LIVE**
+
+All 6 phases completed successfully. Athena integration is now active in production.
 
 ---
 
